@@ -226,6 +226,16 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
     Path(RESULTS_DIR).mkdir(exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    clean_target = (target_col
+                    .replace('(', '_')
+                    .replace(')', '')
+                    .replace('/', '_')
+                    .replace('*', 'x')
+                    .replace('^', '')
+                    .replace(' ', '_'))
+    while '__' in clean_target:
+        clean_target = clean_target.replace('__', '_')
+    clean_target = clean_target.strip('_')
     
     # 保存CV预测结果
     cv_df = pd.DataFrame({
@@ -234,7 +244,7 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
         'error': results['true_values'] - results['predictions']
     })
     
-    csv_file = Path(RESULTS_DIR) / f"cv_predictions_{model_type}_{target_col}_{timestamp}.csv"
+    csv_file = Path(RESULTS_DIR) / f"cv_predictions_{model_type}_{clean_target}.csv"
     cv_df.to_csv(csv_file, index=False)
     print(f"   💾 预测结果已保存: {csv_file}")
     
@@ -255,7 +265,7 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
         'timestamp': timestamp
     }
     
-    json_file = Path(RESULTS_DIR) / f"cv_metrics_{model_type}_{target_col}_{timestamp}.json"
+    json_file = Path(RESULTS_DIR) / f"cv_metrics_{model_type}_{clean_target}.json"
     with open(json_file, 'w') as f:
         json.dump(metrics, f, indent=2)
     print(f"   💾 评估指标已保存: {json_file}")

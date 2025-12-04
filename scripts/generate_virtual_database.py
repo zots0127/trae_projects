@@ -236,7 +236,7 @@ def main():
     
     parser.add_argument('--data', '-d', default='data/Database_normalized.csv',
                        help='原始数据文件')
-    parser.add_argument('--project', '-p', default='paper_table_20250912_020714',
+    parser.add_argument('--project', '-p', default='paper_table',
                        help='训练项目目录')
     parser.add_argument('--model', '-m', default='xgboost',
                        help='使用的模型')

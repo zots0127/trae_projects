@@ -92,7 +92,8 @@ class FileFeatureCache:
                      morgan_bits: int = 1024,
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
-                     combination_method: str = "mean") -> str:
+                     combination_method: str = "mean",
+                     descriptor_count: int = 115) -> str:
         """
         Generate cache key for file + feature parameters
         
@@ -119,7 +120,8 @@ class FileFeatureCache:
             "morgan_bits": morgan_bits,
             "morgan_radius": morgan_radius,
             "smiles_columns": sorted(smiles_columns),
-            "combination_method": combination_method
+            "combination_method": combination_method,
+            "descriptor_count": descriptor_count
         }
         
         # Generate hash from parameters
@@ -127,7 +129,7 @@ class FileFeatureCache:
         param_hash = hashlib.md5(param_str.encode()).hexdigest()[:8]
         
         # Combine file hash and param hash
-        cache_key = f"{file_hash}_{feature_type}_{morgan_bits}_{morgan_radius}_{combination_method}_{param_hash}"
+        cache_key = f"{file_hash}_{feature_type}_{morgan_bits}_{morgan_radius}_{combination_method}_{descriptor_count}_{param_hash}"
         
         return cache_key
     
@@ -144,7 +146,8 @@ class FileFeatureCache:
                      morgan_bits: int = 1024,
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
-                     combination_method: str = "mean") -> Optional[np.ndarray]:
+                     combination_method: str = "mean",
+                     descriptor_count: int = 115) -> Optional[np.ndarray]:
         """
         Load cached features for a file
         
@@ -162,7 +165,7 @@ class FileFeatureCache:
         try:
             cache_key = self.get_cache_key(
                 file_path, feature_type, morgan_bits, 
-                morgan_radius, smiles_columns, combination_method
+                morgan_radius, smiles_columns, combination_method, descriptor_count
             )
             cache_path = self.get_cache_path(cache_key)
             
@@ -194,6 +197,7 @@ class FileFeatureCache:
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
                      combination_method: str = "mean",
+                     descriptor_count: int = 115,
                      row_count: int = None,
                      failed_indices: list = None):
         """
@@ -213,7 +217,7 @@ class FileFeatureCache:
         try:
             cache_key = self.get_cache_key(
                 file_path, feature_type, morgan_bits,
-                morgan_radius, smiles_columns, combination_method
+                morgan_radius, smiles_columns, combination_method, descriptor_count
             )
             cache_path = self.get_cache_path(cache_key)
             
@@ -233,6 +237,7 @@ class FileFeatureCache:
                 "morgan_radius": morgan_radius,
                 "smiles_columns": smiles_columns,
                 "combination_method": combination_method,
+                "descriptor_count": descriptor_count,
                 "shape": features.shape,
                 "row_count": row_count or features.shape[0],
                 "failed_count": len(failed_indices) if failed_indices else 0,

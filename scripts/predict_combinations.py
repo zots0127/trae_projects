@@ -148,7 +148,7 @@ def main():
                        default='ir_assemble.csv',
                        help='组合文件')
     parser.add_argument('--project', '-p',
-                       default='paper_table_20250912_020714',
+                       default='paper_table',
                        help='模型项目目录')
     parser.add_argument('--output', '-o',
                        default='ir_assemble_predicted.csv',

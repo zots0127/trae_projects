@@ -555,7 +555,7 @@ def save_results(df, output_file):
 def main():
     parser = argparse.ArgumentParser(description='预测所有组合性质')
     parser.add_argument('--project', '-p',
-                       help='模型项目目录 (如: paper_table_20250912_123547)')
+                       help='模型项目目录 (默认: paper_table)')
     parser.add_argument('--input', '-i', 
                        help='组合文件 (默认: PROJECT/ir_assemble.csv)')
     parser.add_argument('--output', '-o',
@@ -569,17 +569,9 @@ def main():
     
     args = parser.parse_args()
     
-    # 自动检测最新的项目目录
+    # 设置默认项目目录为固定名称
     if not args.project:
-        # 查找最新的paper_table目录
-        import glob
-        project_dirs = sorted(glob.glob('paper_table_*'))
-        if project_dirs:
-            args.project = project_dirs[-1]  # 使用最新的
-            print(f"自动选择最新项目目录: {args.project}")
-        else:
-            print("❌ 未找到项目目录，请使用 --project 指定")
-            return
+        args.project = 'paper_table'
     
     # 设置默认输入输出路径
     if not args.input:

@@ -294,7 +294,8 @@ class TrainingPipeline:
             use_cache=self.config.feature.use_cache,
             cache_dir=self.config.feature.cache_dir,
             morgan_bits=self.config.feature.morgan_bits if hasattr(self.config.feature, 'morgan_bits') else None,
-            morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None
+            morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None,
+            descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
         )
         
         # 检查是否为分子数据（有SMILES列）
@@ -311,7 +312,8 @@ class TrainingPipeline:
                     morgan_bits=getattr(self.config.feature, 'morgan_bits', 1024),
                     morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                     smiles_columns=self.config.data.smiles_columns,
-                    combination_method=getattr(self.config.feature, 'combination_method', 'mean')
+                    combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
+                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
                 )
                 if X_full is not None:
                     # 使用原始索引选择当前目标的数据子集
@@ -356,6 +358,7 @@ class TrainingPipeline:
                             morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                             smiles_columns=self.config.data.smiles_columns,
                             combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
+                            descriptor_count=getattr(self.config.feature, 'descriptor_count', 115),
                             row_count=len(raw_df),
                             failed_indices=[]
                         )
@@ -660,7 +663,8 @@ class TrainingPipeline:
                         use_cache=self.config.feature.use_cache,
                         cache_dir=self.config.feature.cache_dir,
                         morgan_bits=self.config.feature.morgan_bits if hasattr(self.config.feature, 'morgan_bits') else None,
-                        morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None
+                        morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None,
+                        descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
                     )
                     has_smiles = any(col in df_test.columns for col in self.config.data.smiles_columns)
                     if has_smiles and self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
@@ -674,7 +678,8 @@ class TrainingPipeline:
                                 morgan_bits=getattr(self.config.feature, 'morgan_bits', 1024),
                                 morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                                 smiles_columns=self.config.data.smiles_columns,
-                                combination_method=getattr(self.config.feature, 'combination_method', 'mean')
+                                combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
+                                descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
                             )
                             if X_test is not None:
                                 print("\n✅ 从文件级缓存加载测试特征，跳过提取")
@@ -711,6 +716,7 @@ class TrainingPipeline:
                                     morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                                     smiles_columns=self.config.data.smiles_columns,
                                     combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
+                                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 115),
                                     row_count=len(df_test),
                                     failed_indices=[]
                                 )

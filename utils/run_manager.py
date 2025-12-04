@@ -54,13 +54,8 @@ class RunManager:
         # 如果指定了name，直接使用
         if name:
             run_dir = base_path / name
-            # 如果目录存在，添加时间戳
-            if run_dir.exists():
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                run_dir = base_path / f"{name}_{timestamp}"
         else:
-            # 自动增量命名
-            run_dir = self._get_increment_dir(base_path, self.task)
+            run_dir = base_path / self.task
         
         # 创建目录
         run_dir.mkdir(parents=True, exist_ok=True)

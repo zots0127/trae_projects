@@ -1,2 +1,6 @@
 config/.DS_Store
 *.pyc
+/feature_cache
+/Paper_*
+/catboost_info
+/file_feature_cache

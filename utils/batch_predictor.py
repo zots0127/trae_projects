@@ -90,7 +90,8 @@ class BatchPredictor:
                 morgan_bits=morgan_bits,
                 morgan_radius=morgan_radius,
                 smiles_columns=smiles_columns,
-                combination_method=combination_method
+                combination_method=combination_method,
+                descriptor_count=getattr(feature_extractor, 'descriptor_count', 115)
             )
             
             if cached_features is not None:

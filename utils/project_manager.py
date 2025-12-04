@@ -290,8 +290,7 @@ class ProjectManager:
         
         # 设置输出路径
         if output_path is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = f"{project_path.name}_{timestamp}.{format}"
+            output_path = f"{project_path.name}.{format}"
         
         # 导出
         if format == 'zip':

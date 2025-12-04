@@ -1027,23 +1027,9 @@ def predict_command(args: List[str]):
             # 跳过后续的预测步骤，直接保存
             output_path = params.get('output', None)
             
-            # 如果没有指定输出文件，自动生成带时间戳的文件名
+            # 如果没有指定输出文件，使用固定文件名并覆盖
             if output_path is None:
-                from datetime import datetime
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                output_path = f'predictions_{timestamp}.csv'
-            
-            # 检查文件是否存在，如果存在则自动增加编号
-            from pathlib import Path
-            original_path = output_path
-            if Path(output_path).exists():
-                base = Path(output_path).stem
-                ext = Path(output_path).suffix
-                counter = 1
-                while Path(f"{base}_{counter}{ext}").exists():
-                    counter += 1
-                output_path = f"{base}_{counter}{ext}"
-                print(f"⚠️  文件 {original_path} 已存在，自动重命名为 {output_path}")
+                output_path = 'predictions.csv'
             
             df.to_csv(output_path, index=False)
             
@@ -1106,23 +1092,9 @@ def predict_command(args: List[str]):
     # 保存结果 - 保留所有原始列
     output_path = params.get('output', None)
     
-    # 如果没有指定输出文件，自动生成带时间戳的文件名
+    # 如果没有指定输出文件，使用固定文件名并覆盖
     if output_path is None:
-        from datetime import datetime
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        output_path = f'predictions_{timestamp}.csv'
-    
-    # 检查文件是否存在，如果存在则自动增加编号
-    from pathlib import Path
-    original_path = output_path
-    if Path(output_path).exists():
-        base = Path(output_path).stem
-        ext = Path(output_path).suffix
-        counter = 1
-        while Path(f"{base}_{counter}{ext}").exists():
-            counter += 1
-        output_path = f"{base}_{counter}{ext}"
-        print(f"⚠️  文件 {original_path} 已存在，自动重命名为 {output_path}")
+        output_path = 'predictions.csv'
     
     if df is None:
         df = pd.DataFrame()

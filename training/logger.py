@@ -160,7 +160,7 @@ class TrainingLogger:
             **kwargs: 其他信息
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        experiment_id = f"{model_type}_{target}_{timestamp}"
+        experiment_id = f"{model_type}_{target}"
         
         self.current_experiment = {
             'experiment_id': experiment_id,
@@ -392,25 +392,26 @@ class TrainingLogger:
         csv_path = self.project_dir / "exports" / "csv" / f"{exp_id}_all_predictions.csv"
         summary_df.to_csv(csv_path, index=False)
         
-        # 保存Excel（多个sheet）
-        excel_path = self.project_dir / "exports" / "excel" / f"{exp_id}_results.xlsx"
-        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-            # 汇总预测
-            summary_df.to_excel(writer, sheet_name='All_Predictions', index=False)
-            
-            # 各折指标
-            fold_metrics_df = pd.DataFrame([
-                {
-                    'fold': fold.fold_id,
-                    **fold.metrics
-                }
-                for fold in self.current_experiment['fold_results']
-            ])
-            fold_metrics_df.to_excel(writer, sheet_name='Fold_Metrics', index=False)
-            
-            # 汇总指标
-            summary_metrics_df = pd.DataFrame([summary_metrics])
-            summary_metrics_df.to_excel(writer, sheet_name='Summary', index=False)
+        cfg = self.current_experiment.get('config', {}) if self.current_experiment else {}
+        exp_formats = []
+        if isinstance(cfg, dict):
+            exp_conf_export = cfg.get('export')
+            if isinstance(exp_conf_export, dict):
+                exp_formats = exp_conf_export.get('formats', [])
+        if 'excel' in exp_formats:
+            excel_path = self.project_dir / "exports" / "excel" / f"{exp_id}_results.xlsx"
+            with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+                summary_df.to_excel(writer, sheet_name='All_Predictions', index=False)
+                fold_metrics_df = pd.DataFrame([
+                    {
+                        'fold': fold.fold_id,
+                        **fold.metrics
+                    }
+                    for fold in self.current_experiment['fold_results']
+                ])
+                fold_metrics_df.to_excel(writer, sheet_name='Fold_Metrics', index=False)
+                summary_metrics_df = pd.DataFrame([summary_metrics])
+                summary_metrics_df.to_excel(writer, sheet_name='Summary', index=False)
         
         # 保存完整JSON
         json_path = self.project_dir / "exports" / "json" / f"{exp_id}_complete.json"

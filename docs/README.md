@@ -1,7 +1,105 @@
 AutoML 完整命令参考指南
-================================
+=================================
 
 本文档完整记录AutoML系统的所有命令、参数和功能，按照从基础到高级的顺序组织。
+================================
+# PhosIrDB 简介与代码运行教程
+================================
+
+## 数据库概述（PhosIrDB）
+
+- 数据规模：共 `1667` 个唯一的铱配合物，包含 `L1/L2/L3` 三个配体的 SMILES、`Max_wavelength(nm)`、`PLQY`、`tau(s*10^-6)`、`Solvent`、`DOI` 等字段（数据文件：`data/Database_normalized.csv`）。
+- 配体拆分：两个环金属化配体（`L1`、`L2`）与一个辅助配体（`L3`），均使用规范化 SMILES 存储并通过 RDKit 标准化（清理盐/溶剂、价态/电荷检查、规范化、去重）。
+- 虚拟库：将 `L1∪L2` 的去重集合与 `L3` 去重集合进行笛卡尔积并设定 `L1=L2`，得到 `602 × 452 = 272,104` 个 `[Ir(C^N)2L]` 组合（由脚本自动计算）。
+
+## 特征工程与维度
+
+- 特征类型：`combined`（Morgan 指纹 + RDKit 分子描述符）。
+- Morgan 指纹：半径 `2`、位数 `1024`。
+- 分子描述符：`85` 个（代码固定选择前 85 项）。
+- 多配体组合：对 `L1/L2/L3` 的特征按 `mean` 聚合（可配置为 `sum/concat`）。
+- 单个复合物的最终特征维度：`1024 + 85 = 1109`。
+
+## 训练与验证
+
+- 交叉验证：默认 `10` 折，对每个目标（`Max_wavelength(nm)`、`PLQY`、`tau(s*10^-6)`）分别训练与评估。
+- 模型集合：支持 `13` 种回归模型（梯度提升、集成学习、SVM/KNN、线性模型等），通常以 `XGBoost/LightGBM/CatBoost` 表现最佳。
+- 快速上手命令：
+```bash
+# 使用快速模板训练（默认combined特征，10折CV）
+python automl.py train config=xgboost_quick \
+  data=data/Database_normalized.csv \
+  project=Paper_1204_101303
+
+# 指定目标列分别训练（示例：PLQY）
+python automl.py train config=xgboost_quick \
+  data=data/Database_normalized.csv \
+  target=PLQY \
+  project=Paper_1204_101303
+```
+
+## SHAP 可解释性分析
+
+- 作用：评估各特征对预测的贡献，生成 CSV、PNG、HTML 报告。
+- 推荐加速参数（针对 `SVR/KNN/MLP`）：限制样本数与背景聚类，显著加速 `KernelExplainer`。
+```bash
+# 分析全部模型（含加速参数）
+python analyze_shap.py Paper_1204_101303 \
+  --sample-size 100 \
+  --kernel-k 10 \
+  --kernel-nsamples 80 \
+  --kernel-max-samples 25
+
+# 仅分析梯度提升模型（更快）
+python analyze_shap.py Paper_1204_101303 \
+  --models xgboost lightgbm catboost \
+  --sample-size 100
+```
+
+## 虚拟库生成与筛选
+
+- 生成 `[Ir(C^N)2L]` 组合、批量提取特征、加载训练好的模型并进行高通量预测。
+- 命令示例：
+```bash
+# 生成 272,104 组合并预测（默认combined特征）
+python scripts/generate_virtual_database_fast.py \
+  --data data/Database_normalized.csv \
+  --project Paper_1204_101303 \
+  --model xgboost \
+  --output ir_assemble.csv \
+  --feature-type combined
+
+# 生成 Top 候选集（自动保存 *_top1000.csv）
+python scripts/generate_virtual_database_fast.py \
+  --data data/Database_normalized.csv \
+  --project Paper_1204_101303 \
+  --model xgboost \
+  --output ir_assemble.csv
+```
+
+## 快速命令合集（论文复现）
+
+```bash
+# 1) 训练最优模型
+python automl.py train config=xgboost_quick \
+  data=data/Database_normalized.csv \
+  project=Paper_1204_101303
+
+# 2) SHAP 可解释性（推荐参数）
+python analyze_shap.py Paper_1204_101303 \
+  --models xgboost lightgbm catboost \
+  --sample-size 100 \
+  --kernel-k 10 --kernel-nsamples 80 --kernel-max-samples 25
+
+# 3) 虚拟库高通量预测
+python scripts/generate_virtual_database_fast.py \
+  --data data/Database_normalized.csv \
+  --project Paper_1204_101303 \
+  --model xgboost \
+  --output ir_assemble.csv
+```
+
+— 完 —
 
 目录
 --------------------------------

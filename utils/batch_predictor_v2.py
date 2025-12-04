@@ -114,7 +114,7 @@ class BatchPredictorV2:
                         all_features.append(np.zeros_like(all_features[0]))
                     else:
                         # Determine feature size
-                        feature_size = feature_extractor.get_feature_size(feature_type)
+                        feature_size = feature_extractor.get_feature_size(feature_type, combination_method)
                         all_features.append(np.zeros(feature_size))
                     
                     if not self.skip_errors:
@@ -131,7 +131,7 @@ class BatchPredictorV2:
         if all_features:
             X = np.array(all_features)
         else:
-            feature_size = feature_extractor.get_feature_size(feature_type)
+            feature_size = feature_extractor.get_feature_size(feature_type, combination_method)
             X = np.zeros((n_samples, feature_size))
         
         return X, failed_indices
@@ -169,7 +169,8 @@ class BatchPredictorV2:
                 morgan_bits=morgan_bits,
                 morgan_radius=morgan_radius,
                 smiles_columns=smiles_columns,
-                combination_method=combination_method
+                combination_method=combination_method,
+                descriptor_count=getattr(feature_extractor, 'descriptor_count', 115)
             )
             
             if X is not None:
@@ -202,6 +203,7 @@ class BatchPredictorV2:
                     morgan_radius=morgan_radius,
                     smiles_columns=smiles_columns,
                     combination_method=combination_method,
+                    descriptor_count=getattr(feature_extractor, 'descriptor_count', 115),
                     row_count=n_samples,
                     failed_indices=failed_indices
                 )

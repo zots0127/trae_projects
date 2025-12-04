@@ -32,7 +32,8 @@ class FeatureExtractor:
                  use_cache: bool = True,
                  cache_dir: str = "feature_cache",
                  morgan_bits: Optional[int] = None,
-                 morgan_radius: Optional[int] = None):
+                 morgan_radius: Optional[int] = None,
+                 descriptor_count: Optional[int] = None):
         """
         Initialize feature extractor
         
@@ -51,6 +52,7 @@ class FeatureExtractor:
         # Molecular feature settings
         self.morgan_bits = 1024 if morgan_bits is None else int(morgan_bits)
         self.morgan_radius = 2 if morgan_radius is None else int(morgan_radius)
+        self.descriptor_count = 115 if descriptor_count is None else int(descriptor_count)
         
         # RDKit modules (lazy loading)
         self._rdkit_imported = False
@@ -158,12 +160,12 @@ class FeatureExtractor:
         MoleculeDescriptors = self._rdkit_modules['MoleculeDescriptors']
         
         if pd.isna(smiles) or smiles == '':
-            return np.zeros(85)  # Approximate descriptor count
+            return np.zeros(self.descriptor_count)
         
         # Try cache first
         if self.use_cache:
             # Use MD5 hash for cache key to avoid special characters in filename
-            cache_key = self._get_cache_key(f"desc_{smiles}")
+            cache_key = self._get_cache_key(f"desc_{smiles}_{self.descriptor_count}")
             cached = self._load_from_cache(cache_key)
             if cached is not None:
                 return cached
@@ -171,9 +173,9 @@ class FeatureExtractor:
         # Compute descriptors
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
-            return np.zeros(85)
+            return np.zeros(self.descriptor_count)
         
-        descriptor_names = [x[0] for x in Descriptors._descList[:85]]
+        descriptor_names = [x[0] for x in Descriptors._descList[:self.descriptor_count]]
         calculator = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
         desc = calculator.CalcDescriptors(mol)
         arr = np.array(desc)
@@ -247,16 +249,27 @@ class FeatureExtractor:
         # Filter valid SMILES
         valid_smiles = [s for s in smiles_list if s and not pd.isna(s)]
         
+        # For concat, always preserve L1/L2/L3 positions with zero-padding
+        if combination_method == "concat":
+            per_ligand_features = []
+            for smi in smiles_list:
+                if smi and not pd.isna(smi):
+                    per_ligand_features.append(self.extract_from_smiles(smi, feature_type))
+                else:
+                    size = self.get_feature_size(feature_type)
+                    per_ligand_features.append(np.zeros(size))
+            return np.concatenate(per_ligand_features)
+        
         if not valid_smiles:
             # Return zeros based on feature type
             if feature_type == "morgan":
                 return np.zeros(self.morgan_bits)
             elif feature_type == "descriptors":
-                return np.zeros(85)
+                return np.zeros(self.descriptor_count)
             else:  # combined
-                return np.zeros(self.morgan_bits + 85)
+                return np.zeros(self.morgan_bits + self.descriptor_count)
         
-        # Extract features for each SMILES
+        # Extract features for each valid SMILES
         features = []
         for smi in valid_smiles:
             feat = self.extract_from_smiles(smi, feature_type)
@@ -269,8 +282,6 @@ class FeatureExtractor:
             return np.mean(features, axis=0)
         elif combination_method == "sum":
             return np.sum(features, axis=0)
-        elif combination_method == "concat":
-            return features.flatten()
         else:
             return np.mean(features, axis=0)
     
@@ -422,19 +433,23 @@ class FeatureExtractor:
     #     Utility Methods
     # ========================================
     
-    def get_feature_size(self, feature_type: Optional[str] = None) -> int:
+    def get_feature_size(self, feature_type: Optional[str] = None, combination_method: Optional[str] = None) -> int:
         """Get the size of feature vector"""
         if feature_type is None:
             feature_type = self.feature_type
             
         if feature_type == "morgan":
-            return self.morgan_bits
+            base = self.morgan_bits
         elif feature_type == "descriptors":
-            return 85
+            base = self.descriptor_count
         elif feature_type == "combined":
-            return self.morgan_bits + 85
+            base = self.morgan_bits + self.descriptor_count
         else:
             return 0  # Tabular size varies
+
+        if combination_method == "concat":
+            return base * 3
+        return base
     
     def get_feature_names(self) -> List[str]:
         """Get feature names (for tabular data)"""
@@ -447,12 +462,13 @@ class FeatureExtractor:
 
 # Constants for backward compatibility
 MORGAN_BITS = 1024
+DEFAULT_DESCRIPTOR_COUNT = 115
 DESCRIPTOR_NAMES = []
 
 # Load descriptor names if RDKit available
 try:
     from rdkit.Chem import Descriptors
-    DESCRIPTOR_NAMES = [x[0] for x in Descriptors._descList[:85]]
+    DESCRIPTOR_NAMES = [x[0] for x in Descriptors._descList[:DEFAULT_DESCRIPTOR_COUNT]]
 except ImportError:
     pass
 

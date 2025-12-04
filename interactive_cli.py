@@ -380,8 +380,7 @@ class InteractiveCLI:
             method = methods[method_choice]
         
         # 输出文件
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_output = f"{self.current_project}/predictions_{mode}_{timestamp}.csv"
+        default_output = f"{self.current_project}/predictions_{mode}.csv"
         
         if RICH_AVAILABLE:
             output_file = Prompt.ask("Output file", default=default_output)
@@ -670,16 +669,12 @@ class InteractiveCLI:
         # 选择格式
         if RICH_AVAILABLE:
             format_choice = Prompt.ask("Export format", choices=["zip", "tar"], default="zip")
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            default_output = f"{self.current_project}_{timestamp}.{format_choice}"
+            default_output = f"{self.current_project}.{format_choice}"
             output_file = Prompt.ask("Output file", default=default_output)
         else:
             format_choice = input("Export format (zip/tar, default=zip): ")
             format_choice = format_choice or "zip"
-            
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            default_output = f"{self.current_project}_{timestamp}.{format_choice}"
+            default_output = f"{self.current_project}.{format_choice}"
             output_file = input(f"Output file (default={default_output}): ")
             output_file = output_file or default_output
         
@@ -708,8 +703,7 @@ class InteractiveCLI:
         
         self.print_header()
         
-        timestamp = datetime.now().strftime('%Y%m%d')
-        default_output = f"{self.current_project}/report_{timestamp}.md"
+        default_output = f"{self.current_project}/report.md"
         
         if RICH_AVAILABLE:
             output_file = Prompt.ask("Report file", default=default_output)
@@ -874,7 +868,7 @@ class InteractiveCLI:
             data_file = Prompt.ask("Data file", default="data/Database_normalized.csv")
             
             # 获取项目名称
-            project = Prompt.ask("Project name", default=f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+            project = Prompt.ask("Project name", default="project")
             
             # 交互式附加选项（编号选择）
             extra_args = []
@@ -1211,8 +1205,8 @@ class InteractiveCLI:
             data_file = input("Data file (default=data/Database_normalized.csv): ")
             data_file = data_file or "data/Database_normalized.csv"
             
-            project = input(f"Project name (default=project_{datetime.now().strftime('%Y%m%d_%H%M%S')}): ")
-            project = project or f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            project = input(f"Project name (default=project): ")
+            project = project or "project"
             
             # 交互式附加选项（基础终端，编号选择）
             def pick_yn(prompt: str, default_yes: bool = True) -> bool:

@@ -213,8 +213,7 @@ class ProjectPredictor:
         
         # 设置输出目录
         if output_dir is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_dir = self.project_dir / f"batch_predictions_{timestamp}"
+            output_dir = self.project_dir / "batch_predictions"
         else:
             output_dir = Path(output_dir)
         
@@ -370,8 +369,7 @@ class ProjectPredictor:
         
         # 保存结果
         if output_path is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = f"best_predictions_{timestamp}.csv"
+            output_path = "best_predictions.csv"
         
         result_df.to_csv(output_path, index=False)
         print(f"\n✅ 最佳模型预测完成!")
@@ -458,8 +456,7 @@ class ProjectPredictor:
         
         # 保存结果
         if output_path is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = f"ensemble_predictions_{timestamp}.csv"
+            output_path = "ensemble_predictions.csv"
         
         result_df.to_csv(output_path, index=False)
         print(f"\n✅ 集成预测完成!")

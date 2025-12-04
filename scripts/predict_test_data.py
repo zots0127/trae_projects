@@ -68,7 +68,7 @@ def load_models(project_dir, model_name='xgboost', use_intersection=False):
     print(f"\n成功加载 {len(models)} 个模型")
     return models
 
-def extract_features_for_test(df, feature_type='combined'):
+def extract_features_for_test(df, feature_type='combined', combination_method='mean', descriptor_count=115):
     """提取测试数据特征"""
     print("\n" + "="*80)
     print("特征提取")
@@ -80,7 +80,8 @@ def extract_features_for_test(df, feature_type='combined'):
         feature_type=feature_type,
         morgan_radius=2,
         morgan_bits=1024,
-        use_cache=True
+        use_cache=True,
+        descriptor_count=descriptor_count
     )
     
     features_list = []
@@ -94,7 +95,11 @@ def extract_features_for_test(df, feature_type='combined'):
         try:
             # 提取组合特征
             smiles_list = [row['L1'], row['L2'], row['L3']]
-            features = extractor.extract_combination(smiles_list)
+            features = extractor.extract_combination(
+                smiles_list,
+                feature_type=feature_type,
+                combination_method=combination_method
+            )
             
             if features is not None:
                 features_list.append(features)
@@ -236,7 +241,7 @@ def compare_with_actual(df):
 def main():
     parser = argparse.ArgumentParser(description='预测测试数据集')
     parser.add_argument('--project', '-p',
-                       help='模型项目目录 (如: paper_table_20250912_123547)')
+                       help='模型项目目录 (默认: paper_table)')
     parser.add_argument('--input', '-i', 
                        default='Database_ours_0903update_normalized.csv',
                        help='测试数据文件')
@@ -247,20 +252,17 @@ def main():
                        help='模型类型')
     parser.add_argument('--intersection', action='store_true',
                        help='使用交集训练的模型（只用三个目标都有值的数据训练）')
+    parser.add_argument('--combination-method', default='mean',
+                       choices=['mean', 'sum', 'concat'],
+                       help='多个配体特征的合并方式')
+    parser.add_argument('--descriptor-count', type=int, default=115,
+                       help='分子描述符数量')
     
     args = parser.parse_args()
     
-    # 自动检测最新的项目目录
+    # 设置默认项目目录为固定名称
     if not args.project:
-        # 查找最新的paper_table目录
-        import glob
-        project_dirs = sorted(glob.glob('paper_table_*'))
-        if project_dirs:
-            args.project = project_dirs[-1]  # 使用最新的
-            print(f"自动选择最新项目目录: {args.project}")
-        else:
-            print("❌ 未找到项目目录，请使用 --project 指定")
-            return
+        args.project = 'paper_table'
     
     # 设置默认输出路径
     if not args.output:
@@ -278,6 +280,8 @@ def main():
     print(f"  • 模型目录: {args.project}/{args.model}")
     print(f"  • 模型类型: {'交集训练模型' if args.intersection else '完整数据训练模型'}")
     print(f"  • 输出文件: {args.output}")
+    print(f"  • 特征合并: {args.combination_method}")
+    print(f"  • 描述符数量: {args.descriptor_count}")
     
     start_time = time.time()
     
@@ -294,7 +298,11 @@ def main():
         return
     
     # 3. 提取特征
-    X, df_valid = extract_features_for_test(df)
+    X, df_valid = extract_features_for_test(
+        df,
+        combination_method=args.combination_method,
+        descriptor_count=args.descriptor_count
+    )
     if X is None:
         print("❌ 特征提取失败")
         return

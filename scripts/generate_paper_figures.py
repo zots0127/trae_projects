@@ -572,7 +572,7 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description='生成论文图表')
     
-    parser.add_argument('--project', '-p', default='paper_table_20250912_020714',
+    parser.add_argument('--project', '-p', default='paper_table',
                        help='项目目录')
     parser.add_argument('--data', '-d', default='../data/Database_normalized.csv',
                        help='数据文件')

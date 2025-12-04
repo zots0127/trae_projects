@@ -76,7 +76,7 @@ def train_all_models(project_name=None, data_file=None, config_level="standard",
         data_file = "../data/Database_normalized.csv"
     
     if not project_name:
-        project_name = f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        project_name = "train"
     
     if not models:
         models = ALL_MODELS
@@ -170,7 +170,7 @@ def main():
             print("❌ single模式需要指定--model参数")
             sys.exit(1)
         
-        project = args.project or f"single_{args.model}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        project = args.project or f"single_{args.model}"
         
         success = train_single_model(
             model_name=args.model,
@@ -191,7 +191,7 @@ def main():
     
     elif args.mode == 'all':
         models = args.models if args.models else ALL_MODELS
-        project = args.project or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        project = args.project or "batch"
         
         train_all_models(
             project_name=project,
@@ -202,7 +202,7 @@ def main():
     
     elif args.mode == 'paper':
         # 论文表格专用配置
-        project = args.project or f"paper_table_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        project = args.project or "paper_table"
         
         print("🎯 训练论文表格所需的所有模型...")
         train_all_models(

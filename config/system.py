@@ -70,6 +70,7 @@ class FeatureConfig:
     combination_method: str = "mean"  # mean, sum, concat
     use_cache: bool = True
     cache_dir: str = "feature_cache"
+    descriptor_count: int = 115
     
     def validate(self):
         """验证配置"""
@@ -77,6 +78,8 @@ class FeatureConfig:
             f"不支持的特征类型: {self.feature_type}"
         assert self.combination_method in ["mean", "sum", "concat"], \
             f"不支持的组合方法: {self.combination_method}"
+        assert isinstance(self.descriptor_count, int) and self.descriptor_count > 0, \
+            f"descriptor_count 必须是正整数: {self.descriptor_count}"
 
 
 @dataclass
@@ -1187,24 +1190,24 @@ class ConfigValidator:
     @staticmethod
     def validate_dependencies(config: ExperimentConfig) -> bool:
         """验证依赖是否安装"""
-        required_packages = {
+        base_packages = ['pandas', 'numpy', 'sklearn', 'matplotlib', 'seaborn']
+        model_packages = {
             'xgboost': ['xgboost'],
             'lightgbm': ['lightgbm'],
             'catboost': ['catboost'],
-            'random_forest': ['sklearn'],
-            'all': ['rdkit', 'pandas', 'numpy', 'sklearn']
+            'random_forest': []
         }
-        
-        packages_to_check = required_packages.get(config.model.model_type, [])
-        packages_to_check.extend(required_packages['all'])
-        
+        feature_requires_rdkit = getattr(config.feature, 'feature_type', None) in ['morgan', 'descriptors', 'combined']
+        packages_to_check = list(base_packages)
+        packages_to_check.extend(model_packages.get(config.model.model_type, []))
+        if feature_requires_rdkit:
+            packages_to_check.append('rdkit')
         missing = []
         for package in packages_to_check:
             try:
                 __import__(package)
             except ImportError:
                 missing.append(package)
-        
         if missing:
             print(f"⚠️ 缺少依赖包: {missing}")
             return False

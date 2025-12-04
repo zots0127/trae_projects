@@ -3,24 +3,21 @@
 机器学习模型模块
 包含各种ML模型的实现和训练逻辑
 """
+from __future__ import annotations
 
 import numpy as np
 import inspect
 from typing import Dict, List, Tuple, Optional, Union
 import joblib
 from pathlib import Path
-from datetime import datetime
 
 # 机器学习相关
-import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor, ExtraTreesRegressor
 from sklearn.linear_model import Ridge, Lasso, ElasticNet
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPRegressor
-import lightgbm as lgb
-import catboost as cb
 from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler
@@ -196,10 +193,13 @@ class BaseModel:
     def create_model(self):
         """创建模型实例"""
         if self.model_type == 'xgboost':
+            import xgboost as xgb
             self.model = xgb.XGBRegressor(**self.params)
         elif self.model_type == 'lightgbm':
+            import lightgbm as lgb
             self.model = lgb.LGBMRegressor(**self.params)
         elif self.model_type == 'catboost':
+            import catboost as cb
             self.model = cb.CatBoostRegressor(**self.params)
         elif self.model_type == 'random_forest':
             self.model = RandomForestRegressor(**self.params)
@@ -279,6 +279,7 @@ class BaseModel:
                 if 'callbacks' in sig.parameters:
                     cb = []
                     try:
+                        import lightgbm as lgb
                         cb.append(lgb.early_stopping(es_rounds, verbose=False))
                         if not kwargs.get('verbose', False):
                             cb.append(lgb.log_evaluation(0))
@@ -399,6 +400,9 @@ class XGBoostTrainer:
         all_predictions = np.zeros_like(y)
         fold_models = []
         
+        # 延迟导入xgboost，避免模块加载开销和依赖问题
+        import xgboost as xgb
+
         for fold, (train_idx, val_idx) in enumerate(kf.split(X), 1):
             print(f"\n  折 {fold}/{self.n_folds}:")
             
@@ -485,6 +489,8 @@ class XGBoostTrainer:
         """
         print(f"\n🎯 训练最终模型（全部数据）...")
         
+        # 延迟导入xgboost
+        import xgboost as xgb
         model = xgb.XGBRegressor(**self.params)
         model.fit(X, y, verbose=False)
         
@@ -752,7 +758,6 @@ def generate_model_filename(model_type: str, target_col: str, suffix: str = "") 
     Returns:
         文件名
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     # 更全面的特殊字符替换，生成shell友好的文件名
     clean_target = (target_col
                    .replace('(', '_')
@@ -767,7 +772,7 @@ def generate_model_filename(model_type: str, target_col: str, suffix: str = "") 
         clean_target = clean_target.replace('__', '_')
     clean_target = clean_target.strip('_')
     
-    filename = f"{model_type}_{clean_target}{suffix}_{timestamp}.joblib"
+    filename = f"{model_type}_{clean_target}{suffix}.joblib"
     return filename
 
 

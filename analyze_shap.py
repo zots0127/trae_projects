@@ -40,6 +40,11 @@ class ModelShapAnalyzer:
         self.output_dir = self.paper_dir / 'shap_analysis'
         self.output_dir.mkdir(exist_ok=True)
 
+        # KernelExplainer 加速参数（可在 main 中覆盖）
+        self.kernel_k = 20           # 背景聚类数
+        self.kernel_nsamples = 200   # 每个解释的采样上限
+        self.kernel_max_samples = 40 # kernel类型的最大样本数
+
         # 读取数据
         self.load_data()
 
@@ -49,6 +54,8 @@ class ModelShapAnalyzer:
 
         # 尝试从多个位置加载数据
         data_paths = [
+            # 与论文目录同级/内部的data路径
+            self.paper_dir / 'data' / 'Database_normalized.csv',
             Path('/Users/kanshan/IR/ir2025/data/Database_normalized.csv'),
             Path('../ir2025/data/Database_normalized.csv'),
             Path('data/Database_normalized.csv')
@@ -65,45 +72,16 @@ class ModelShapAnalyzer:
 
     def extract_features(self, smiles_list):
         """提取分子特征"""
-        from rdkit import Chem
-        from rdkit.Chem import rdMolDescriptors, Descriptors
+        # 与训练管线保持一致（1024-bit Morgan + 85个描述符）
+        from core.feature_extractor import FeatureExtractor
+        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2)
 
         features_list = []
-        feature_dim = None
-
         for smiles in smiles_list:
-            mol = Chem.MolFromSmiles(smiles)
-            if mol is None:
+            if smiles is None or (isinstance(smiles, float) and np.isnan(smiles)):
                 continue
-
-            # Morgan指纹
-            fp = rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
-            fp_array = np.array(fp)
-
-            # 分子描述符 - 使用固定的描述符列表
-            desc_values = []
-            for desc_name in Descriptors._descList:
-                func = desc_name[1]
-                try:
-                    value = func(mol)
-                    if np.isfinite(value):
-                        desc_values.append(value)
-                    else:
-                        desc_values.append(0.0)
-                except:
-                    desc_values.append(0.0)
-
-            # 合并特征
-            combined = np.concatenate([fp_array, np.array(desc_values)])
-
-            # 检查维度一致性
-            if feature_dim is None:
-                feature_dim = len(combined)
-            elif len(combined) != feature_dim:
-                print(f"⚠️ 特征维度不一致: {len(combined)} vs {feature_dim}")
-                continue
-
-            features_list.append(combined)
+            feat = extractor.extract_from_smiles(smiles, feature_type="combined")
+            features_list.append(feat)
 
         if not features_list:
             return np.array([])
@@ -111,14 +89,9 @@ class ModelShapAnalyzer:
         return np.vstack(features_list)
 
     def get_feature_names(self):
-        """获取特征名称"""
-        # Morgan指纹位
-        fp_names = [f'Morgan_{i}' for i in range(2048)]
-
-        # 描述符名称
-        from rdkit.Chem import Descriptors
-        desc_names = [desc[0] for desc in Descriptors._descList]
-
+        from core.feature_extractor import DESCRIPTOR_NAMES
+        fp_names = [f'Morgan_{i}' for i in range(1024)]
+        desc_names = DESCRIPTOR_NAMES if DESCRIPTOR_NAMES else []
         return fp_names + desc_names
 
     def find_models(self, model_filter=None):
@@ -172,6 +145,40 @@ class ModelShapAnalyzer:
 
         return models_info
 
+    def _resolve_predictor(self, loaded_model):
+        """解析模型对象，返回可用于SHAP的预测函数与底层模型对象"""
+        # 直接使用可预测的模型
+        if hasattr(loaded_model, 'predict'):
+            return loaded_model.predict, loaded_model
+
+        # 字典封装（包含scaler/target_scaler等）
+        if isinstance(loaded_model, dict):
+            inner = loaded_model.get('model', None)
+            scaler = loaded_model.get('scaler', None)
+            target_scaler = loaded_model.get('target_scaler', None)
+
+            if inner is None:
+                raise ValueError('字典模型缺少 "model" 键')
+
+            # 组装带预处理的预测函数
+            def predict_fn(X):
+                X_in = X
+                if scaler is not None:
+                    X_in = scaler.transform(X_in)
+                y_pred = inner.predict(X_in)
+                if target_scaler is not None:
+                    y_pred = target_scaler.inverse_transform(np.array(y_pred).reshape(-1, 1)).ravel()
+                return y_pred
+
+            return predict_fn, inner
+
+        # 其他包装类型（如pipeline）
+        try:
+            predict = getattr(loaded_model, 'predict')
+            return predict, loaded_model
+        except Exception:
+            raise AttributeError('无法解析预测函数，模型对象不支持 predict')
+
     def analyze_model(self, model_info, sample_size=100):
         """分析单个模型"""
         model_name = model_info['model_name']
@@ -194,15 +201,10 @@ class ModelShapAnalyzer:
         print(f"  📊 准备特征数据...")
         valid_df = self.df.dropna(subset=[target])
         smiles_cols = ['L1', 'L2', 'L3']
-
-        # 合并SMILES
-        smiles_combined = valid_df[smiles_cols].apply(
-            lambda row: '.'.join(row.values), axis=1
-        )
-
-        # 提取特征
         print(f"     正在提取分子特征...")
-        X = self.extract_features(smiles_combined.tolist())
+        from core.feature_extractor import FeatureExtractor
+        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2)
+        X = extractor.extract_from_dataframe(valid_df, smiles_columns=smiles_cols, feature_type="combined")
 
         if len(X) == 0:
             print(f"  ❌ 特征提取失败")
@@ -243,12 +245,29 @@ class ModelShapAnalyzer:
             elif shap_model_type == 'linear':
                 explainer = shap.LinearExplainer(model, X_sample)
             else:
-                # 对于其他模型，使用KernelExplainer（较慢）
-                print(f"     ⚠️ 使用通用Kernel解释器（较慢）")
-                explainer = shap.KernelExplainer(model.predict, shap.sample(X_sample, 50))
+                # Kernel类型：强制快速模式（KMeans背景 + 限制样本数 + 限制nsamples）
+                print(f"     ⚡ Kernel快速模式：kmeans={self.kernel_k}, nsamples={self.kernel_nsamples}")
+                predict_fn, _ = self._resolve_predictor(model)
+                # 限制样本量
+                if len(X_sample) > self.kernel_max_samples:
+                    sample_idx = np.random.choice(len(X_sample), self.kernel_max_samples, replace=False)
+                    X_sample = X_sample[sample_idx]
+                    print(f"     ⚠️ 已将样本数限制为 {len(X_sample)} 用于Kernel解释")
+                # 使用kmeans摘要作为背景
+                try:
+                    background = shap.kmeans(X_sample, self.kernel_k)
+                except Exception:
+                    # 回退到随机采样
+                    k = min(self.kernel_k, len(X_sample))
+                    background = shap.sample(X_sample, k)
+                explainer = shap.KernelExplainer(predict_fn, background)
 
             # 计算SHAP值
-            shap_values = explainer.shap_values(X_sample)
+            # Kernel分支已在上方进入，直接限制nsamples提速；其它解释器正常计算
+            if shap_model_type == 'kernel':
+                shap_values = explainer.shap_values(X_sample, nsamples=self.kernel_nsamples)
+            else:
+                shap_values = explainer.shap_values(X_sample)
 
             print(f"     ✅ SHAP值计算完成")
 
@@ -566,6 +585,9 @@ def main():
     parser.add_argument('paper_dir', help='论文输出目录 (如: Paper_0930_222051)')
     parser.add_argument('--models', nargs='+', help='指定要分析的模型 (如: xgboost lightgbm)')
     parser.add_argument('--sample-size', type=int, default=100, help='SHAP分析的样本数量 (默认: 100)')
+    parser.add_argument('--kernel-k', type=int, default=20, help='KernelExplainer的背景kmeans聚类数 (默认: 20)')
+    parser.add_argument('--kernel-nsamples', type=int, default=200, help='KernelExplainer每次解释的采样次数上限 (默认: 200)')
+    parser.add_argument('--kernel-max-samples', type=int, default=40, help='Kernel模型参与解释的最大样本数 (默认: 40)')
 
     args = parser.parse_args()
 
@@ -575,6 +597,10 @@ def main():
 
     # 创建分析器
     analyzer = ModelShapAnalyzer(args.paper_dir)
+    # 覆盖Kernel快速参数
+    analyzer.kernel_k = max(5, int(args.kernel_k))
+    analyzer.kernel_nsamples = max(50, int(args.kernel_nsamples))
+    analyzer.kernel_max_samples = max(10, int(args.kernel_max_samples))
 
     # 查找模型
     models = analyzer.find_models(model_filter=args.models)

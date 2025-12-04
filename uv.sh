@@ -78,13 +78,17 @@ echo ""
 echo "Python version: $(python --version)"
 echo ""
 
-# Run 0913.sh if it exists
-if [ -f "./0913.sh" ]; then
+# Run workflow if available
+if [ -f "./run_workflow.sh" ]; then
+    echo "Running run_workflow.sh..."
+    echo "==========================================="
+    bash ./run_workflow.sh
+elif [ -f "./0913.sh" ]; then
     echo "Running 0913.sh..."
     echo "==========================================="
-    ./0913.sh
+    bash ./0913.sh
 else
-    echo "0913.sh not found in current directory"
+    echo "No workflow script found (run_workflow.sh or 0913.sh)"
     echo "To activate the environment manually, run:"
     echo "  source .venv/bin/activate"
 fi

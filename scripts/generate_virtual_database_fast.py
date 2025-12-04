@@ -80,7 +80,7 @@ def generate_combinations_vectorized(l12_unique, l3_unique):
     
     return assembled_df
 
-def batch_extract_features(df, feature_type='combined', batch_size=1000):
+def batch_extract_features(df, feature_type='combined', batch_size=1000, combination_method='mean', descriptor_count=115):
     """批量提取特征，提高效率"""
     print("\n批量提取分子特征...")
     
@@ -89,7 +89,8 @@ def batch_extract_features(df, feature_type='combined', batch_size=1000):
         feature_type=feature_type,
         morgan_radius=2,
         morgan_bits=1024,
-        use_cache=True
+        use_cache=True,
+        descriptor_count=descriptor_count
     )
     
     n_samples = len(df)
@@ -110,7 +111,11 @@ def batch_extract_features(df, feature_type='combined', batch_size=1000):
             try:
                 smiles_list = [row['L1'], row['L2'], row['L3']]
                 # 使用extract_combination方法合并多个配体的特征
-                features = extractor.extract_combination(smiles_list)
+                features = extractor.extract_combination(
+                    smiles_list,
+                    feature_type=feature_type,
+                    combination_method=combination_method
+                )
                 if features is not None:
                     batch_features.append(features)
                     batch_valid_idx.append(idx)
@@ -213,7 +218,7 @@ def main():
     
     parser.add_argument('--data', '-d', default='../data/Database_normalized.csv',
                        help='原始数据文件')
-    parser.add_argument('--project', '-p', default='paper_table_20250912_020714',
+    parser.add_argument('--project', '-p', default='paper_table',
                        help='训练项目目录')
     parser.add_argument('--model', '-m', default='xgboost',
                        help='使用的模型')
@@ -224,6 +229,11 @@ def main():
                        help='特征类型')
     parser.add_argument('--batch-size', type=int, default=1000,
                        help='批处理大小')
+    parser.add_argument('--combination-method', default='mean',
+                       choices=['mean', 'sum', 'concat'],
+                       help='多个配体特征的合并方式')
+    parser.add_argument('--descriptor-count', type=int, default=115,
+                       help='分子描述符数量')
     
     args = parser.parse_args()
     
@@ -249,7 +259,13 @@ def main():
     print(f"\n✅ 组合文件已保存: {combo_file}")
     
     # 3. 批量提取特征
-    X, df_valid = batch_extract_features(assembled_df, args.feature_type, args.batch_size)
+    X, df_valid = batch_extract_features(
+        assembled_df,
+        feature_type=args.feature_type,
+        batch_size=args.batch_size,
+        combination_method=args.combination_method,
+        descriptor_count=args.descriptor_count
+    )
     
     if X is None:
         print("❌ 特征提取失败")

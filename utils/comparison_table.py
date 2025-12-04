@@ -445,13 +445,12 @@ class ComparisonTableGenerator:
             print("❌ 没有找到任何结果，无法生成表格")
             return {}
         
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         exported_files = {}
         
         # 生成各种格式
         if 'markdown' in formats:
             md_content = self.generate_markdown_table(df, decimal_places)
-            md_file = output_dir / f"comparison_table_{timestamp}.md"
+            md_file = output_dir / "comparison_table.md"
             with open(md_file, 'w', encoding='utf-8') as f:
                 f.write(md_content)
             exported_files['markdown'] = str(md_file)
@@ -459,7 +458,7 @@ class ComparisonTableGenerator:
         
         if 'html' in formats:
             html_content = self.generate_html_table(df, decimal_places)
-            html_file = output_dir / f"comparison_table_{timestamp}.html"
+            html_file = output_dir / "comparison_table.html"
             with open(html_file, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             exported_files['html'] = str(html_file)
@@ -467,7 +466,7 @@ class ComparisonTableGenerator:
         
         if 'latex' in formats:
             latex_content = self.generate_latex_table(df, decimal_places)
-            latex_file = output_dir / f"comparison_table_{timestamp}.tex"
+            latex_file = output_dir / "comparison_table.tex"
             with open(latex_file, 'w', encoding='utf-8') as f:
                 f.write(latex_content)
             exported_files['latex'] = str(latex_file)
@@ -475,7 +474,7 @@ class ComparisonTableGenerator:
         
         if 'csv' in formats:
             csv_df = self.generate_csv_table(df)
-            csv_file = output_dir / f"comparison_table_{timestamp}.csv"
+            csv_file = output_dir / "comparison_table.csv"
             csv_df.to_csv(csv_file, index=False)
             exported_files['csv'] = str(csv_file)
             print(f"✅ CSV表格已保存: {csv_file}")

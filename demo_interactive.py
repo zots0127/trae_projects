@@ -52,7 +52,10 @@ def demo_features():
     print("\n\n📈 Feature 3: Comparison Table")
     print("-"*40)
     
-    table_files = list(Path(test_project).glob("comparison_table_*.csv"))
+    # 兼容固定命名与旧版时间戳命名
+    table_files = list(Path(test_project).glob("comparison_table.csv"))
+    if not table_files:
+        table_files = list(Path(test_project).glob("comparison_table_*.csv"))
     if table_files:
         latest_table = sorted(table_files)[-1]
         df_comp = pd.read_csv(latest_table)

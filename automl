@@ -1,0 +1,5 @@
+#!/bin/bash
+# AutoML - 自动化机器学习命令行工具
+# 使用方式: ./automl train model=xgboost data=mydata.csv
+
+python "$(dirname "$0")/automl.py" "$@"

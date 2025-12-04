@@ -1,0 +1,26 @@
+name: svr_standard
+description: SVR支持向量回归标准训练（15分钟）
+
+model:
+  model_type: svr
+  hyperparameters:
+    C: 1.0
+    epsilon: 0.1
+    kernel: rbf
+    gamma: scale
+
+training:
+  n_folds: 10
+  save_final_model: true
+  verbose: true
+
+feature:
+  feature_type: combined
+  morgan_bits: 1024
+  morgan_radius: 2
+  use_cache: true
+  combination_method: mean
+
+data:
+  multi_target_strategy: independent
+  nan_handling: skip

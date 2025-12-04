@@ -1,0 +1,29 @@
+name: knn_standard
+description: KNN K近邻标准训练（15分钟）
+
+model:
+  model_type: knn
+  hyperparameters:
+    n_neighbors: 5
+    weights: distance
+    algorithm: auto
+    leaf_size: 30
+    p: 2
+    metric: minkowski
+    n_jobs: -1
+
+training:
+  n_folds: 10
+  save_final_model: true
+  verbose: true
+
+feature:
+  feature_type: combined
+  morgan_bits: 1024
+  morgan_radius: 2
+  use_cache: true
+  combination_method: mean
+
+data:
+  multi_target_strategy: independent
+  nan_handling: skip

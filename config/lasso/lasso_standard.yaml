@@ -1,0 +1,28 @@
+name: lasso_standard
+description: Lasso套索回归标准训练（15分钟）
+
+model:
+  model_type: lasso
+  hyperparameters:
+    alpha: 0.1
+    max_iter: 1000
+    fit_intercept: True
+    normalize: False
+    tol: 0.0001
+    random_state: 42
+
+training:
+  n_folds: 10
+  save_final_model: true
+  verbose: true
+
+feature:
+  feature_type: combined
+  morgan_bits: 1024
+  morgan_radius: 2
+  use_cache: true
+  combination_method: mean
+
+data:
+  multi_target_strategy: independent
+  nan_handling: skip

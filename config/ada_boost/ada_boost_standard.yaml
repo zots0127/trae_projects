@@ -1,0 +1,25 @@
+name: ada_boost_standard
+description: AdaBoost自适应提升标准训练（15分钟）
+
+model:
+  model_type: adaboost
+  hyperparameters:
+    n_estimators: 200
+    learning_rate: 0.5
+    random_state: 42
+
+training:
+  n_folds: 10
+  save_final_model: true
+  verbose: true
+
+feature:
+  feature_type: combined
+  morgan_bits: 1024
+  morgan_radius: 2
+  use_cache: true
+  combination_method: mean
+
+data:
+  multi_target_strategy: independent
+  nan_handling: skip

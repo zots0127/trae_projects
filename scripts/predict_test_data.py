@@ -68,7 +68,7 @@ def load_models(project_dir, model_name='xgboost', use_intersection=False):
     print(f"\n成功加载 {len(models)} 个模型")
     return models
 
-def extract_features_for_test(df, feature_type='combined', combination_method='mean', descriptor_count=115):
+def extract_features_for_test(df, feature_type='combined', combination_method='mean', descriptor_count=85):
     """提取测试数据特征"""
     print("\n" + "="*80)
     print("特征提取")

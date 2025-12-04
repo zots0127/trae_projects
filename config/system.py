@@ -70,7 +70,7 @@ class FeatureConfig:
     combination_method: str = "mean"  # mean, sum, concat
     use_cache: bool = True
     cache_dir: str = "feature_cache"
-    descriptor_count: int = 115
+    descriptor_count: int = 85
     
     def validate(self):
         """验证配置"""

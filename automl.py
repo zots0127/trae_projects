@@ -832,6 +832,7 @@ def predict_command(args: List[str]):
     training_smiles_columns = None
     training_morgan_bits = None
     training_morgan_radius = None
+    training_descriptor_count = None
     try:
         model_path = Path(params['model']).resolve()
         # 常见保存位置: runs/.../models/*.joblib → runs/.../config.yaml
@@ -846,6 +847,7 @@ def predict_command(args: List[str]):
                     training_smiles_columns = list(getattr(cfg_obj.data, 'smiles_columns', []))
                     training_morgan_bits = getattr(cfg_obj.feature, 'morgan_bits', None)
                     training_morgan_radius = getattr(cfg_obj.feature, 'morgan_radius', None)
+                    training_descriptor_count = getattr(cfg_obj.feature, 'descriptor_count', None)
                     break
                 except Exception:
                     pass
@@ -904,7 +906,7 @@ def predict_command(args: List[str]):
     if morgan_radius is None and training_morgan_radius is not None:
         morgan_radius = int(training_morgan_radius)
         print(f"🔁 按训练配置自动设置 morgan_radius: {morgan_radius}")
-    feature_extractor = FeatureExtractor(use_cache=True, morgan_bits=morgan_bits, morgan_radius=morgan_radius)
+    feature_extractor = FeatureExtractor(use_cache=True, morgan_bits=morgan_bits, morgan_radius=morgan_radius, descriptor_count=training_descriptor_count)
     
     if 'input' in params:
         raw_input = params['input']

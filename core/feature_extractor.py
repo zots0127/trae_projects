@@ -52,7 +52,7 @@ class FeatureExtractor:
         # Molecular feature settings
         self.morgan_bits = 1024 if morgan_bits is None else int(morgan_bits)
         self.morgan_radius = 2 if morgan_radius is None else int(morgan_radius)
-        self.descriptor_count = 115 if descriptor_count is None else int(descriptor_count)
+        self.descriptor_count = 85 if descriptor_count is None else int(descriptor_count)
         
         # RDKit modules (lazy loading)
         self._rdkit_imported = False
@@ -462,7 +462,7 @@ class FeatureExtractor:
 
 # Constants for backward compatibility
 MORGAN_BITS = 1024
-DEFAULT_DESCRIPTOR_COUNT = 115
+DEFAULT_DESCRIPTOR_COUNT = 85
 DESCRIPTOR_NAMES = []
 
 # Load descriptor names if RDKit available

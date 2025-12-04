@@ -80,7 +80,7 @@ def generate_combinations_vectorized(l12_unique, l3_unique):
     
     return assembled_df
 
-def batch_extract_features(df, feature_type='combined', batch_size=1000, combination_method='mean', descriptor_count=115):
+def batch_extract_features(df, feature_type='combined', batch_size=1000, combination_method='mean', descriptor_count=85):
     """批量提取特征，提高效率"""
     print("\n批量提取分子特征...")
     
@@ -232,7 +232,7 @@ def main():
     parser.add_argument('--combination-method', default='mean',
                        choices=['mean', 'sum', 'concat'],
                        help='多个配体特征的合并方式')
-    parser.add_argument('--descriptor-count', type=int, default=115,
+    parser.add_argument('--descriptor-count', type=int, default=85,
                        help='分子描述符数量')
     
     args = parser.parse_args()

@@ -74,7 +74,7 @@ class ModelShapAnalyzer:
         """提取分子特征"""
         # 与训练管线保持一致（1024-bit Morgan + 85个描述符）
         from core.feature_extractor import FeatureExtractor
-        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2)
+        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2, descriptor_count=85)
 
         features_list = []
         for smiles in smiles_list:
@@ -203,7 +203,7 @@ class ModelShapAnalyzer:
         smiles_cols = ['L1', 'L2', 'L3']
         print(f"     正在提取分子特征...")
         from core.feature_extractor import FeatureExtractor
-        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2)
+        extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2, descriptor_count=85)
         X = extractor.extract_from_dataframe(valid_df, smiles_columns=smiles_cols, feature_type="combined")
 
         if len(X) == 0:

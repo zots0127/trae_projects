@@ -93,7 +93,7 @@ class FileFeatureCache:
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
                      combination_method: str = "mean",
-                     descriptor_count: int = 115) -> str:
+                     descriptor_count: int = 85) -> str:
         """
         Generate cache key for file + feature parameters
         
@@ -147,7 +147,7 @@ class FileFeatureCache:
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
                      combination_method: str = "mean",
-                     descriptor_count: int = 115) -> Optional[np.ndarray]:
+                     descriptor_count: int = 85) -> Optional[np.ndarray]:
         """
         Load cached features for a file
         
@@ -197,7 +197,7 @@ class FileFeatureCache:
                      morgan_radius: int = 2,
                      smiles_columns: list = None,
                      combination_method: str = "mean",
-                     descriptor_count: int = 115,
+                     descriptor_count: int = 85,
                      row_count: int = None,
                      failed_indices: list = None):
         """

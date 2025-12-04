@@ -51,7 +51,25 @@ def load_models(project_dir, model_name='xgboost', use_intersection=False):
     
     if not model_dir.exists():
         print(f"❌ 模型目录不存在: {model_dir}")
-        return models
+        # 尝试自动发现最新的 Paper_* 目录下的模型
+        root = Path(project_dir).parent if Path(project_dir).name == 'paper_table' else Path(project_dir)
+        candidates = []
+        try:
+            for d in root.glob('Paper_*'):
+                mdir = d / 'all_models' / 'automl_train' / model_name / 'models'
+                if mdir.exists():
+                    candidates.append(mdir)
+            if candidates:
+                # 选择最新修改的目录
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                model_dir = candidates[0]
+                print(f"🔁 自动切换到最新模型目录: {model_dir}")
+            else:
+                print("⚠️ 未在最近的 Paper_* 目录中找到模型目录")
+        except Exception:
+            pass
+        if not model_dir.exists():
+            return models
     
     print(f"  📁 模型目录: {model_dir}")
     
@@ -238,10 +256,19 @@ def compare_with_actual(df):
             if 'Max_wavelength(nm)' in row and pd.notna(row['Max_wavelength(nm)']):
                 print(f"    波长实际: {row['Max_wavelength(nm)']:.1f} nm")
 
+def _find_latest_paper_dir() -> str:
+    """在当前工作目录下寻找最新的 Paper_* 目录"""
+    cwd = Path.cwd()
+    papers = [d for d in cwd.glob('Paper_*') if d.is_dir()]
+    if not papers:
+        return ''
+    papers.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return str(papers[0])
+
 def main():
     parser = argparse.ArgumentParser(description='预测测试数据集')
     parser.add_argument('--project', '-p',
-                       help='模型项目目录 (默认: paper_table)')
+                       help='模型项目目录 (默认: 自动选择最新的 Paper_* 目录)')
     parser.add_argument('--input', '-i', 
                        default='Database_ours_0903update_normalized.csv',
                        help='测试数据文件')
@@ -255,14 +282,20 @@ def main():
     parser.add_argument('--combination-method', default='mean',
                        choices=['mean', 'sum', 'concat'],
                        help='多个配体特征的合并方式')
-    parser.add_argument('--descriptor-count', type=int, default=115,
+    parser.add_argument('--descriptor-count', type=int, default=85,
                        help='分子描述符数量')
     
     args = parser.parse_args()
     
-    # 设置默认项目目录为固定名称
+    # 自动解析项目目录
     if not args.project:
-        args.project = 'paper_table'
+        latest = _find_latest_paper_dir()
+        if latest:
+            args.project = latest
+            print(f"📁 未指定项目目录，自动选择: {args.project}")
+        else:
+            args.project = 'paper_table'
+            print("📁 未找到 Paper_* 目录，回退到默认: paper_table")
     
     # 设置默认输出路径
     if not args.output:
@@ -277,7 +310,7 @@ def main():
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"\n配置:")
     print(f"  • 输入文件: {args.input}")
-    print(f"  • 模型目录: {args.project}/{args.model}")
+    print(f"  • 模型目录候选: {args.project}/{args.model}")
     print(f"  • 模型类型: {'交集训练模型' if args.intersection else '完整数据训练模型'}")
     print(f"  • 输出文件: {args.output}")
     print(f"  • 特征合并: {args.combination_method}")

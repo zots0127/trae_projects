@@ -295,7 +295,7 @@ class TrainingPipeline:
             cache_dir=self.config.feature.cache_dir,
             morgan_bits=self.config.feature.morgan_bits if hasattr(self.config.feature, 'morgan_bits') else None,
             morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None,
-            descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
+            descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
         )
         
         # 检查是否为分子数据（有SMILES列）
@@ -313,7 +313,7 @@ class TrainingPipeline:
                     morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                     smiles_columns=self.config.data.smiles_columns,
                     combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
-                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
+                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
                 )
                 if X_full is not None:
                     # 使用原始索引选择当前目标的数据子集
@@ -358,7 +358,7 @@ class TrainingPipeline:
                             morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                             smiles_columns=self.config.data.smiles_columns,
                             combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
-                            descriptor_count=getattr(self.config.feature, 'descriptor_count', 115),
+                            descriptor_count=getattr(self.config.feature, 'descriptor_count', 85),
                             row_count=len(raw_df),
                             failed_indices=[]
                         )
@@ -664,7 +664,7 @@ class TrainingPipeline:
                         cache_dir=self.config.feature.cache_dir,
                         morgan_bits=self.config.feature.morgan_bits if hasattr(self.config.feature, 'morgan_bits') else None,
                         morgan_radius=self.config.feature.morgan_radius if hasattr(self.config.feature, 'morgan_radius') else None,
-                        descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
+                        descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
                     )
                     has_smiles = any(col in df_test.columns for col in self.config.data.smiles_columns)
                     if has_smiles and self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
@@ -679,11 +679,12 @@ class TrainingPipeline:
                                 morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                                 smiles_columns=self.config.data.smiles_columns,
                                 combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
-                                descriptor_count=getattr(self.config.feature, 'descriptor_count', 115)
+                                descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
                             )
                             if X_test is not None:
                                 print("\n✅ 从文件级缓存加载测试特征，跳过提取")
                                 print(f"   形状: {X_test.shape}")
+                                print("   开始选择推理模型与预测")
                         except Exception as _e:
                             # 缓存失败时静默回退到正常提取
                             X_test = None
@@ -716,7 +717,7 @@ class TrainingPipeline:
                                     morgan_radius=getattr(self.config.feature, 'morgan_radius', 2),
                                     smiles_columns=self.config.data.smiles_columns,
                                     combination_method=getattr(self.config.feature, 'combination_method', 'mean'),
-                                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 115),
+                                    descriptor_count=getattr(self.config.feature, 'descriptor_count', 85),
                                     row_count=len(df_test),
                                     failed_indices=[]
                                 )
@@ -737,13 +738,21 @@ class TrainingPipeline:
                     # 选择用于预测的模型（如果保存了最终模型则用最终模型，否则用简单平均折模型）
                     model_for_inference = final_model
                     if model_for_inference is None and len(fold_models) > 0:
-                        # 简单平均各折预测作为退路
+                        print(f"   使用折模型集成预测, 数量: {len(fold_models)}")
                         with self.timing.measure('test_predict_oof_ensemble'):
-                            preds_list = [m.predict(X_test) for m in fold_models]
+                            preds_list = []
+                            for j, m in enumerate(fold_models, 1):
+                                print(f"   折 {j}/{len(fold_models)} 预测开始")
+                                p = m.predict(X_test)
+                                preds_list.append(p)
+                                print(f"   折 {j} 预测完成")
                         test_predictions = np.mean(np.vstack(preds_list), axis=0)
+                        print(f"   集成预测完成，输出形状: {np.array(test_predictions).shape}")
                     else:
+                        print("   使用最终模型进行预测")
                         with self.timing.measure('test_predict_final_model'):
                             test_predictions = model_for_inference.predict(X_test)
+                        print(f"   最终模型预测完成，输出形状: {np.array(test_predictions).shape}")
 
                     # 若测试集中包含当前目标列，计算指标
                     if target_col in df_test.columns:

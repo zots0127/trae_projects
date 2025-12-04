@@ -102,15 +102,17 @@ class FeatureExtractor:
             return
         
         try:
-            from rdkit import Chem
-            from rdkit.Chem import AllChem, Descriptors
+            from rdkit import Chem, DataStructs
+            from rdkit.Chem import AllChem, Descriptors, rdFingerprintGenerator
             from rdkit.ML.Descriptors import MoleculeDescriptors
             
             self._rdkit_modules = {
                 'Chem': Chem,
                 'AllChem': AllChem,
                 'Descriptors': Descriptors,
-                'MoleculeDescriptors': MoleculeDescriptors
+                'MoleculeDescriptors': MoleculeDescriptors,
+                'FingerprintGenerator': rdFingerprintGenerator,
+                'DataStructs': DataStructs
             }
             self._rdkit_imported = True
         except ImportError:
@@ -124,6 +126,8 @@ class FeatureExtractor:
         self._import_rdkit()
         Chem = self._rdkit_modules['Chem']
         AllChem = self._rdkit_modules['AllChem']
+        FingerprintGenerator = self._rdkit_modules.get('FingerprintGenerator')
+        DataStructs = self._rdkit_modules.get('DataStructs')
         
         if pd.isna(smiles) or smiles == '':
             return np.zeros(self.morgan_bits)
@@ -141,10 +145,15 @@ class FeatureExtractor:
         if mol is None:
             return np.zeros(self.morgan_bits)
         
-        fp = AllChem.GetMorganFingerprintAsBitVect(
-            mol, self.morgan_radius, nBits=self.morgan_bits
-        )
-        arr = np.array(fp)
+        arr = None
+        if FingerprintGenerator is not None and DataStructs is not None:
+            gen = FingerprintGenerator.GetMorganGenerator(radius=self.morgan_radius, fpSize=self.morgan_bits)
+            fp = gen.GetFingerprint(mol)
+            arr = np.zeros(self.morgan_bits, dtype=np.int8)
+            DataStructs.ConvertToNumpyArray(fp, arr)
+        else:
+            fp = AllChem.GetMorganFingerprintAsBitVect(mol, self.morgan_radius, nBits=self.morgan_bits)
+            arr = np.array(fp)
         
         # Save to cache
         if self.use_cache:

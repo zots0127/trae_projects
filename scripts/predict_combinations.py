@@ -15,17 +15,45 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.feature_extractor import FeatureExtractor
 
 def load_models(project_dir, model_name='xgboost'):
-    """加载训练好的模型"""
+    """加载训练好的模型（支持AutoML路径与自动发现最新Paper_*目录）"""
     print("加载模型...")
-    
+
     models = {}
-    model_dir = Path(project_dir) / model_name / 'models'
-    
-    if not model_dir.exists():
-        print(f"❌ 模型目录不存在: {model_dir}")
+
+    project_path = Path(project_dir)
+    possible_dirs = [
+        project_path / 'all_models' / 'automl_train' / model_name / 'models',
+        project_path / model_name / 'models',
+        project_path / 'models' / model_name,
+    ]
+
+    model_dir = None
+    for d in possible_dirs:
+        if d.exists():
+            model_dir = d
+            break
+
+    if model_dir is None:
+        root = project_path.parent if project_path.name == 'paper_table' else project_path
+        candidates = []
+        try:
+            for d in root.glob('Paper_*'):
+                mdir = d / 'all_models' / 'automl_train' / model_name / 'models'
+                if mdir.exists():
+                    candidates.append(mdir)
+            if candidates:
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                model_dir = candidates[0]
+                print(f"🔁 自动切换到最新模型目录: {model_dir}")
+        except Exception:
+            pass
+
+    if model_dir is None or not model_dir.exists():
+        print(f"❌ 模型目录不存在: {project_path}/{model_name}/models")
         return models
-    
-    # 查找模型文件（只加载wavelength和PLQY）
+
+    print(f"📁 模型目录: {model_dir}")
+
     for model_file in model_dir.glob("*.joblib"):
         filename = model_file.stem
         if 'wavelength' in filename.lower():
@@ -34,8 +62,8 @@ def load_models(project_dir, model_name='xgboost'):
         elif 'plqy' in filename.lower():
             models['PLQY'] = joblib.load(model_file)
             print(f"  ✅ PLQY模型: {model_file.name}")
-        # 跳过tau模型
-    
+
+    print(f"成功加载 {len(models)} 个模型")
     return models
 
 def extract_features_batch(df, feature_type='combined', batch_size=1000):

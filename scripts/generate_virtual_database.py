@@ -111,41 +111,33 @@ def remove_existing_combinations(assembled_df, original_df):
     return new_df
 
 def extract_features_for_prediction(df, feature_type='combined'):
-    """为预测提取特征"""
-    
     print("\n提取分子特征...")
-    
-    # 初始化特征提取器
     extractor = FeatureExtractor(
         feature_type=feature_type,
         morgan_radius=2,
         morgan_bits=1024,
-        combination_method='mean',
-        use_cache=True
+        use_cache=True,
+        descriptor_count=85
     )
-    
-    # 提取特征
     features_list = []
     valid_indices = []
-    
     for idx, row in df.iterrows():
         try:
             smiles_list = [row['L1'], row['L2'], row['L3']]
-            # 过滤掉NaN
             smiles_list = [s for s in smiles_list if pd.notna(s) and s != '']
-            
             if smiles_list:
-                features = extractor.extract_features(smiles_list)
+                features = extractor.extract_combination(
+                    smiles_list,
+                    feature_type=feature_type,
+                    combination_method='mean'
+                )
                 if features is not None:
                     features_list.append(features)
                     valid_indices.append(idx)
-                    
                     if len(features_list) % 100 == 0:
                         print(f"  已处理: {len(features_list)} 个组合")
-        except Exception as e:
-            # 跳过有问题的SMILES
+        except Exception:
             continue
-    
     if features_list:
         X = np.vstack(features_list)
         df_valid = df.iloc[valid_indices].reset_index(drop=True)
@@ -156,18 +148,47 @@ def extract_features_for_prediction(df, feature_type='combined'):
         return None, None
 
 def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
-    """加载训练好的模型"""
-    
+    """加载训练好的模型（支持AutoML与标准路径，并自动发现最新Paper_*目录）"""
+
     project_path = Path(project_dir)
-    model_dir = project_path / model_name / 'models'
-    
-    if not model_dir.exists():
-        print(f"❌ 模型目录不存在: {model_dir}")
+
+    possible_dirs = [
+        project_path / 'all_models' / 'automl_train' / model_name / 'models',
+        project_path / model_name / 'models',
+        project_path / 'models' / model_name,
+    ]
+
+    model_dir = None
+    for d in possible_dirs:
+        if d.exists():
+            model_dir = d
+            break
+
+    if model_dir is None:
+        # 自动发现最近的 Paper_* 目录下的模型
+        root = project_path.parent if project_path.name == 'paper_table' else project_path
+        candidates = []
+        try:
+            for d in root.glob('Paper_*'):
+                mdir = d / 'all_models' / 'automl_train' / model_name / 'models'
+                if mdir.exists():
+                    candidates.append(mdir)
+            if candidates:
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                model_dir = candidates[0]
+                print(f"🔁 自动切换到最新模型目录: {model_dir}")
+        except Exception:
+            pass
+
+    if model_dir is None or not model_dir.exists():
+        print(f"❌ 模型目录不存在: {project_path}/{model_name}/models")
         return None
-    
+
+    print(f"📁 模型目录: {model_dir}")
+
     # 查找对应目标的模型文件
     model_files = list(model_dir.glob(f"*{target}*.joblib"))
-    
+
     if not model_files:
         # 尝试其他可能的命名
         if target == 'wavelength':
@@ -179,9 +200,9 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
         elif target == 'tau':
             model_files = list(model_dir.glob("*tau*.joblib")) + \
                          list(model_dir.glob("*lifetime*.joblib"))
-    
+
     if model_files:
-        # 使用最新的模型
+        # 使用最新的模型文件
         model_file = sorted(model_files)[-1]
         print(f"✅ 加载模型: {model_file.name}")
         model = joblib.load(model_file)
@@ -284,25 +305,34 @@ def main():
     assembled_df.to_csv(assembled_file, index=False)
     print(f"\n✅ 保存组合文件: {assembled_file}")
     
-    # 4. 提取特征
+    # 4. 若尚未训练模型，仅保存组合文件以供后续预测
+    project_path = Path(args.project)
+    automl_dir = project_path / 'all_models' / 'automl_train'
+    if not automl_dir.exists():
+        assembled_df.to_csv(args.output, index=False)
+        print(f"\n✅ 已保存组合文件用于后续预测: {args.output}")
+        # 统计信息
+        print("\n" + "=" * 60)
+        print("📊 虚拟数据库统计:")
+        print("-" * 40)
+        print(f"总组合数: {len(assembled_df):,}")
+        print("\n" + "=" * 60)
+        print("✅ 虚拟数据库生成完成！")
+        print("=" * 60)
+        return
+    
+    # 5. 已有训练模型则进行特征提取与预测
     print("\n" + "-" * 40)
     print("步骤4: 提取分子特征")
     X, df_valid = extract_features_for_prediction(assembled_df, args.feature_type)
-    
     if X is None:
         print("❌ 特征提取失败")
         return
-    
-    # 5. 预测性质
     print("\n" + "-" * 40)
     print("步骤5: 预测分子性质")
     df_predicted = predict_properties(X, df_valid, args.project, args.model)
-    
-    # 6. 保存结果
     print("\n" + "-" * 40)
     print("步骤6: 保存虚拟数据库")
-    
-    # 保存完整的虚拟数据库
     output_file = args.output
     df_predicted.to_csv(output_file, index=False)
     print(f"✅ 虚拟数据库已保存: {output_file}")

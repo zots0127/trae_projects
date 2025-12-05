@@ -16,10 +16,10 @@ import json
 from scipy import stats
 from sklearn.metrics import r2_score, mean_absolute_error
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 设置绘图风格
+# Set plotting style
 plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("husl")
 
@@ -39,10 +39,10 @@ def plot_wavelength_plqy_scatter(df, output_dir):
     
     # Solvent types and colors
     solvent_colors = {
-        'CH2Cl2': '#1f77b4',  # 蓝色
-        'CH3CN': '#2ca02c',   # 绿色
-        'Toluene': '#ff7f0e',  # 橙色
-        'Others': '#9467bd'    # 紫色
+        'CH2Cl2': '#1f77b4',  # blue
+        'CH3CN': '#2ca02c',   # green
+        'Toluene': '#ff7f0e',  # orange
+        'Others': '#9467bd'    # purple
     }
     
     # Extract wavelength and PLQY columns
@@ -101,12 +101,12 @@ def plot_plqy_distribution(df, output_dir):
         bins = [0, 0.1, 0.5, 1.0]
         labels = ['0-0.1', '0.1-0.5', '0.5-1.0']
         
-        # 如果有溶剂信息
+        # If solvent information available
         if 'Solvent' in df.columns:
             solvent_types = ['CH2Cl2', 'CH3CN', 'Toluene', 'Others']
             colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd']
             
-            # 创建分组数据
+            # Create grouped data
             data_by_range = []
             for i in range(len(bins)-1):
                 range_data = []
@@ -117,7 +117,7 @@ def plot_plqy_distribution(df, output_dir):
                     range_data.append(mask.sum())
                 data_by_range.append(range_data)
             
-            # 绘制堆叠柱状图
+            # Draw stacked bar chart
             x = np.arange(len(labels))
             width = 0.6
             bottom = np.zeros(len(labels))
@@ -222,29 +222,29 @@ def plot_correlation_matrix(df, output_dir):
     """
     Plot correlation matrix (Figure g-like)
     """
-    # 选择PLQY相关的数值列
+    # Select PLQY-related numeric columns
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    # 选择关键列（如果存在）
+    # Select key columns (if available)
     key_cols = []
     for col in numeric_cols:
         if any(keyword in col.lower() for keyword in ['plqy', 'wavelength', 'tau', 'lifetime']):
             key_cols.append(col)
     
     if len(key_cols) < 2:
-        key_cols = numeric_cols[:min(10, len(numeric_cols))]  # 选择前10个数值列
+        key_cols = numeric_cols[:min(10, len(numeric_cols))]  # select first 10 numeric columns
     
     if len(key_cols) >= 2:
-        # 计算相关性矩阵
+        # Compute correlation matrix
         corr_matrix = df[key_cols].corr()
         
-        # 创建热图
+        # Create heatmap
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         
-        # 使用自定义颜色图
+        # Use custom colormap
         cmap = sns.diverging_palette(240, 10, as_cmap=True)
         
-        # 绘制热图
+        # Draw heatmap
         sns.heatmap(corr_matrix, annot=True, fmt='.2f', 
                    cmap=cmap, center=0,
                    square=True, linewidths=1,
@@ -306,7 +306,7 @@ def generate_summary_stats(df, output_dir):
     
     print(f"INFO: Saved summary stats: {stats_file}")
     
-    # 打印统计摘要
+    # Print statistics summary
     print("\n" + "=" * 60)
     print("Data statistics summary")
     print("=" * 60)
@@ -341,7 +341,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建输出目录
+    # Create output directory
     if args.output:
         output_dir = Path(args.output)
     else:

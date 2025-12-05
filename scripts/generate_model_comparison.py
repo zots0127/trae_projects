@@ -277,7 +277,7 @@ def plot_model_comparison(df, output_dir):
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     targets = df['Target'].unique()
-    for idx, target in enumerate(targets[:3]):  # 最多显示3个目标
+    for idx, target in enumerate(targets[:3]):  # show up to 3 targets
         ax = axes[idx] if len(targets) > 1 else axes
         
         target_df = df[df['Target'] == target]
@@ -362,7 +362,7 @@ def generate_latex_table(df, output_dir):
 \midrule
 '''
     
-    # 排序数据
+    # Sort data
     df_sorted = df.sort_values(['Target', 'Type', 'Model'])
     
     for _, row in df_sorted.iterrows():

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.feature_extractor import FeatureExtractor
 
-# 全局性能记录
+# Global performance record
 performance_stats = {
     'start_time': None,
     'end_time': None,
@@ -329,7 +329,7 @@ def analyze_results(df):
         print(f"  - Mean: {plqy.mean():.4f}")
         print(f"  - Std: {plqy.std():.4f}")
         
-        # PLQY范围分布
+        # PLQY range distribution
         print("\n  PLQY range distribution:")
         ranges = [
             (0.9, 1.0, "0.9-1.0"),
@@ -510,7 +510,7 @@ def save_results(df, output_file):
     print("Step 5: Save results")
     print("-"*80)
     
-    # 保存完整结果
+    # Save full prediction results
     print(f"\nSaving full prediction results...")
     df.to_csv(output_file, index=False)
     print(f"  [INFO] File: {output_file}")
@@ -556,11 +556,11 @@ def main():
     
     args = parser.parse_args()
     
-    # 设置默认项目目录为固定名称
+    # Set default project directory to fixed name
     if not args.project:
         args.project = 'paper_table'
     
-    # 设置默认输入输出路径
+    # Set default input and output paths
     if not args.input:
         args.input = f"{args.project}/ir_assemble.csv"
     if not args.output:
@@ -579,54 +579,54 @@ def main():
     print(f"  - Input file: {args.input}")
     print(f"  - Output file: {args.output}")
     
-    # 记录开始时间和硬件信息
+    # Record start time and hardware info
     performance_stats['start_time'] = time.time()
     performance_stats['hardware_info'] = get_hardware_info()
     total_start = time.time()
     
-    # 显示硬件信息
+    # Show hardware info
     print("\nHardware info:")
     for key, value in performance_stats['hardware_info'].items():
         print(f"  - {key}: {value}")
     
-    # 1. 加载组合
+    # 1. Load combinations
     print(f"\nLoading combination file...")
     df = pd.read_csv(args.input)
     print(f"INFO: Loaded {len(df):,} combinations")
     
-    # 验证L1=L2
+    # Validate L1=L2
     same_count = (df['L1'] == df['L2']).sum()
     print(f"INFO: L1=L2 validation: {same_count:,}/{len(df):,}")
     
-    # 2. 加载模型
+    # 2. Load models
     models = load_models(args.project, use_intersection=args.intersection)
     if not models:
         print("ERROR: No models found")
         return
     
-    # 3. 提取特征
+    # 3. Extract features
     X, df_valid = extract_features_batch(df, batch_size=args.batch_size)
     if X is None:
         print("ERROR: Feature extraction failed")
         return
     
-    # 4. 预测
+    # 4. Predict
     df_predicted = predict_batch(models, X, df_valid, batch_size=args.predict_batch)
     
-    # 5. 分析结果
+    # 5. Analyze results
     analyze_results(df_predicted)
     
-    # 6. 保存结果
+    # 6. Save results
     save_results(df_predicted, args.output)
     
-    # 记录结束时间
+    # Record end time
     performance_stats['end_time'] = time.time()
     
-    # 7. 保存性能统计
+    # 7. Save performance statistics
     output_dir = Path(args.output).parent
     save_performance_stats(output_dir)
     
-    # 总结
+    # Summary
     total_time = time.time() - total_start
     print("\n" + "="*80)
     print("Prediction completed!")

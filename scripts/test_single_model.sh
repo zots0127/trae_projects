@@ -1,7 +1,7 @@
 #!/bin/bash
-# 测试单个模型训练
+# Test single model training
 
-echo "测试XGBoost模型训练..."
+echo "Testing XGBoost model training..."
 
 python automl.py train \
     config=xgboost_debug \
@@ -12,4 +12,4 @@ python automl.py train \
     multi_target=independent \
     nan_handling=skip
 
-echo "完成！检查 test_single/ 目录"
+echo "Done! Check test_single/ directory"

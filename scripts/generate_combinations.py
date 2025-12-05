@@ -19,12 +19,12 @@ def generate_combinations(data_file, output_file):
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Data file: {data_file}")
     
-    # 1. 加载数据
+    # 1) Load data
     print("\n1) Load data...")
     df = pd.read_csv(data_file)
     print(f"   Original rows: {len(df)}")
     
-    # 2. 提取并去重配体
+    # 2) Extract and deduplicate ligands
     print("\n2) Extract and deduplicate ligands...")
     
     # Merge L1 and L2, then deduplicate
@@ -44,7 +44,7 @@ def generate_combinations(data_file, output_file):
     print(f"   L3 unique: {len(l3_unique)}")
     print(f"   Theoretical combinations: {len(l12_unique) * len(l3_unique):,}")
     
-    # 3. 生成组合（向量化操作）
+    # 3) Generate combinations (vectorized)
     print("\n3) Generate combinations...")
     
     # Use meshgrid to generate indices for all combinations
@@ -59,18 +59,18 @@ def generate_combinations(data_file, output_file):
     # Create DataFrame (L1=L2)
     result_df = pd.DataFrame({
         'L1': l12_flat,
-        'L2': l12_flat,  # L1和L2相同
+        'L2': l12_flat,
         'L3': l3_flat
     })
     
     print(f"   Generated combinations: {len(result_df):,}")
     
-    # 4. 保存结果
+    # 4) Save results
     print("\n4) Save results...")
     result_df.to_csv(output_file, index=False)
     print(f"   INFO: Saved to: {output_file}")
     
-    # 5. 统计信息
+    # 5) Summary
     print("\n" + "=" * 60)
     print("Completion stats")
     print("-" * 60)
@@ -92,7 +92,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 生成组合
+    # Generate combinations
     generate_combinations(args.data, args.output)
 
 if __name__ == "__main__":

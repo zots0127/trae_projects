@@ -15,7 +15,7 @@ from itertools import product
 import warnings
 warnings.filterwarnings('ignore')
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.feature_extractor import FeatureExtractor
@@ -31,7 +31,7 @@ def load_and_deduplicate_ligands(data_file):
     
     # Use set for fast deduplication
     l12_set = set(l1_series) | set(l2_series)
-    l12_unique = sorted(list(l12_set))  # 排序以保证结果一致性
+    l12_unique = sorted(list(l12_set))  # sort for consistent results
     
     # Deduplicate L3
     l3_unique = sorted(df['L3'].dropna().unique().tolist())
@@ -84,7 +84,7 @@ def batch_extract_features(df, feature_type='combined', batch_size=1000, combina
     """Extract features in batches for efficiency"""
     print("\nINFO: Extract molecular features in batches...")
     
-    # 初始化特征提取器
+    # Initialize feature extractor
     extractor = FeatureExtractor(
         feature_type=feature_type,
         morgan_radius=2,
@@ -110,7 +110,7 @@ def batch_extract_features(df, feature_type='combined', batch_size=1000, combina
         for idx, row in batch_df.iterrows():
             try:
                 smiles_list = [row['L1'], row['L2'], row['L3']]
-                # 使用extract_combination方法合并多个配体的特征
+                # Use extract_combination to merge ligand features
                 features = extractor.extract_combination(
                     smiles_list,
                     feature_type=feature_type,
@@ -140,7 +140,7 @@ def batch_extract_features(df, feature_type='combined', batch_size=1000, combina
         return None, None
 
 def batch_predict(X, model, batch_size=10000):
-    """批量预测，避免内存溢出"""
+    """Batch prediction to avoid memory overflow"""
     n_samples = len(X)
     n_batches = (n_samples + batch_size - 1) // batch_size
     
@@ -206,7 +206,7 @@ def predict_all_properties(X, df_valid, models):
             print(f"    Range: [{pred.min():.3f}, {pred.max():.3f}]")
             print(f"    Mean: {pred.mean():.3f} +/- {pred.std():.3f}")
     
-    # 一次性添加所有预测列
+    # Add all prediction columns at once
     for col_name, pred_values in predictions.items():
         df_valid[col_name] = pred_values
     
@@ -247,10 +247,10 @@ def main():
     print(f"Project dir: {args.project}")
     print(f"Model: {args.model}")
     
-    # 1. 加载并去重配体
+    # 1. Load and deduplicate ligands
     l12_unique, l3_unique, original_df = load_and_deduplicate_ligands(args.data)
     
-    # 2. 生成组合（向量化）
+    # 2. Generate combinations (vectorized)
     assembled_df = generate_combinations_vectorized(l12_unique, l3_unique)
     
     # Save combinations file
@@ -258,7 +258,7 @@ def main():
     assembled_df.to_csv(combo_file, index=False)
     print(f"\nINFO: Combinations file saved: {combo_file}")
     
-    # 3. 批量提取特征
+    # 3. Batch extract features
     X, df_valid = batch_extract_features(
         assembled_df,
         feature_type=args.feature_type,
@@ -271,28 +271,28 @@ def main():
         print("ERROR: Feature extraction failed")
         return
     
-    # 4. 加载所有模型
+    # 4. Load all models
     models = load_trained_models(args.project, args.model)
     
     if not models:
         print("ERROR: No models found")
         return
     
-    # 5. 批量预测
+    # 5. Batch predict
     df_predicted = predict_all_properties(X, df_valid, models)
     
-    # 6. 保存结果
+    # 6. Save results
     print("\nSaving virtual database...")
     df_predicted.to_csv(args.output, index=False)
     print(f"INFO: Virtual database saved: {args.output}")
     
-    # 7. 分析结果
+    # 7. Analyze results
     print("\n" + "=" * 60)
     print("Virtual database analysis")
     print("-" * 40)
     print(f"Total combinations: {len(df_predicted):,}")
     
-    # 找出最优组合
+    # Find best combinations
     if 'Predicted_PLQY' in df_predicted.columns:
         # Top 10 PLQY
         top_plqy = df_predicted.nlargest(10, 'Predicted_PLQY')
@@ -305,14 +305,14 @@ def main():
                 if 'Predicted_Max_wavelength(nm)' in df_predicted.columns:
                     print(f"       Wavelength={row['Predicted_Max_wavelength(nm)']:.1f} nm")
     
-    # 保存Top候选
+    # Save top candidates
     if 'Predicted_PLQY' in df_predicted.columns:
         top_file = args.output.replace('.csv', '_top1000.csv')
         top_candidates = df_predicted.nlargest(1000, 'Predicted_PLQY')
         top_candidates.to_csv(top_file, index=False)
         print(f"\nINFO: Top 1000 candidates saved: {top_file}")
     
-    # 时间统计
+    # Timing statistics
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
     print(f"\nTotal runtime: {duration:.1f} seconds")

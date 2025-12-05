@@ -353,7 +353,7 @@ def main():
     print(f"Project directory: {project_dir}")
     print(f"Output directory: {output_dir}")
     
-    # 1. 找出最佳模型
+    # 1. Find best models
     comparison_file = project_dir / 'model_comparison_detailed.csv'
     if not comparison_file.exists():
         print(f"ERROR: Comparison file not found: {comparison_file}")
@@ -365,7 +365,7 @@ def main():
     for target, info in best_models.items():
         print(f"  {target.upper()}: {info['model'].upper()} (R^2={info['r2']:.4f}, MAE={info['mae']:.4f})")
     
-    # 2. 处理每个目标
+    # 2. Process each target
     results = {}
     
     for target_key, model_info in best_models.items():

@@ -12,10 +12,10 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 模型名称映射（用于显示）
+# Model display names
 MODEL_DISPLAY_NAMES = {
     'adaboost': 'AdaBoost',
     'ada_boost': 'AdaBoost',
@@ -37,7 +37,7 @@ def load_model_results(project_path, model_name):
     """Load results for a single model"""
     results = {}
     
-    # 查找模型目录
+    # Locate model directories
     model_dirs = [
         project_path / model_name,
         project_path / f"{model_name}_standard",
@@ -54,7 +54,7 @@ def load_model_results(project_path, model_name):
         print(f"  WARNING: Model directory not found: {model_name}")
         return results
     
-    # 首先尝试从exports目录读取summary.json文件
+    # First try reading summary JSON files from exports directory
     exports_dir = model_dir / 'exports'
     if exports_dir.exists():
         summary_files = list(exports_dir.glob("*_summary.json"))
@@ -65,7 +65,7 @@ def load_model_results(project_path, model_name):
                 
                 target = data.get('target', '')
                 
-                # 获取指标
+                # Extract metrics
                 if 'mean_r2' in data:
                     results[target] = {
                         'r2_mean': data['mean_r2'],
@@ -79,19 +79,19 @@ def load_model_results(project_path, model_name):
             except Exception as e:
                 print(f"  WARNING: Failed to read summary {summary_file}: {e}")
     
-    # 如果没有找到summary文件，尝试旧格式
+    # If no summary found, try legacy format
     if not results:
-        # 遍历目标目录
+        # Iterate target directories
         for target_dir in model_dir.iterdir():
             if not target_dir.is_dir():
                 continue
             
-            # 查找结果文件
+            # Find result files
             result_files = list(target_dir.glob("**/experiment_results.json"))
             if not result_files:
                 continue
             
-            # 读取结果
+            # Read results
             try:
                 with open(result_files[0], 'r') as f:
                     data = json.load(f)
@@ -99,7 +99,7 @@ def load_model_results(project_path, model_name):
                 target = data.get('target_column', target_dir.name)
                 cv_results = data.get('cv_results', {})
                 
-                # 提取指标
+                # Extract metrics
                 r2_scores = []
                 rmse_scores = []
                 mae_scores = []
@@ -152,10 +152,10 @@ def generate_performance_table(project_name, output_format='all', target_names=N
             'tausx10^-6': 'Lifetime (us)'
         }
     
-    # 收集所有结果
+    # Collect all results
     all_results = []
     
-    # 遍历每个模型
+    # Iterate each model
     print("\nCollecting model results...")
     for model_dir in project_path.iterdir():
         if not model_dir.is_dir() or model_dir.name.startswith('.'):
@@ -181,7 +181,7 @@ def generate_performance_table(project_name, output_format='all', target_names=N
             # Display model name
             display_model = MODEL_DISPLAY_NAMES.get(model_name, model_name)
             
-            # 添加结果
+            # Append result
             all_results.append({
                 'Target': display_target,
                 'Model': display_model,
@@ -195,17 +195,17 @@ def generate_performance_table(project_name, output_format='all', target_names=N
         print("WARNING: No results found")
         return None
     
-    # 创建DataFrame
+    # Create DataFrame
     df = pd.DataFrame(all_results)
     
-    # 按目标和模型排序
+    # Sort by target and model
     df = df.sort_values(['Target', 'Model'])
     
-    # 输出目录
+    # Output directory
     output_dir = project_path / 'tables'
     output_dir.mkdir(exist_ok=True)
     
-    # 生成不同格式的表格
+    # Generate tables in different formats
     outputs = []
     
     if output_format in ['all', 'console']:
@@ -241,10 +241,10 @@ def generate_performance_table(project_name, output_format='all', target_names=N
         try:
             excel_file = output_dir / 'performance_table.xlsx'
             with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-                # 总表
+                # All results
                 df.to_excel(writer, sheet_name='All Results', index=False)
                 
-                # 每个目标单独一个sheet
+                # Each target in a separate sheet
                 for target in df['Target'].unique():
                     target_df = df[df['Target'] == target]
                     sheet_name = target.replace('/', '_').replace('(', '').replace(')', '')[:31]
@@ -305,7 +305,7 @@ def generate_performance_table(project_name, output_format='all', target_names=N
                 
                 target_df = df[df['Target'] == target]
                 for _, row in target_df.iterrows():
-                    # 转义LaTeX特殊字符
+                    # Escape LaTeX special characters
                     model = row['Model'].replace('_', '\\_')
                     f.write(f"{model} & {row['R^2']} & {row['RMSE']} & {row['MAE']} \\\n")
                 
@@ -339,7 +339,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 解析自定义目标名称
+    # Parse custom target names
     target_names = None
     if args.targets:
         target_names = {}
@@ -348,7 +348,7 @@ def main():
                 orig, display = mapping.split('=', 1)
                 target_names[orig] = display
     
-    # 生成表格
+    # Generate tables
     df = generate_performance_table(args.project, args.format, target_names)
     
     if df is None:

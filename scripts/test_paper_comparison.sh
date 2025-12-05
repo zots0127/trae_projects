@@ -1,45 +1,45 @@
 #!/bin/bash
-# 测试论文对比功能的脚本
-# 训练所有模型并生成对比表格
+# Test script for paper-level comparison
+# Train all models and generate comparison tables
 
 echo "============================================================"
-echo "          论文级模型对比测试脚本"
+echo "          Paper-level Model Comparison Test Script"
 echo "============================================================"
 echo ""
 
-# 颜色定义
+# Color definitions
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# 默认参数
+# Default parameters
 DATA_FILE="${1:-../data/Database_normalized.csv}"
 TEST_DATA="${2:-Database_ours_0903update_normalized.csv}"
 PROJECT_NAME="${3:-PaperComparison}"
 
-# 检查数据文件
-echo -e "${BLUE}[1/4] 检查数据文件...${NC}"
+# Check data files
+echo -e "${BLUE}[1/4] Checking data files...${NC}"
 if [ ! -f "$DATA_FILE" ]; then
-    echo -e "${YELLOW}⚠️  训练数据文件不存在: $DATA_FILE${NC}"
-    echo "尝试使用示例数据..."
+    echo -e "${YELLOW}WARNING: Training data file not found: $DATA_FILE${NC}"
+    echo "Trying sample data..."
     DATA_FILE="data/synthetic_molecules.csv"
     if [ ! -f "$DATA_FILE" ]; then
-        echo -e "${RED}❌ 没有找到可用的数据文件${NC}"
+        echo -e "${RED}ERROR: No usable data file found${NC}"
         exit 1
     fi
 fi
-echo -e "${GREEN}✅ 数据文件: $DATA_FILE${NC}"
+echo -e "${GREEN}INFO: Data file: $DATA_FILE${NC}"
 
-# 运行训练
+# Run training
 echo ""
-echo -e "${BLUE}[2/4] 开始训练所有模型...${NC}"
-echo "配置: paper_comparison"
-echo "项目: $PROJECT_NAME"
+echo -e "${BLUE}[2/4] Starting training for all models...${NC}"
+echo "Config: paper_comparison"
+echo "Project: $PROJECT_NAME"
 echo ""
 
-# 使用paper_comparison配置训练
+# Train with paper_comparison config
 python automl.py train \
     config=paper_comparison \
     data="$DATA_FILE" \
@@ -48,78 +48,75 @@ python automl.py train \
     training.n_folds=5 \
     optimization.automl_models=[xgboost,lightgbm,catboost,random_forest,gradient_boosting]
 
-# 检查训练结果
+# Check training result
 if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ 训练失败${NC}"
+    echo -e "${RED}ERROR: Training failed${NC}"
     exit 1
 fi
 
 echo ""
-echo -e "${GREEN}✅ 训练完成！${NC}"
+echo -e "${GREEN}INFO: Training completed${NC}"
 
-# 生成对比表格
+# Generate comparison table
 echo ""
-echo -e "${BLUE}[3/4] 生成对比表格...${NC}"
+echo -e "${BLUE}[3/4] Generating comparison table...${NC}"
 
-# 找到最新的训练目录
+# Find latest training directory
 LATEST_DIR=$(ls -td "$PROJECT_NAME"/paper_test* 2>/dev/null | head -1)
 
 if [ -z "$LATEST_DIR" ]; then
-    echo -e "${YELLOW}⚠️  未找到训练结果目录${NC}"
+    echo -e "${YELLOW}WARNING: No training result directory found${NC}"
     exit 1
 fi
 
-echo "结果目录: $LATEST_DIR"
+echo "Result directory: $LATEST_DIR"
 
-# 使用Python生成表格
+# Generate tables with Python
 python -c "
 import sys
 sys.path.append('.')
 from utils.comparison_table import ComparisonTableGenerator
 
-# 创建生成器
 generator = ComparisonTableGenerator('$LATEST_DIR')
 
-# 导出所有格式
 exported = generator.export_all_formats(
     formats=['markdown', 'html', 'latex', 'csv']
 )
 
-# 显示最佳模型
 print('')
 print('='*60)
-print('最佳模型总结')
+print('Best model summary')
 print('='*60)
 best_models = generator.get_best_models()
 for target, info in best_models.items():
     print(f'{target}:')
-    print(f'  最佳模型: {info[\"algorithm\"]}')
-    print(f'  R²: {info[\"r2\"]}')
+    print(f'  Best model: {info[\"algorithm\"]}')
+    print(f'  R2: {info[\"r2\"]}')
     print(f'  RMSE: {info[\"rmse\"]}')
     print('')
 "
 
-# 显示生成的文件
+# Show generated files
 echo ""
-echo -e "${BLUE}[4/4] 生成的文件：${NC}"
+echo -e "${BLUE}[4/4] Generated files:${NC}"
 ls -la "$LATEST_DIR"/comparison_table_* 2>/dev/null
 
 echo ""
 echo -e "${GREEN}============================================================${NC}"
-echo -e "${GREEN}                    测试完成！${NC}"
+echo -e "${GREEN}                    Test completed${NC}"
 echo -e "${GREEN}============================================================${NC}"
 echo ""
-echo "📊 查看结果："
+echo "View results:"
 echo "  - Markdown: cat $LATEST_DIR/comparison_table_*.md"
 echo "  - HTML: open $LATEST_DIR/comparison_table_*.html"
 echo "  - LaTeX: cat $LATEST_DIR/comparison_table_*.tex"
 echo "  - CSV: cat $LATEST_DIR/comparison_table_*.csv"
 echo ""
-echo "💡 提示："
-echo "  - 使用完整配置进行生产训练："
+echo "Tips:"
+echo "  - Use full config for production training:"
 echo "    python automl.py train config=paper_comparison data=your_data.csv"
-echo "  - 自定义列名："
-echo "    python automl.py train config=paper_comparison \\"
-echo "      data=data.csv \\"
-echo "      smiles_columns=L1,L2,L3 \\"
-echo "      targets=wavelength,plqy"
+echo "  - Customize column names:"
+echo "    python automl.py train config=paper_comparison \\
+      data=data.csv \\
+      smiles_columns=L1,L2,L3 \\
+      targets=wavelength,plqy"

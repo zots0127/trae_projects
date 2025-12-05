@@ -11,10 +11,10 @@ from datetime import datetime
 import argparse
 import json
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 定义所有标准模型配置
+# Define all standard model configurations
 ALL_MODELS = [
     "adaboost",
     "catboost", 
@@ -28,13 +28,13 @@ ALL_MODELS = [
     "random_forest",
     "ridge",
     "xgboost",
-    # "svr",  # SVR通常较慢，可选
+    # "svr",  # SVR is usually slower; optional
 ]
 
 def train_single_model(model_name, project_name, data_file, config_level="standard", **kwargs):
     """Train a single model"""
     
-    # 构建配置名称
+    # Build config name
     if model_name == "adaboost":
         config_name = f"ada_boost_{config_level}"
     else:
@@ -43,22 +43,22 @@ def train_single_model(model_name, project_name, data_file, config_level="standa
     print(f"\nTraining model: {model_name} (config: {config_name})")
     print("-" * 40)
     
-    # 构建命令
+    # Build command
     automl_py = str(Path(__file__).parent.parent / "automl.py")
     cmd = [
-        "python", automl_py, "train",
+        sys.executable, automl_py, "train",
         f"config={config_name}",
         f"data={data_file}",
         f"project={project_name}",
         f"name={model_name}",
     ]
     
-    # 添加额外参数
+    # Add extra parameters
     for key, value in kwargs.items():
         cmd.append(f"{key}={value}")
     
     try:
-        # 执行训练
+        # Execute training
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         print(f"INFO: {model_name} training completed")
         return True
@@ -72,7 +72,7 @@ def train_single_model(model_name, project_name, data_file, config_level="standa
 def train_all_models(project_name=None, data_file=None, config_level="standard", models=None):
     """Train all models"""
     
-    # 默认参数
+    # Default parameters
     if not data_file:
         data_file = "data/Database_normalized.csv"
     
@@ -90,7 +90,7 @@ def train_all_models(project_name=None, data_file=None, config_level="standard",
     print(f"Model count: {len(models)}")
     print("=" * 60)
     
-    # 训练参数
+    # Training parameters
     train_params = {
         "multi_target": "independent",
         "nan_handling": "skip",
@@ -99,7 +99,7 @@ def train_all_models(project_name=None, data_file=None, config_level="standard",
         "verbose": 0
     }
     
-    # 记录结果
+    # Record results
     results = []
     
     for i, model in enumerate(models, 1):
@@ -117,7 +117,7 @@ def train_all_models(project_name=None, data_file=None, config_level="standard",
             'status': 'success' if success else 'failed'
         })
     
-    # 汇总结果
+    # Summary
     print("\n" + "=" * 60)
     print("Training summary:")
     print("-" * 40)
@@ -129,7 +129,7 @@ def train_all_models(project_name=None, data_file=None, config_level="standard",
         failed = [r['model'] for r in results if r['status'] == 'failed']
         print(f"Failed: {', '.join(failed)}")
     
-    # 保存训练信息
+    # Save training info
     info_file = Path(project_name) / "training_info.json"
     if Path(project_name).exists():
         with open(info_file, 'w') as f:
@@ -149,11 +149,11 @@ def main():
     """Main entry"""
     parser = argparse.ArgumentParser(description='Unified training script')
     
-    # 模式选择
+    # Mode selection
     parser.add_argument('mode', choices=['single', 'all', 'paper'], 
                        help='Training mode: single, all, paper')
     
-    # 通用参数
+    # Common parameters
     parser.add_argument('--model', '-m', help='Model name (single mode)')
     parser.add_argument('--project', '-p', help='Project name')
     parser.add_argument('--data', '-d', default='data/Database_normalized.csv', 
@@ -208,7 +208,7 @@ def main():
         train_all_models(
             project_name=project,
             data_file=args.data,
-            config_level='standard',  # 论文使用标准配置
+            config_level='standard',  # standard config for paper
             models=ALL_MODELS
         )
         

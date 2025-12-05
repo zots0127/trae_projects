@@ -80,7 +80,7 @@ def analyze_combinations(data_file=None, virtual_file=None):
     print("\n8) Ligand distribution stats:")
     print(f"   L1-only: {len(set(l1_unique) - set(l2_unique)):,}")
     print(f"   L2-only: {len(set(l2_unique) - set(l1_unique)):,}")
-    print(f"   Intersection (L1 ∩ L2): {len(set(l1_unique) & set(l2_unique)):,}")
+    print(f"   Intersection (L1 & L2): {len(set(l1_unique) & set(l2_unique)):,}")
     
     print("\n" + "=" * 80)
     print("Summary:")

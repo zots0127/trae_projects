@@ -17,11 +17,11 @@ def create_static_plot(df, output_dir):
     """Create static scatter plot (matplotlib)"""
     print("\nINFO: Creating static scatter plot...")
     
-    # 设置风格
+    # Set style
     plt.style.use('seaborn-v0_8-darkgrid')
     fig, ax = plt.subplots(figsize=(12, 8))
     
-    # 创建散点图，根据PLQY值着色
+    # Create scatter plot colored by PLQY
     scatter = ax.scatter(df['Predicted_wavelength'], 
                         df['Predicted_PLQY'],
                         c=df['Predicted_PLQY'],
@@ -30,19 +30,19 @@ def create_static_plot(df, output_dir):
                         s=1,
                         edgecolors='none')
     
-    # 添加颜色条
+    # Add color bar
     cbar = plt.colorbar(scatter, ax=ax)
     cbar.set_label('PLQY', fontsize=12)
     
-    # 设置标签和标题
+    # Set labels and title
     ax.set_xlabel('Predicted Wavelength (nm)', fontsize=14)
     ax.set_ylabel('Predicted PLQY', fontsize=14)
     ax.set_title(f'Virtual Database Predictions ({len(df):,} molecules)', fontsize=16, fontweight='bold')
     
-    # 添加网格
+    # Add grid
     ax.grid(True, alpha=0.3)
     
-    # 添加统计信息
+    # Add statistics
     stats_text = f"Wavelength: {df['Predicted_wavelength'].mean():.1f}+/-{df['Predicted_wavelength'].std():.1f} nm\n"
     stats_text += f"PLQY: {df['Predicted_PLQY'].mean():.3f}+/-{df['Predicted_PLQY'].std():.3f}\n"
     stats_text += f"PLQY>=0.7: {(df['Predicted_PLQY']>=0.7).sum():,} ({100*(df['Predicted_PLQY']>=0.7).mean():.2f}%)\n"
@@ -55,7 +55,7 @@ def create_static_plot(df, output_dir):
             verticalalignment='top',
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    # 保存图片
+    # Save image
     output_file = output_dir / 'virtual_predictions_scatter.png'
     plt.tight_layout()
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
@@ -68,17 +68,17 @@ def create_interactive_plot(df, output_dir):
     """Create interactive scatter plot (plotly)"""
     print("\nINFO: Creating interactive scatter plot...")
     
-    # 为了性能，如果数据太多，采样
+    # Sample for performance if dataset is large
     if len(df) > 50000:
         print(f"INFO: Large dataset ({len(df):,}); sampling 50,000 points for interactive plot")
         df_sample = df.sample(n=50000, random_state=42)
     else:
         df_sample = df
     
-    # 创建散点图
+    # Create scatter plot
     fig = go.Figure()
     
-    # 添加所有点
+    # Add all points
     fig.add_trace(go.Scatter(
         x=df_sample['Predicted_wavelength'],
         y=df_sample['Predicted_PLQY'],
@@ -117,7 +117,7 @@ def create_interactive_plot(df, output_dir):
         name=f'PLQY>=0.9 ({len(high_plqy):,})'
         ))
     
-    # 更新布局
+    # Update layout
     fig.update_layout(
         title=dict(
             text=f"Virtual Database Predictions ({len(df):,} molecules)",
@@ -145,7 +145,7 @@ def create_interactive_plot(df, output_dir):
         )
     )
     
-    # 添加注释统计
+    # Add statistical annotation
     annotations = []
     stats_text = f"<b>Statistics:</b><br>"
     stats_text += f"Wavelength: {df['Predicted_wavelength'].mean():.1f}+/-{df['Predicted_wavelength'].std():.1f} nm<br>"
@@ -170,7 +170,7 @@ def create_interactive_plot(df, output_dir):
         opacity=0.9
     )
     
-    # 保存HTML文件
+    # Save HTML file
     output_file = output_dir / 'virtual_predictions_scatter.html'
     fig.write_html(output_file)
     print(f"INFO: Saved interactive plot: {output_file}")
@@ -183,7 +183,7 @@ def create_density_plot(df, output_dir):
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 12))
     
-    # 1. 2D密度图
+    # 1. 2D density plot
     ax = axes[0, 0]
     h = ax.hist2d(df['Predicted_wavelength'], 
                   df['Predicted_PLQY'],
@@ -195,7 +195,7 @@ def create_density_plot(df, output_dir):
     ax.set_ylabel('Predicted PLQY')
     ax.set_title('2D Density Distribution')
     
-    # 2. Hexbin图
+    # 2. Hexbin plot
     ax = axes[0, 1]
     hb = ax.hexbin(df['Predicted_wavelength'], 
                    df['Predicted_PLQY'],
@@ -207,7 +207,7 @@ def create_density_plot(df, output_dir):
     ax.set_ylabel('Predicted PLQY')
     ax.set_title('Hexbin Distribution')
     
-    # 3. 波长分布
+    # 3. Wavelength distribution
     ax = axes[1, 0]
     ax.hist(df['Predicted_wavelength'], bins=50, color='blue', alpha=0.7, edgecolor='black')
     ax.set_xlabel('Predicted Wavelength (nm)')
@@ -216,7 +216,7 @@ def create_density_plot(df, output_dir):
     ax.axvline(df['Predicted_wavelength'].mean(), color='red', linestyle='--', label='Mean')
     ax.legend()
     
-    # 4. PLQY分布
+    # 4. PLQY distribution
     ax = axes[1, 1]
     ax.hist(df['Predicted_PLQY'], bins=50, color='green', alpha=0.7, edgecolor='black')
     ax.set_xlabel('Predicted PLQY')
@@ -230,7 +230,7 @@ def create_density_plot(df, output_dir):
     plt.suptitle(f'Virtual Database Predictions Analysis ({len(df):,} molecules)', fontsize=16, fontweight='bold')
     plt.tight_layout()
     
-    # 保存图片
+    # Save image
     output_file = output_dir / 'virtual_predictions_density.png'
     plt.savefig(output_file, dpi=150, bbox_inches='tight')
     print(f"INFO: Saved density plot: {output_file}")
@@ -253,7 +253,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建输出目录
+    # Create output directory
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -263,17 +263,17 @@ def main():
     print(f"Input file: {args.input}")
     print(f"Output directory: {output_dir}")
     
-    # 读取数据
+    # Read data
     print("\nINFO: Reading predictions...")
     df = pd.read_csv(args.input)
     print(f"INFO: Loaded {len(df):,} prediction rows")
     
-    # 如果指定了采样
+    # Sample if specified
     if args.sample and args.sample < len(df):
         print(f"INFO: Sampling {args.sample:,} rows for visualization")
         df = df.sample(n=args.sample, random_state=42)
     
-    # 显示基本统计
+    # Show basic statistics
     print("\nBasic statistics:")
     print(f"  Wavelength range: {df['Predicted_wavelength'].min():.1f} - {df['Predicted_wavelength'].max():.1f} nm")
     print(f"  Wavelength mean: {df['Predicted_wavelength'].mean():.1f} +/- {df['Predicted_wavelength'].std():.1f} nm")
@@ -283,7 +283,7 @@ def main():
     print(f"  PLQY>=0.8: {(df['Predicted_PLQY']>=0.8).sum():,} ({100*(df['Predicted_PLQY']>=0.8).mean():.2f}%)")
     print(f"  PLQY>=0.9: {(df['Predicted_PLQY']>=0.9).sum():,} ({100*(df['Predicted_PLQY']>=0.9).mean():.2f}%)")
     
-    # 生成图表
+    # Generate plots
     generated_files = []
     
     if 'static' in args.formats:

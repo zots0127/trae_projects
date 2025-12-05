@@ -16,10 +16,10 @@ import json
 from sklearn.metrics import confusion_matrix, r2_score, mean_absolute_error
 import glob
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 设置绘图风格
+# Set plotting style
 plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("husl")
 
@@ -40,14 +40,14 @@ def load_predictions(project_dir, model_name=None):
         print(f"ERROR: Project directory not found: {project_dir}")
         return None
     
-    # 如果没有指定模型，找最佳模型（这里默认用xgboost）
+    # If no model specified, default to xgboost
     if model_name is None:
         model_name = 'xgboost'
     
     model_dir = project_path / model_name
     if not model_dir.exists():
         print(f"ERROR: Model directory not found: {model_dir}")
-        # 尝试查找其他可能的目录
+        # Try other possible directories
         for possible_name in ['xgboost', 'lightgbm', 'catboost', 'gradient_boosting']:
             model_dir = project_path / possible_name
             if model_dir.exists():
@@ -57,26 +57,26 @@ def load_predictions(project_dir, model_name=None):
             print("ERROR: No model directories found")
             return None
     
-    # 查找预测文件
+    # Find prediction files
     predictions_dir = model_dir / 'predictions'
     if not predictions_dir.exists():
         print(f"ERROR: Predictions directory not found: {predictions_dir}")
         return None
-    
-    # 收集所有目标的预测结果
+
+    # Collect prediction results for all targets
     all_predictions = {}
-    
-    # 按目标类型收集所有fold的数据
+
+    # Collect data by target type across folds
     target_types = {'wavelength': [], 'PLQY': [], 'tau': []}
-    
-    # 查找CSV文件
+
+    # Find CSV files
     csv_files = list(predictions_dir.glob("*.csv"))
     
     for csv_file in csv_files:
-        # 从文件名提取目标类型
+        # Extract target type from filename
         filename = csv_file.stem
         
-        # 判断目标类型
+        # Determine target type
         target_type = None
         if 'wavelength' in filename.lower():
             target_type = 'wavelength'
@@ -87,11 +87,11 @@ def load_predictions(project_dir, model_name=None):
         else:
             continue
         
-        # 读取预测数据
+        # Read prediction data
         try:
             df = pd.read_csv(csv_file)
             
-            # 查找实际值和预测值列
+            # Find actual and predicted columns
             actual_col = None
             pred_col = None
             
@@ -102,15 +102,14 @@ def load_predictions(project_dir, model_name=None):
                     pred_col = col
             
             if actual_col and pred_col:
-                # 使用验证集数据（如果有split列）
+                # Use subset if split column exists (prefer test, then val)
                 if 'split' in df.columns:
-                    # 优先使用test，如果没有则使用val
                     if 'test' in df['split'].values:
                         test_df = df[df['split'] == 'test']
                     elif 'val' in df['split'].values:
                         test_df = df[df['split'] == 'val']
                     else:
-                        # 如果都没有，使用所有数据
+                        # Otherwise use all data
                         test_df = df
                 else:
                     test_df = df
@@ -123,7 +122,7 @@ def load_predictions(project_dir, model_name=None):
         except Exception as e:
             print(f"WARNING: Failed to read {csv_file}: {e}")
     
-    # 合并所有fold的数据
+    # Merge data across folds
     for target_type in ['wavelength', 'PLQY', 'tau']:
         if target_types[target_type]:
             actual_all = np.concatenate([d['actual'] for d in target_types[target_type]])
@@ -230,7 +229,7 @@ def plot_prediction_scatter_all(predictions, output_dir):
         print("WARNING: No prediction data")
         return
     
-    # 创建子图
+    # Create subplots
     fig, axes = plt.subplots(1, n_targets, figsize=(6*n_targets, 5))
     
     if n_targets == 1:
@@ -398,7 +397,7 @@ def generate_prediction_report(predictions, output_dir):
     
     print(f"INFO: Saved prediction report: {report_file}")
     
-    # 打印报告摘要
+    # Print report summary
     print("\n" + "=" * 60)
     print("Prediction performance report")
     print("=" * 60)
@@ -435,7 +434,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建输出目录
+    # Create output directory
     if args.output:
         output_dir = Path(args.output)
     else:

@@ -130,7 +130,7 @@ def predict_batch(models, X, df_valid, batch_size=10000):
         print(f"    Range: [{predictions[target].min():.3f}, {predictions[target].max():.3f}]")
         print(f"    Mean: {predictions[target].mean():.3f}")
     
-    # 添加预测到DataFrame
+    # Add predictions to DataFrame
     if 'wavelength' in predictions:
         df_valid['Predicted_wavelength'] = predictions['wavelength']
     if 'PLQY' in predictions:

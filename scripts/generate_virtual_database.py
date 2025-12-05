@@ -15,7 +15,7 @@ from itertools import product
 import warnings
 warnings.filterwarnings('ignore')
 
-# 添加父目录到路径
+# Add parent directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.feature_extractor import FeatureExtractor
@@ -24,7 +24,7 @@ def load_original_data(data_file):
     """Load original data and extract unique ligands"""
     df = pd.read_csv(data_file)
     
-    # 提取所有唯一的L1, L2, L3
+    # Extract all unique L1, L2, L3
     l1_unique = df['L1'].dropna().unique()
     l2_unique = df['L2'].dropna().unique()
     l3_unique = df['L3'].dropna().unique()
@@ -58,7 +58,7 @@ def generate_all_combinations(l1_unique, l2_unique, l3_unique, max_combinations=
     
     if max_combinations and total_possible > max_combinations:
         print(f"WARNING: Limiting combinations to: {max_combinations:,}")
-        # 随机采样
+        # Random sampling
         import random
         random.seed(42)
         sampled_indices = random.sample(range(total_possible), min(max_combinations, total_possible))
@@ -185,11 +185,11 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
 
     print(f"INFO: Model directory: {model_dir}")
 
-    # 查找对应目标的模型文件
+    # Find model files for the target
     model_files = list(model_dir.glob(f"*{target}*.joblib"))
 
     if not model_files:
-        # 尝试其他可能的命名
+        # Try other possible naming patterns
         if target == 'wavelength':
             model_files = list(model_dir.glob("*wavelength*.joblib")) + \
                          list(model_dir.glob("*Max_wavelength*.joblib"))
@@ -201,7 +201,7 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
                          list(model_dir.glob("*lifetime*.joblib"))
 
     if model_files:
-        # 使用最新的模型文件
+        # Use latest model file
         model_file = sorted(model_files)[-1]
         print(f"INFO: Loaded model: {model_file.name}")
         model = joblib.load(model_file)
@@ -244,7 +244,7 @@ def predict_properties(X, df_valid, project_dir, model_name='xgboost'):
             print(f"  WARNING: Skipping {target_col} (no model)")
             predictions[target_col] = np.zeros(len(X))
     
-    # 将预测结果添加到DataFrame
+    # Add prediction results to DataFrame
     for col, pred in predictions.items():
         df_valid[f'Predicted_{col}'] = pred
     
@@ -280,12 +280,12 @@ def main():
     print(f"Model: {args.model}")
     print(f"Feature type: {args.feature_type}")
     
-    # 1. 加载原始数据
+    # 1) Load original data
     print("\n" + "-" * 40)
     print("Step 1: Load original data")
     l1_unique, l2_unique, l3_unique, original_df = load_original_data(args.data)
     
-    # 2. 生成所有组合
+    # 2) Generate all combinations
     print("\n" + "-" * 40)
     print("Step 2: Generate all combinations")
     assembled_df = generate_all_combinations(
@@ -293,18 +293,18 @@ def main():
         max_combinations=args.max_combinations
     )
     
-    # 3. 可选：移除已存在的组合
+    # 3) Optionally remove existing combinations
     if not args.include_existing:
         print("\n" + "-" * 40)
         print("Step 3: Remove existing combinations")
         assembled_df = remove_existing_combinations(assembled_df, original_df)
     
-    # 保存组合文件
+    # Save combinations file
     assembled_file = args.output.replace('.csv', '_combinations.csv')
     assembled_df.to_csv(assembled_file, index=False)
     print(f"\nINFO: Saved combinations file: {assembled_file}")
     
-    # 4. 若尚未训练模型，仅保存组合文件以供后续预测
+    # 4) If models are not trained, save combinations for later prediction
     project_path = Path(args.project)
     automl_dir = project_path / 'all_models' / 'automl_train'
     if not automl_dir.exists():
@@ -319,7 +319,7 @@ def main():
         print("=" * 60)
         return
     
-    # 5. 已有训练模型则进行特征提取与预测
+    # 5) If models exist, extract features and predict
     print("\n" + "-" * 40)
     print("Step 4: Extract molecular features")
     X, df_valid = extract_features_for_prediction(assembled_df, args.feature_type)
@@ -335,15 +335,15 @@ def main():
     df_predicted.to_csv(output_file, index=False)
     print(f"INFO: Virtual database saved: {output_file}")
     
-    # 统计信息
+    # Statistics
     print("\n" + "=" * 60)
     print("Virtual database stats:")
     print("-" * 40)
     print(f"Total combinations: {len(df_predicted):,}")
     
-    # 找出最优组合
+    # Find best combinations
     if 'Predicted_PLQY' in df_predicted.columns:
-        # PLQY最高的组合
+        # Highest-PLQY combination
         best_plqy_idx = df_predicted['Predicted_PLQY'].idxmax()
         best_plqy = df_predicted.loc[best_plqy_idx]
         print(f"\nTop PLQY combination:")
@@ -353,7 +353,7 @@ def main():
         print(f"  Predicted PLQY: {best_plqy['Predicted_PLQY']:.3f}")
     
     if 'Predicted_Max_wavelength(nm)' in df_predicted.columns:
-        # 波长最长的组合
+        # Longest-wavelength combination
         best_wl_idx = df_predicted['Predicted_Max_wavelength(nm)'].idxmax()
         best_wl = df_predicted.loc[best_wl_idx]
         print(f"\nLongest wavelength combination:")
@@ -362,7 +362,7 @@ def main():
         print(f"  L3: {best_wl['L3'][:30]}...")
         print(f"  Predicted wavelength: {best_wl['Predicted_Max_wavelength(nm)']:.1f} nm")
     
-    # 保存Top候选组合
+    # Save top candidate combinations
     top_candidates = df_predicted.nlargest(100, 'Predicted_PLQY')
     top_file = output_file.replace('.csv', '_top100.csv')
     top_candidates.to_csv(top_file, index=False)

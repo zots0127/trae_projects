@@ -162,7 +162,7 @@ def predict_test(models, X, df_valid):
         print(f"    - Std: {preds.std():.6f}")
         print(f"    - Time: {elapsed:.3f} s")
     
-    # 添加预测到DataFrame
+    # Add predictions to DataFrame
     if 'wavelength' in predictions:
         df_valid['Predicted_wavelength'] = predictions['wavelength']
     if 'PLQY' in predictions:
@@ -198,7 +198,7 @@ def compare_with_actual(df):
     if has_actual_plqy and 'Predicted_PLQY' in df.columns:
         # Handle PLQY units (convert percentage to fraction)
         actual = df['PLQY'].dropna()
-        if actual.max() > 1.5:  # 可能是百分比
+        if actual.max() > 1.5:  # may be percentage
             actual = actual / 100
         
         pred = df.loc[actual.index, 'Predicted_PLQY']

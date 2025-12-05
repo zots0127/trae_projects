@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# 添加项目根目录到Python路径
+# Add project root to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from visualization.stratified_analysis import generate_stratified_analysis
@@ -96,7 +96,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                         df = pd.read_csv(pred_file)
                         
                         # Parse target from filename
-                        filename = pred_file.stem  # 例如: xgboost_PLQY_20250913_221305_all_predictions
+                        filename = pred_file.stem  # e.g.: xgboost_PLQY_20250913_221305_all_predictions
                         parts = filename.split('_')
                         
                         # Find target name (after model name, before date)

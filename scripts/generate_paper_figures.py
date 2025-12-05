@@ -59,7 +59,7 @@ def load_predictions(project_dir, model_name='xgboost'):
         
         if automl_dir.exists():
             predictions_dir = automl_dir
-            print(f"  使用AutoML预测目录: {predictions_dir}")
+            print(f"INFO: Using AutoML predictions directory: {predictions_dir}")
         else:
             # 回退：使用统一预测目录
             predictions_dir = project_path / 'predictions'
@@ -573,7 +573,7 @@ def main():
     
     parser.add_argument('--project', '-p', default='.',
                        help='Project directory')
-    parser.add_argument('--data', '-d', default='../data/Database_normalized.csv',
+    parser.add_argument('--data', '-d', default='data/Database_normalized.csv',
                        help='Data file')
     parser.add_argument('--output', '-o', help='Output directory')
     

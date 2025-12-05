@@ -31,13 +31,13 @@ def load_predictions_from_project(project_dir: Path) -> dict:
     
     print(f"INFO: Loading predictions from project dir: {project_dir}")
     
-    # 方法1: 查找CV预测结果文件
+    # Method 1: find CV prediction result files
     for model_dir in project_dir.glob('*/'):
-        # 查找cv_predictions文件
+        # Find cv_predictions files
         for result_file in model_dir.glob('results/cv_predictions_*.csv'):
             target = result_file.stem.replace('cv_predictions_', '')
             
-            # 读取预测结果
+            # Read prediction results
             df = pd.read_csv(result_file)
             if 'actual' in df.columns and 'predicted' in df.columns:
                 predictions[target] = {
@@ -46,7 +46,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                 }
                 print(f"  INFO: Loaded {target}: {len(df)} predictions")
     
-    # 方法2: 从training_results.json提取
+    # Method 2: extract from training_results.json
     if not predictions:
         print("  INFO: No cv_predictions found, trying training_results.json...")
         
@@ -56,7 +56,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                 with open(results_file, 'r') as f:
                     results = json.load(f)
                 
-                # 提取各个模型的fold预测结果
+                # Extract fold predictions for each model
                 for model_name, model_data in results.items():
                     if isinstance(model_data, dict) and 'targets' in model_data:
                         for target, target_data in model_data['targets'].items():
@@ -80,33 +80,33 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                                     }
                                     print(f"  INFO: Loaded {key}: {len(all_actual)} predictions")
     
-    # 方法3: 查找AutoML训练结果中的预测文件
+    # Method 3: check AutoML training outputs
     if not predictions:
         print("  INFO: Trying AutoML training outputs...")
         
-        # 查找all_models/automl_train目录
+        # Find all_models/automl_train directory
         automl_dir = project_dir / 'all_models' / 'automl_train'
         if automl_dir.exists():
             for model_dir in automl_dir.glob('*/'):
                 model_name = model_dir.name
                 
-                # 查找CSV预测文件
+                # Find CSV prediction files
                 for pred_file in model_dir.glob('exports/csv/*_all_predictions.csv'):
                     try:
                         df = pd.read_csv(pred_file)
                         
-                        # 从文件名解析目标
+                        # Parse target from filename
                         filename = pred_file.stem  # 例如: xgboost_PLQY_20250913_221305_all_predictions
                         parts = filename.split('_')
                         
-                        # 找到目标名称（在模型名称之后，日期之前）
+                        # Find target name (after model name, before date)
                         target = None
                         for i, part in enumerate(parts):
                             if part == model_name and i < len(parts) - 1:
-                                # 目标名称可能包含多个部分
+                                # Target name may contain multiple parts
                                 target_parts = []
                                 for j in range(i+1, len(parts)):
-                                    if parts[j].isdigit() and len(parts[j]) == 8:  # 日期部分
+                                    if parts[j].isdigit() and len(parts[j]) == 8:  # date part
                                         break
                                     target_parts.append(parts[j])
                                 if target_parts:
@@ -114,7 +114,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                                     break
                         
                         if not target:
-                            # 备用方法：检查列名
+                            # Fallback: check column names
                             if 'Max_wavelength(nm)' in str(pred_file):
                                 target = 'wavelength'
                             elif 'PLQY' in str(pred_file):
@@ -132,7 +132,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                     except Exception as e:
                         print(f"  WARNING: Failed to read {pred_file.name}: {e}")
     
-    # 方法4: 查找exports目录中的预测文件（保留原有方法）
+    # Method 4: check exports directory (legacy method)
     if not predictions:
         print("  INFO: Trying exports directory...")
         
@@ -149,7 +149,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                         
                         all_pred = cv_data['all_predictions']
                         if all_pred and len(all_pred) > 0:
-                            # 提取实际值和预测值
+                            # Extract actual and predicted values
                             actuals = []
                             predicteds = []
                             
@@ -208,7 +208,7 @@ Examples:
     
     args = parser.parse_args()
     
-    # 设置路径
+    # Set paths
     project_dir = Path(args.project)
     if not project_dir.exists():
         print(f"ERROR: Project directory not found: {project_dir}")
@@ -222,7 +222,7 @@ Examples:
     print(f"Project dir: {project_dir}")
     print(f"Output dir: {output_dir}")
     
-    # 加载预测数据
+    # Load prediction data
     print("\nLoading predictions...")
     predictions = load_predictions_from_project(project_dir)
     
@@ -232,7 +232,7 @@ Examples:
     
     print(f"\nFound {len(predictions)} prediction datasets")
     
-    # 生成分段分析
+    # Generate stratified analysis
     print("\nGenerating analysis plots...")
     results = generate_stratified_analysis(
         predictions=predictions,
@@ -245,7 +245,7 @@ Examples:
     print("="*60)
     print(f"Output dir: {output_dir / 'stratified_analysis'}")
     
-    # 列出生成的文件
+    # List generated files
     analysis_dir = output_dir / 'stratified_analysis'
     if analysis_dir.exists():
         print("\nGenerated files:")

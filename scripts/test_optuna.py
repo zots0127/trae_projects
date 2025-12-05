@@ -1,27 +1,30 @@
 #!/usr/bin/env python3
 """
-测试Optuna优化功能
+Test Optuna optimization
 """
 
 import os
 import sys
+from pathlib import Path
 
-# 测试1: 使用快速优化模板
+# Test 1: quick optimization template
 print("="*60)
-print("测试1: 快速优化XGBoost")
+print("INFO: Test 1 - Quick XGBoost optimization")
 print("="*60)
-os.system("python automl.py train config=quick_optimize project=test_optuna_quick")
+automl_path = Path(__file__).parent.parent / 'automl.py'
+cmd = f'"{sys.executable}" "{automl_path}" train config=quick_optimize project=test_optuna_quick'
+os.system(cmd)
 
-# # 测试2: 使用完整优化模板（可选，耗时较长）
-# print("\n" + "="*60)
-# print("测试2: 完整XGBoost+Optuna优化")
-# print("="*60)
-# os.system("python automl.py train config=xgboost_optuna project=test_optuna_full")
+# # Test 2: full optimization template (optional, longer)
+# # print("\n" + "="*60)
+# # print("INFO: Test 2 - XGBoost + Optuna full optimization")
+# # print("="*60)
+# # os.system(f'"{sys.executable}" "{automl_path}" train config=xgboost_optuna project=test_optuna_full')
 
-# # 测试3: 使用AutoML模板（可选，耗时很长）
-# print("\n" + "="*60)
-# print("测试3: AutoML自动选择最佳模型")
-# print("="*60)
-# os.system("python automl.py train config=automl project=test_automl")
+# # Test 3: AutoML template (optional, very long)
+# # print("\n" + "="*60)
+# # print("INFO: Test 3 - AutoML selects best model")
+# # print("="*60)
+# # os.system(f'"{sys.executable}" "{automl_path}" train config=automl project=test_automl')
 
-print("\n✅ 测试完成！")
+print("\nINFO: Tests completed!")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-修复AutoML训练结果的模型对比表格生成
-适配optuna_results目录结构
+Fix generation of AutoML model comparison tables
+Adapt to optuna_results directory structure
 """
 
 import pandas as pd
@@ -12,37 +12,37 @@ import sys
 from datetime import datetime
 
 def collect_automl_results(output_dir):
-    """收集AutoML训练的所有模型结果"""
+    """Collect all AutoML training model results"""
     output_dir = Path(output_dir)
     results = []
     
-    # 查找automl_train目录
+    # Locate automl_train directory
     automl_dir = output_dir / 'automl_train'
     if not automl_dir.exists():
-        print(f"❌ 未找到automl_train目录: {automl_dir}")
+        print(f"ERROR: automl_train directory not found: {automl_dir}")
         return pd.DataFrame()
     
-    # 扫描所有模型的optuna_results
+    # Scan all models' optuna_results
     for model_dir in automl_dir.iterdir():
         if not model_dir.is_dir():
             continue
             
-        # 查找optuna_results目录
+        # Locate optuna_results directory
         optuna_dir = model_dir / 'optuna_results'
         if optuna_dir.exists():
-            # 查找automl_summary文件
+            # Find automl_summary files
             for summary_file in optuna_dir.glob('automl_summary_*.json'):
                 target_name = summary_file.stem.replace('automl_summary_', '')
                 
                 with open(summary_file, 'r') as f:
                     summary_data = json.load(f)
                 
-                # 遍历所有模型的结果
+                # Iterate over all models' results
                 for model_name, model_data in summary_data.get('all_models', {}).items():
                     if 'fold_results' in model_data:
                         fold_results = model_data['fold_results']
                         
-                        # 提取各折的指标
+                        # Extract metrics per fold
                         r2_scores = [fold['r2'] for fold in fold_results]
                         rmse_scores = [fold['rmse'] for fold in fold_results]
                         mae_scores = [fold['mae'] for fold in fold_results]
@@ -60,28 +60,28 @@ def collect_automl_results(output_dir):
                             'Best_R2': model_data.get('best_r2', np.mean(r2_scores))
                         })
     
-    # 去重（可能有多个相同的结果）
+    # Deduplicate (there may be multiple identical results)
     df = pd.DataFrame(results)
     if not df.empty:
-        # 根据Model和Target去重，保留第一个
+        # Deduplicate by Model and Target, keep first
         df = df.drop_duplicates(subset=['Model', 'Target'], keep='first')
     return df
 
 def generate_comparison_tables(df, output_dir):
-    """生成多种格式的对比表格"""
+    """Generate comparison tables in multiple formats"""
     if df.empty:
-        print("❌ 没有数据生成表格")
+        print("ERROR: No data to generate tables")
         return
     
     output_dir = Path(output_dir)
     tables_dir = output_dir / 'tables'
     tables_dir.mkdir(exist_ok=True)
     
-    # 1. 生成完整CSV
+    # 1. Generate full CSV
     df.to_csv(tables_dir / 'model_comparison_full.csv', index=False)
-    print(f"✅ 完整对比表: {tables_dir}/model_comparison_full.csv")
+    print(f"INFO: Full comparison CSV: {tables_dir}/model_comparison_full.csv")
     
-    # 2. 生成Markdown表格
+    # 2. Generate Markdown table
     markdown_content = "# Model Performance Comparison (Cross-Validation)\n\n"
     
     for target in df['Target'].unique():
@@ -89,17 +89,17 @@ def generate_comparison_tables(df, output_dir):
         target_df = df[df['Target'] == target].copy()
         target_df = target_df.sort_values('R2_mean', ascending=False)
         
-        markdown_content += "| Model | R² | RMSE | MAE |\n"
+        markdown_content += "| Model | R^2 | RMSE | MAE |\n"
         markdown_content += "|-------|-----|------|-----|\n"
         
         for _, row in target_df.iterrows():
-            r2 = f"{row['R2_mean']:.4f} ± {row['R2_std']:.4f}"
-            rmse = f"{row['RMSE_mean']:.2f} ± {row['RMSE_std']:.2f}"
-            mae = f"{row['MAE_mean']:.2f} ± {row['MAE_std']:.2f}"
+            r2 = f"{row['R2_mean']:.4f} +/- {row['R2_std']:.4f}"
+            rmse = f"{row['RMSE_mean']:.2f} +/- {row['RMSE_std']:.2f}"
+            mae = f"{row['MAE_mean']:.2f} +/- {row['MAE_std']:.2f}"
             
-            # 标记最佳模型
+            # Mark best model
             if row['R2_mean'] == target_df['R2_mean'].max():
-                model_name = f"**{row['Model']}** 🏆"
+                model_name = f"**{row['Model']}**"
             else:
                 model_name = row['Model']
             
@@ -107,9 +107,9 @@ def generate_comparison_tables(df, output_dir):
     
     with open(tables_dir / 'model_comparison.md', 'w') as f:
         f.write(markdown_content)
-    print(f"✅ Markdown表格: {tables_dir}/model_comparison.md")
+    print(f"INFO: Markdown table: {tables_dir}/model_comparison.md")
     
-    # 3. 生成LaTeX表格
+    # 3. Generate LaTeX table
     latex_content = r"""\documentclass{article}
 \usepackage{booktabs}
 \usepackage{multirow}
@@ -152,9 +152,9 @@ Target & Model & R$^2$ & RMSE & MAE \\
     
     with open(tables_dir / 'model_comparison.tex', 'w') as f:
         f.write(latex_content)
-    print(f"✅ LaTeX表格: {tables_dir}/model_comparison.tex")
+    print(f"INFO: LaTeX table: {tables_dir}/model_comparison.tex")
     
-    # 4. 生成最佳模型总结
+    # 4. Generate best model summary
     best_models = []
     for target in df['Target'].unique():
         target_df = df[df['Target'] == target]
@@ -164,49 +164,49 @@ Target & Model & R$^2$ & RMSE & MAE \\
         best_models.append({
             'Target': target,
             'Best Model': best['Model'],
-            'R²': f"{best['R2_mean']:.4f} ± {best['R2_std']:.4f}",
-            'RMSE': f"{best['RMSE_mean']:.2f} ± {best['RMSE_std']:.2f}",
-            'MAE': f"{best['MAE_mean']:.2f} ± {best['MAE_std']:.2f}"
+            'R^2': f"{best['R2_mean']:.4f} +/- {best['R2_std']:.4f}",
+            'RMSE': f"{best['RMSE_mean']:.2f} +/- {best['RMSE_std']:.2f}",
+            'MAE': f"{best['MAE_mean']:.2f} +/- {best['MAE_std']:.2f}"
         })
     
     best_df = pd.DataFrame(best_models)
     best_df.to_csv(tables_dir / 'best_models_summary.csv', index=False)
-    print(f"✅ 最佳模型总结: {tables_dir}/best_models_summary.csv")
+    print(f"INFO: Best models summary: {tables_dir}/best_models_summary.csv")
     
-    # 打印总结
+    # Print summary
     print("\n" + "="*60)
-    print("最佳模型总结")
+    print("Best model summary")
     print("="*60)
     print(best_df.to_string(index=False))
 
 def main():
-    # 解析命令行参数
+    # Parse CLI args
     import argparse
-    parser = argparse.ArgumentParser(description='生成AutoML模型对比表格')
-    parser.add_argument('--project', default='runs/train', help='项目目录')
+    parser = argparse.ArgumentParser(description='Generate AutoML model comparison tables')
+    parser.add_argument('--project', default='runs/train', help='Project directory')
     args = parser.parse_args()
     
     print("="*60)
-    print("生成AutoML模型对比表格")
+    print("Generate AutoML model comparison tables")
     print("="*60)
     
-    # 收集结果
-    print("\n收集模型结果...")
+    # Collect results
+    print("\nCollecting model results...")
     df = collect_automl_results(args.project)
     
     if df.empty:
-        print("❌ 未找到任何模型结果")
+        print("ERROR: No model results found")
         return 1
     
-    print(f"✅ 找到 {len(df)} 个模型结果")
-    print(f"   模型: {df['Model'].nunique()} 个")
-    print(f"   目标: {df['Target'].nunique()} 个")
+    print(f"INFO: Found {len(df)} model results")
+    print(f"   Models: {df['Model'].nunique()}")
+    print(f"   Targets: {df['Target'].nunique()}")
     
-    # 生成表格
-    print("\n生成对比表格...")
+    # Generate tables
+    print("\nGenerating comparison tables...")
     generate_comparison_tables(df, args.project)
     
-    print("\n✅ 完成！")
+    print("\nINFO: Completed!")
     return 0
 
 if __name__ == '__main__':

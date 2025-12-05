@@ -81,8 +81,8 @@ def main():
     if not mdir or not mdir.exists():
         print('ERROR: Model directory not found')
         return
-        print(f'INFO: Model directory: {mdir}')
-        models = load_models_from_dir(mdir)
+    print(f'INFO: Model directory: {mdir}')
+    models = load_models_from_dir(mdir)
 
     predictions = {}
     if 'wavelength' in models:

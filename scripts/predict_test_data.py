@@ -67,7 +67,7 @@ def load_models(project_dir, model_name='xgboost', use_intersection=False):
     
     print(f"INFO: Model directory: {model_dir}")
     
-    # 查找模型文件（只加载wavelength和PLQY）
+    # Find model files (load wavelength and PLQY only)
     for model_file in model_dir.glob("*.joblib"):
         filename = model_file.stem
         if 'wavelength' in filename.lower():
@@ -146,7 +146,7 @@ def predict_test(models, X, df_valid):
     
     predictions = {}
     
-    # 预测每个目标
+    # Predict each target
     for target, model in models.items():
         print(f"\nPredict {target}...")
         start_time = time.time()
@@ -176,7 +176,7 @@ def compare_with_actual(df):
     print("Prediction result analysis")
     print("-"*80)
     
-    # 检查是否有实际值
+    # Check if actual values exist
     has_actual_wavelength = 'Max_wavelength(nm)' in df.columns and not df['Max_wavelength(nm)'].isna().all()
     has_actual_plqy = 'PLQY' in df.columns and not df['PLQY'].isna().all()
     
@@ -196,7 +196,7 @@ def compare_with_actual(df):
             print(f"  - R^2: {r2:.4f}")
     
     if has_actual_plqy and 'Predicted_PLQY' in df.columns:
-        # 处理PLQY单位（如果是百分比转换为小数）
+        # Handle PLQY units (convert percentage to fraction)
         actual = df['PLQY'].dropna()
         if actual.max() > 1.5:  # 可能是百分比
             actual = actual / 100
@@ -214,7 +214,7 @@ def compare_with_actual(df):
             print(f"  - RMSE: {rmse:.4f}")
             print(f"  - R^2: {r2:.4f}")
     
-    # PLQY分布
+    # PLQY distribution
     if 'Predicted_PLQY' in df.columns:
         plqy = df['Predicted_PLQY']
         print(f"\nPLQY distribution:")
@@ -225,7 +225,7 @@ def compare_with_actual(df):
         print(f"  - Max: {plqy.max():.4f}")
         print(f"  - Mean: {plqy.mean():.4f}")
         
-        # 范围分布
+        # Range distribution
         ranges = [(0.8, 1.0), (0.6, 0.8), (0.4, 0.6), (0.2, 0.4), (0.0, 0.2)]
         print(f"\n  PLQY range distribution:")
         for min_val, max_val in ranges:
@@ -281,7 +281,7 @@ def main():
     
     args = parser.parse_args()
     
-    # 自动解析项目目录
+    # Auto-detect project directory
     if not args.project:
         latest = _find_latest_paper_dir()
         if latest:
@@ -365,7 +365,7 @@ def main():
     df_predicted.to_csv(valid_output, index=False)
     print(f"INFO: Valid predictions: {valid_output}")
     
-    # 如果使用交集模型，说明数据特点
+    # Notes for intersection-trained models
     if args.intersection:
         print(f"\n  NOTE: Using intersection-trained models")
         print(f"     These models are trained on samples with all targets present")

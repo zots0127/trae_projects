@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-数据分析和可视化脚本 - 生成论文图表
+Data analysis and visualization script - generate paper figures
 """
 
 import os
@@ -24,21 +24,20 @@ plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette("husl")
 
 def load_data(data_file):
-    """加载数据"""
+    """Load data"""
     df = pd.read_csv(data_file)
-    print(f"✅ 加载数据: {data_file}")
-    print(f"   样本数: {len(df)}")
-    print(f"   特征数: {len(df.columns)}")
+    print(f"INFO: Loaded data: {data_file}")
+    print(f"   Samples: {len(df)}")
+    print(f"   Features: {len(df.columns)}")
     return df
 
 def plot_wavelength_plqy_scatter(df, output_dir):
     """
-    绘制波长-PLQY散点图（类似图c）
-    按溶剂类型着色
+    Plot Wavelength-PLQY scatter (Figure c-like), color by solvent
     """
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
     
-    # 定义溶剂类型和颜色
+    # Solvent types and colors
     solvent_colors = {
         'CH2Cl2': '#1f77b4',  # 蓝色
         'CH3CN': '#2ca02c',   # 绿色
@@ -46,7 +45,7 @@ def plot_wavelength_plqy_scatter(df, output_dir):
         'Others': '#9467bd'    # 紫色
     }
     
-    # 提取波长和PLQY数据
+    # Extract wavelength and PLQY columns
     wavelength_col = None
     plqy_col = None
     
@@ -57,7 +56,7 @@ def plot_wavelength_plqy_scatter(df, output_dir):
             plqy_col = col
     
     if wavelength_col and plqy_col:
-        # 如果有溶剂列，按溶剂分组
+        # Group by solvent if available
         if 'Solvent' in df.columns:
             for solvent, color in solvent_colors.items():
                 mask = df['Solvent'] == solvent
@@ -65,7 +64,7 @@ def plot_wavelength_plqy_scatter(df, output_dir):
                           df.loc[mask, plqy_col],
                           c=color, label=solvent, alpha=0.6, s=20)
         else:
-            # 没有溶剂信息，使用单一颜色
+            # No solvent info, use single color
             ax.scatter(df[wavelength_col], df[plqy_col], 
                       alpha=0.6, s=20, c='#1f77b4')
         
@@ -80,14 +79,14 @@ def plot_wavelength_plqy_scatter(df, output_dir):
         save_path = output_dir / 'wavelength_plqy_scatter.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ 保存散点图: {save_path}")
+        print(f"INFO: Saved scatter: {save_path}")
     else:
-        print("⚠️ 未找到波长或PLQY列")
+        print("WARNING: Wavelength or PLQY column not found")
 
 def plot_plqy_distribution(df, output_dir):
     """
-    绘制PLQY分布直方图（类似图d）
-    按溶剂和PLQY范围分组
+    Plot PLQY distribution histogram (Figure d-like)
+    Group by solvent and PLQY range
     """
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
     
@@ -98,9 +97,9 @@ def plot_plqy_distribution(df, output_dir):
             break
     
     if plqy_col:
-        # 定义PLQY范围
+        # Define PLQY ranges
         bins = [0, 0.1, 0.5, 1.0]
-        labels = ['≤0.1', '0.1-0.5', '>0.5']
+        labels = ['0-0.1', '0.1-0.5', '0.5-1.0']
         
         # 如果有溶剂信息
         if 'Solvent' in df.columns:
@@ -128,7 +127,7 @@ def plot_plqy_distribution(df, output_dir):
                 ax.bar(x, values, width, bottom=bottom, label=solvent, color=color)
                 bottom += values
         else:
-            # 简单直方图
+            # Simple histogram
             df[plqy_col].hist(bins=bins, ax=ax, edgecolor='black')
         
         ax.set_xlabel('PLQY Range', fontsize=12)
@@ -141,28 +140,28 @@ def plot_plqy_distribution(df, output_dir):
         save_path = output_dir / 'plqy_distribution.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ 保存分布图: {save_path}")
+        print(f"INFO: Saved distribution: {save_path}")
 
 def plot_prediction_scatter(df, predictions_file, output_dir):
     """
-    绘制预测vs实验散点图（类似图e和f）
+    Plot predicted vs experimental scatter (Figure e/f-like)
     """
     if not predictions_file or not Path(predictions_file).exists():
-        print("⚠️ 未提供预测文件或文件不存在")
+        print("WARNING: Prediction file not provided or does not exist")
         return
     
-    # 加载预测结果
+    # Load predictions
     pred_df = pd.read_csv(predictions_file)
     
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     
-    # 查找波长和PLQY的预测列
+    # Find wavelength and PLQY prediction columns
     targets = ['wavelength', 'plqy']
     
     for idx, target in enumerate(targets):
         ax = axes[idx]
         
-        # 查找相关列
+        # Find relevant columns
         exp_col = None
         pred_col = None
         
@@ -176,36 +175,36 @@ def plot_prediction_scatter(df, predictions_file, output_dir):
             x = pred_df[exp_col].values
             y = pred_df[pred_col].values
             
-            # 移除NaN值
+            # Remove NaNs
             mask = ~(np.isnan(x) | np.isnan(y))
             x = x[mask]
             y = y[mask]
             
-            # 计算指标
+            # Metrics
             r2 = r2_score(x, y)
             mae = mean_absolute_error(x, y)
             
-            # 绘制散点图
+            # Scatter plot
             ax.scatter(x, y, alpha=0.5, s=10, c='#1f77b4')
             
-            # 添加对角线
+            # Diagonal
             min_val = min(x.min(), y.min())
             max_val = max(x.max(), y.max())
             ax.plot([min_val, max_val], [min_val, max_val], 
                    'r--', lw=1, alpha=0.7)
             
-            # 设置标签
+            # Labels
             if 'wavelength' in target:
-                ax.set_xlabel('Experimental λem (nm)', fontsize=12)
-                ax.set_ylabel('Predicted λem (nm)', fontsize=12)
+                ax.set_xlabel('Experimental Wavelength (nm)', fontsize=12)
+                ax.set_ylabel('Predicted Wavelength (nm)', fontsize=12)
                 title = f'Wavelength Prediction'
             else:
                 ax.set_xlabel('Experimental PLQY', fontsize=12)
                 ax.set_ylabel('Predicted PLQY', fontsize=12)
                 title = f'PLQY Prediction'
             
-            # 添加指标文本
-            ax.text(0.05, 0.95, f'MAE = {mae:.2f}\nR² = {r2:.2f}',
+            # Metrics text
+            ax.text(0.05, 0.95, f'MAE = {mae:.2f}\nR^2 = {r2:.2f}',
                    transform=ax.transAxes, fontsize=11,
                    verticalalignment='top',
                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -217,11 +216,11 @@ def plot_prediction_scatter(df, predictions_file, output_dir):
     save_path = output_dir / 'prediction_scatter.png'
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"✅ 保存预测散点图: {save_path}")
+    print(f"INFO: Saved prediction scatter: {save_path}")
 
 def plot_correlation_matrix(df, output_dir):
     """
-    绘制相关性矩阵（类似图g）
+    Plot correlation matrix (Figure g-like)
     """
     # 选择PLQY相关的数值列
     numeric_cols = df.select_dtypes(include=[np.number]).columns
@@ -258,17 +257,17 @@ def plot_correlation_matrix(df, output_dir):
         save_path = output_dir / 'correlation_matrix.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ 保存相关性矩阵: {save_path}")
+        print(f"INFO: Saved correlation matrix: {save_path}")
 
 def generate_summary_stats(df, output_dir):
-    """生成汇总统计"""
+    """Generate summary statistics"""
     stats = {}
     
-    # 基本统计
+    # Basic stats
     stats['total_samples'] = len(df)
     stats['total_features'] = len(df.columns)
     
-    # PLQY统计
+    # PLQY stats
     plqy_col = None
     for col in df.columns:
         if 'plqy' in col.lower():
@@ -284,7 +283,7 @@ def generate_summary_stats(df, output_dir):
             'median': df[plqy_col].median()
         }
     
-    # 波长统计
+    # Wavelength stats
     wavelength_col = None
     for col in df.columns:
         if 'wavelength' in col.lower():
@@ -300,45 +299,45 @@ def generate_summary_stats(df, output_dir):
             'median': df[wavelength_col].median()
         }
     
-    # 保存统计
+    # Save stats
     stats_file = output_dir / 'summary_stats.json'
     with open(stats_file, 'w') as f:
-        json.dump(stats, f, indent=2)
+        json.dump(stats, f, indent=2, ensure_ascii=True)
     
-    print(f"✅ 保存统计信息: {stats_file}")
+    print(f"INFO: Saved summary stats: {stats_file}")
     
     # 打印统计摘要
     print("\n" + "=" * 60)
-    print("📊 数据统计摘要")
+    print("Data statistics summary")
     print("=" * 60)
-    print(f"样本总数: {stats['total_samples']}")
+    print(f"Total samples: {stats['total_samples']}")
     
     if 'plqy' in stats:
-        print(f"\nPLQY统计:")
-        print(f"  均值: {stats['plqy']['mean']:.3f}")
-        print(f"  标准差: {stats['plqy']['std']:.3f}")
-        print(f"  范围: [{stats['plqy']['min']:.3f}, {stats['plqy']['max']:.3f}]")
+        print(f"\nPLQY stats:")
+        print(f"  Mean: {stats['plqy']['mean']:.3f}")
+        print(f"  Std: {stats['plqy']['std']:.3f}")
+        print(f"  Range: [{stats['plqy']['min']:.3f}, {stats['plqy']['max']:.3f}]")
     
     if 'wavelength' in stats:
-        print(f"\n波长统计:")
-        print(f"  均值: {stats['wavelength']['mean']:.1f} nm")
-        print(f"  标准差: {stats['wavelength']['std']:.1f} nm")
-        print(f"  范围: [{stats['wavelength']['min']:.1f}, {stats['wavelength']['max']:.1f}] nm")
+        print(f"\nWavelength stats:")
+        print(f"  Mean: {stats['wavelength']['mean']:.1f} nm")
+        print(f"  Std: {stats['wavelength']['std']:.1f} nm")
+        print(f"  Range: [{stats['wavelength']['min']:.1f}, {stats['wavelength']['max']:.1f}] nm")
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='数据分析和可视化')
+    """Main entrypoint"""
+    parser = argparse.ArgumentParser(description='Data analysis and visualization')
     
     parser.add_argument('--data', '-d', required=True,
-                       help='数据文件路径')
+                       help='Data file path')
     parser.add_argument('--predictions', '-p',
-                       help='预测结果文件（可选）')
+                       help='Predictions file (optional)')
     parser.add_argument('--output', '-o',
-                       help='输出目录')
+                       help='Output directory')
     parser.add_argument('--plots', nargs='+',
                        choices=['scatter', 'distribution', 'prediction', 'correlation', 'all'],
                        default=['all'],
-                       help='要生成的图表类型')
+                       help='Types of plots to generate')
     
     args = parser.parse_args()
     
@@ -351,15 +350,15 @@ def main():
     output_dir.mkdir(exist_ok=True, parents=True)
     
     print("=" * 60)
-    print("数据分析和可视化")
+    print("Data analysis and visualization")
     print("=" * 60)
-    print(f"数据文件: {args.data}")
-    print(f"输出目录: {output_dir}")
+    print(f"Data file: {args.data}")
+    print(f"Output dir: {output_dir}")
     
-    # 加载数据
+    # Load data
     df = load_data(args.data)
     
-    # 生成图表
+    # Generate plots
     if 'all' in args.plots or 'scatter' in args.plots:
         plot_wavelength_plqy_scatter(df, output_dir)
     
@@ -373,12 +372,12 @@ def main():
     if 'all' in args.plots or 'correlation' in args.plots:
         plot_correlation_matrix(df, output_dir)
     
-    # 生成统计摘要
+    # Generate summary stats
     generate_summary_stats(df, output_dir)
     
     print("\n" + "=" * 60)
-    print("✅ 分析完成！")
-    print(f"结果保存在: {output_dir}")
+    print("INFO: Analysis completed!")
+    print(f"Saved to: {output_dir}")
     print("=" * 60)
 
 if __name__ == "__main__":

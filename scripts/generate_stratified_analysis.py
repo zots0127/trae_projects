@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-生成分段性能分析的独立脚本
-用于从训练结果生成PLQY混淆矩阵等分段分析图表
+Standalone script to generate stratified performance analysis
+Generates PLQY confusion matrix and related analysis plots from training results
 """
 
 import argparse
@@ -19,17 +19,17 @@ from visualization.stratified_analysis import generate_stratified_analysis
 
 def load_predictions_from_project(project_dir: Path) -> dict:
     """
-    从项目目录加载预测结果
+    Load prediction results from a project directory
     
     Args:
-        project_dir: 项目目录路径
+        project_dir: project directory path
     
     Returns:
-        预测结果字典
+        dict of predictions
     """
     predictions = {}
     
-    print(f"从项目目录加载预测数据: {project_dir}")
+    print(f"INFO: Loading predictions from project dir: {project_dir}")
     
     # 方法1: 查找CV预测结果文件
     for model_dir in project_dir.glob('*/'):
@@ -44,11 +44,11 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                     'actual': df['actual'].values,
                     'predicted': df['predicted'].values
                 }
-                print(f"  ✅ 加载 {target}: {len(df)} 个预测")
+                print(f"  INFO: Loaded {target}: {len(df)} predictions")
     
     # 方法2: 从training_results.json提取
     if not predictions:
-        print("  未找到cv_predictions文件，尝试从training_results.json提取...")
+        print("  INFO: No cv_predictions found, trying training_results.json...")
         
         for model_dir in project_dir.glob('*/'):
             results_file = model_dir / 'results' / 'training_results.json'
@@ -72,18 +72,17 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                                             all_predicted.extend(pred_data.get('predicted', []))
                                 
                                 if all_actual:
-                                    # 清理目标名称
                                     clean_target = target.replace('(', '').replace(')', '').replace('*', 'x')
                                     key = f'{clean_target}_{model_name}'
                                     predictions[key] = {
                                         'actual': np.array(all_actual),
                                         'predicted': np.array(all_predicted)
                                     }
-                                    print(f"  ✅ 加载 {key}: {len(all_actual)} 个预测")
+                                    print(f"  INFO: Loaded {key}: {len(all_actual)} predictions")
     
     # 方法3: 查找AutoML训练结果中的预测文件
     if not predictions:
-        print("  尝试从AutoML训练结果加载...")
+        print("  INFO: Trying AutoML training outputs...")
         
         # 查找all_models/automl_train目录
         automl_dir = project_dir / 'all_models' / 'automl_train'
@@ -129,13 +128,13 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                                 'actual': df['true'].values,
                                 'predicted': df['predicted'].values
                             }
-                            print(f"  ✅ 加载 {key}: {len(df)} 个预测")
+                            print(f"  INFO: Loaded {key}: {len(df)} predictions")
                     except Exception as e:
-                        print(f"  ⚠️ 读取 {pred_file.name} 失败: {e}")
+                        print(f"  WARNING: Failed to read {pred_file.name}: {e}")
     
     # 方法4: 查找exports目录中的预测文件（保留原有方法）
     if not predictions:
-        print("  尝试从exports目录加载...")
+        print("  INFO: Trying exports directory...")
         
         for export_file in project_dir.glob('*/exports/json/*_complete.json'):
             try:
@@ -166,20 +165,20 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                                     'actual': np.array(actuals),
                                     'predicted': np.array(predicteds)
                                 }
-                                print(f"  ✅ 加载 {key}: {len(actuals)} 个预测")
+                                print(f"  INFO: Loaded {key}: {len(actuals)} predictions")
             except Exception as e:
-                print(f"  ⚠️ 读取 {export_file.name} 失败: {e}")
+                print(f"  WARNING: Failed to read {export_file.name}: {e}")
     
     return predictions
 
 
 def main():
-    """主函数"""
+    """Main entrypoint"""
     parser = argparse.ArgumentParser(
-        description='生成分段性能分析图表',
+        description='Generate stratified performance analysis figures',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
+Examples:
   python generate_stratified_analysis.py --project Paper_0913_123456 --output Paper_0913_123456/figures
   python generate_stratified_analysis.py --project results/training_001
         """
@@ -189,14 +188,14 @@ def main():
         '--project', '-p',
         type=str,
         required=True,
-        help='项目目录路径'
+        help='Project directory path'
     )
     
     parser.add_argument(
         '--output', '-o',
         type=str,
         default=None,
-        help='输出目录路径（默认为项目目录/figures）'
+        help='Output directory path (default: PROJECT/figures)'
     )
     
     parser.add_argument(
@@ -204,7 +203,7 @@ def main():
         type=str,
         nargs='+',
         default=None,
-        help='要分析的目标列表（默认分析所有）'
+        help='Targets to analyze (default: all)'
     )
     
     args = parser.parse_args()
@@ -212,29 +211,29 @@ def main():
     # 设置路径
     project_dir = Path(args.project)
     if not project_dir.exists():
-        print(f"❌ 项目目录不存在: {project_dir}")
+        print(f"ERROR: Project directory not found: {project_dir}")
         return 1
     
     output_dir = Path(args.output) if args.output else project_dir / 'figures'
     
     print("="*60)
-    print("分段性能分析")
+    print("Stratified performance analysis")
     print("="*60)
-    print(f"项目目录: {project_dir}")
-    print(f"输出目录: {output_dir}")
+    print(f"Project dir: {project_dir}")
+    print(f"Output dir: {output_dir}")
     
     # 加载预测数据
-    print("\n加载预测数据...")
+    print("\nLoading predictions...")
     predictions = load_predictions_from_project(project_dir)
     
     if not predictions:
-        print("❌ 未找到任何预测数据")
+        print("ERROR: No prediction data found")
         return 1
     
-    print(f"\n找到 {len(predictions)} 个预测数据集")
+    print(f"\nFound {len(predictions)} prediction datasets")
     
     # 生成分段分析
-    print("\n生成分析图表...")
+    print("\nGenerating analysis plots...")
     results = generate_stratified_analysis(
         predictions=predictions,
         output_dir=output_dir,
@@ -242,14 +241,14 @@ def main():
     )
     
     print("\n" + "="*60)
-    print("✅ 分段性能分析完成")
+    print("INFO: Stratified analysis completed")
     print("="*60)
-    print(f"输出目录: {output_dir / 'stratified_analysis'}")
+    print(f"Output dir: {output_dir / 'stratified_analysis'}")
     
     # 列出生成的文件
     analysis_dir = output_dir / 'stratified_analysis'
     if analysis_dir.exists():
-        print("\n生成的文件:")
+        print("\nGenerated files:")
         for file in sorted(analysis_dir.rglob('*')):
             if file.is_file():
                 print(f"  - {file.relative_to(output_dir)}")

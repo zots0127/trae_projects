@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-预测结果分析脚本 - 生成PLQY范围准确率热图和其他分析图表
+Prediction analysis script - generate PLQY range accuracy heatmap and other plots
 """
 
 import os
@@ -25,19 +25,19 @@ sns.set_palette("husl")
 
 def load_predictions(project_dir, model_name=None):
     """
-    加载预测结果
+    Load prediction results
     
     Args:
-        project_dir: 项目目录
-        model_name: 指定模型名称，如果为None则使用最佳模型
+        project_dir: project directory
+        model_name: model name, use best if None
     
     Returns:
-        DataFrame包含实际值和预测值
+        Dict containing actual and predicted arrays
     """
     project_path = Path(project_dir)
     
     if not project_path.exists():
-        print(f"❌ 项目目录不存在: {project_dir}")
+        print(f"ERROR: Project directory not found: {project_dir}")
         return None
     
     # 如果没有指定模型，找最佳模型（这里默认用xgboost）
@@ -46,21 +46,21 @@ def load_predictions(project_dir, model_name=None):
     
     model_dir = project_path / model_name
     if not model_dir.exists():
-        print(f"❌ 模型目录不存在: {model_dir}")
+        print(f"ERROR: Model directory not found: {model_dir}")
         # 尝试查找其他可能的目录
         for possible_name in ['xgboost', 'lightgbm', 'catboost', 'gradient_boosting']:
             model_dir = project_path / possible_name
             if model_dir.exists():
-                print(f"✅ 使用模型: {possible_name}")
+                print(f"INFO: Using model: {possible_name}")
                 break
         else:
-            print("❌ 找不到任何模型目录")
+            print("ERROR: No model directories found")
             return None
     
     # 查找预测文件
     predictions_dir = model_dir / 'predictions'
     if not predictions_dir.exists():
-        print(f"❌ 预测目录不存在: {predictions_dir}")
+        print(f"ERROR: Predictions directory not found: {predictions_dir}")
         return None
     
     # 收集所有目标的预测结果
@@ -121,7 +121,7 @@ def load_predictions(project_dir, model_name=None):
                         'predicted': test_df[pred_col].values
                     })
         except Exception as e:
-            print(f"⚠️ 读取文件失败 {csv_file}: {e}")
+            print(f"WARNING: Failed to read {csv_file}: {e}")
     
     # 合并所有fold的数据
     for target_type in ['wavelength', 'PLQY', 'tau']:
@@ -133,56 +133,56 @@ def load_predictions(project_dir, model_name=None):
                 'actual': actual_all,
                 'predicted': predicted_all
             }
-            print(f"✅ 加载 {target_type} 预测数据: {len(actual_all)} 个样本")
+            print(f"INFO: Loaded {target_type} predictions: {len(actual_all)} samples")
     
     return all_predictions
 
 def plot_plqy_range_accuracy(predictions, output_dir):
     """
-    绘制PLQY范围预测准确率热图（类似图g）
+    Plot PLQY-range prediction accuracy heatmap
     
     Args:
-        predictions: 包含actual和predicted的字典
-        output_dir: 输出目录
+        predictions: dict containing actual and predicted
+        output_dir: output directory
     """
     if 'PLQY' not in predictions:
-        print("⚠️ 没有PLQY预测数据")
+        print("WARNING: No PLQY prediction data")
         return
     
     actual = predictions['PLQY']['actual']
     predicted = predictions['PLQY']['predicted']
     
-    # 移除NaN值
+    # Remove NaN values
     mask = ~(np.isnan(actual) | np.isnan(predicted))
     actual = actual[mask]
     predicted = predicted[mask]
     
-    # 定义PLQY范围
+    # Define PLQY ranges
     bins = [0, 0.1, 0.5, 1.0]
     labels = ['0-0.1', '0.1-0.5', '0.5-1.0']
     
-    # 将实际值和预测值分组
+    # Bin actual and predicted values
     actual_binned = pd.cut(actual, bins=bins, labels=labels, include_lowest=True)
     predicted_binned = pd.cut(predicted, bins=bins, labels=labels, include_lowest=True)
     
-    # 移除分组后的NaN值（可能因为超出范围）
+    # Remove NaNs after binning (out-of-range)
     mask2 = ~(actual_binned.isna() | predicted_binned.isna())
     actual_binned = actual_binned[mask2]
     predicted_binned = predicted_binned[mask2]
     
-    # 创建混淆矩阵
+    # Create confusion matrix
     cm = confusion_matrix(actual_binned, predicted_binned, labels=labels)
     
-    # 归一化为百分比（按行归一化，即每个实际范围内的预测分布）
+    # Normalize to percentages per row
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     
-    # 创建图形
+    # Create figure
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
     
-    # 使用蓝色调色板
+    # Use blue palette
     cmap = sns.color_palette("Blues", as_cmap=True)
     
-    # 绘制热图
+    # Draw heatmap
     sns.heatmap(cm_normalized, 
                 annot=True, 
                 fmt='.2f',
@@ -198,36 +198,36 @@ def plot_plqy_range_accuracy(predictions, output_dir):
     ax.set_ylabel('Actual PLQY Range', fontsize=12)
     ax.set_title('PLQY Prediction Accuracy by Range', fontsize=14)
     
-    # 调整布局
+    # Layout
     plt.tight_layout()
     
-    # 保存图形
+    # Save figure
     save_path = output_dir / 'plqy_range_accuracy.png'
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"✅ 保存PLQY范围准确率图: {save_path}")
+    print(f"INFO: Saved PLQY range accuracy plot: {save_path}")
     
-    # 打印统计信息
-    print("\n📊 PLQY范围预测统计:")
+    # Print statistics
+    print("\nPLQY range prediction stats:")
     print("-" * 40)
     for i, actual_label in enumerate(labels):
         total = cm[i].sum()
         if total > 0:
             accuracy = cm[i, i] / total
-            print(f"{actual_label}: {accuracy:.2%} 准确率 ({cm[i, i]}/{total} 样本)")
+            print(f"{actual_label}: {accuracy:.2%} accuracy ({cm[i, i]}/{total} samples)")
     
-    # 计算整体准确率
+    # Overall accuracy
     overall_accuracy = np.trace(cm) / cm.sum()
-    print(f"\n整体准确率: {overall_accuracy:.2%}")
+    print(f"\nOverall accuracy: {overall_accuracy:.2%}")
 
 def plot_prediction_scatter_all(predictions, output_dir):
     """
-    绘制所有目标的预测散点图
+    Plot prediction scatter for all targets
     """
     n_targets = len(predictions)
     if n_targets == 0:
-        print("⚠️ 没有预测数据")
+        print("WARNING: No prediction data")
         return
     
     # 创建子图
@@ -237,9 +237,9 @@ def plot_prediction_scatter_all(predictions, output_dir):
         axes = [axes]
     
     target_names = {
-        'wavelength': 'λem (nm)',
+        'wavelength': 'Wavelength (nm)',
         'PLQY': 'PLQY', 
-        'tau': 'τ (μs)'
+        'tau': 'Lifetime (us)'
     }
     
     for idx, (target, data) in enumerate(predictions.items()):
@@ -248,32 +248,32 @@ def plot_prediction_scatter_all(predictions, output_dir):
         actual = data['actual']
         predicted = data['predicted']
         
-        # 移除NaN值
+        # Remove NaN values
         mask = ~(np.isnan(actual) | np.isnan(predicted))
         actual = actual[mask]
         predicted = predicted[mask]
         
-        # 计算指标
+        # Compute metrics
         r2 = r2_score(actual, predicted)
         mae = mean_absolute_error(actual, predicted)
         
-        # 绘制散点图
+        # Scatter plot
         ax.scatter(actual, predicted, alpha=0.5, s=20, c='#1f77b4')
         
-        # 添加对角线
+        # Diagonal line
         min_val = min(actual.min(), predicted.min())
         max_val = max(actual.max(), predicted.max())
         ax.plot([min_val, max_val], [min_val, max_val], 
                'r--', lw=1, alpha=0.7, label='Perfect prediction')
         
-        # 设置标签
+        # Labels
         display_name = target_names.get(target, target)
         ax.set_xlabel(f'Actual {display_name}', fontsize=11)
         ax.set_ylabel(f'Predicted {display_name}', fontsize=11)
         ax.set_title(f'{display_name} Prediction', fontsize=12)
         
-        # 添加指标文本
-        ax.text(0.05, 0.95, f'R² = {r2:.3f}\nMAE = {mae:.2f}',
+        # Add metric text
+        ax.text(0.05, 0.95, f'R^2 = {r2:.3f}\nMAE = {mae:.2f}',
                transform=ax.transAxes, fontsize=10,
                verticalalignment='top',
                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -284,33 +284,33 @@ def plot_prediction_scatter_all(predictions, output_dir):
     plt.suptitle('Model Prediction Performance', fontsize=14, y=1.02)
     plt.tight_layout()
     
-    # 保存图形
+    # Save figure
     save_path = output_dir / 'prediction_scatter_all.png'
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"✅ 保存预测散点图: {save_path}")
+    print(f"INFO: Saved prediction scatter: {save_path}")
 
 def plot_residual_analysis(predictions, output_dir):
     """
-    绘制残差分析图
+    Plot residual analysis figures
     """
     for target, data in predictions.items():
         actual = data['actual']
         predicted = data['predicted']
         
-        # 移除NaN值
+        # Remove NaN values
         mask = ~(np.isnan(actual) | np.isnan(predicted))
         actual = actual[mask]
         predicted = predicted[mask]
         
-        # 计算残差
+        # Residuals
         residuals = predicted - actual
         
-        # 创建图形
+        # Create figures
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
         
-        # 1. 残差vs预测值
+        # 1. Residuals vs predicted
         ax = axes[0, 0]
         ax.scatter(predicted, residuals, alpha=0.5, s=20)
         ax.axhline(y=0, color='r', linestyle='--', alpha=0.7)
@@ -319,7 +319,7 @@ def plot_residual_analysis(predictions, output_dir):
         ax.set_title('Residuals vs Predicted')
         ax.grid(True, alpha=0.3)
         
-        # 2. 残差直方图
+        # 2. Residual histogram
         ax = axes[0, 1]
         ax.hist(residuals, bins=30, edgecolor='black', alpha=0.7)
         ax.set_xlabel('Residual')
@@ -327,14 +327,14 @@ def plot_residual_analysis(predictions, output_dir):
         ax.set_title('Residual Distribution')
         ax.grid(True, alpha=0.3)
         
-        # 3. Q-Q图
+        # 3. Q-Q plot
         ax = axes[1, 0]
         from scipy import stats
         stats.probplot(residuals, dist="norm", plot=ax)
         ax.set_title('Q-Q Plot')
         ax.grid(True, alpha=0.3)
         
-        # 4. 残差vs实际值
+        # 4. Residuals vs actual
         ax = axes[1, 1]
         ax.scatter(actual, residuals, alpha=0.5, s=20)
         ax.axhline(y=0, color='r', linestyle='--', alpha=0.7)
@@ -352,16 +352,16 @@ def plot_residual_analysis(predictions, output_dir):
         plt.suptitle(f'Residual Analysis - {display_name}', fontsize=14)
         plt.tight_layout()
         
-        # 保存图形
+        # Save figure
         save_path = output_dir / f'residual_analysis_{target}.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"✅ 保存残差分析图: {save_path}")
+        print(f"INFO: Saved residual analysis: {save_path}")
 
 def generate_prediction_report(predictions, output_dir):
     """
-    生成预测分析报告
+    Generate prediction analysis report
     """
     report = {}
     
@@ -369,12 +369,12 @@ def generate_prediction_report(predictions, output_dir):
         actual = data['actual']
         predicted = data['predicted']
         
-        # 移除NaN值
+        # Remove NaN values
         mask = ~(np.isnan(actual) | np.isnan(predicted))
         actual = actual[mask]
         predicted = predicted[mask]
         
-        # 计算各种指标
+        # Compute metrics
         from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
         
         metrics = {
@@ -391,47 +391,47 @@ def generate_prediction_report(predictions, output_dir):
         
         report[target] = metrics
     
-    # 保存报告
+    # Save report
     report_file = output_dir / 'prediction_report.json'
     with open(report_file, 'w') as f:
-        json.dump(report, f, indent=2)
+        json.dump(report, f, indent=2, ensure_ascii=True)
     
-    print(f"✅ 保存预测报告: {report_file}")
+    print(f"INFO: Saved prediction report: {report_file}")
     
     # 打印报告摘要
     print("\n" + "=" * 60)
-    print("📊 预测性能报告")
+    print("Prediction performance report")
     print("=" * 60)
     
     target_names = {
         'wavelength': 'Wavelength (nm)',
         'PLQY': 'PLQY',
-        'tau': 'Lifetime (μs)'
+        'tau': 'Lifetime (us)'
     }
     
     for target, metrics in report.items():
         display_name = target_names.get(target, target)
         print(f"\n{display_name}:")
         print("-" * 40)
-        print(f"  样本数: {metrics['n_samples']}")
-        print(f"  R² Score: {metrics['r2_score']:.4f}")
+        print(f"  Samples: {metrics['n_samples']}")
+        print(f"  R^2 Score: {metrics['r2_score']:.4f}")
         print(f"  RMSE: {metrics['rmse']:.4f}")
         print(f"  MAE: {metrics['mae']:.4f}")
         print(f"  MAPE: {metrics['mape']:.2f}%")
-        print(f"  实际范围: [{metrics['actual_range'][0]:.2f}, {metrics['actual_range'][1]:.2f}]")
-        print(f"  预测范围: [{metrics['predicted_range'][0]:.2f}, {metrics['predicted_range'][1]:.2f}]")
+        print(f"  Actual range: [{metrics['actual_range'][0]:.2f}, {metrics['actual_range'][1]:.2f}]")
+        print(f"  Predicted range: [{metrics['predicted_range'][0]:.2f}, {metrics['predicted_range'][1]:.2f}]")
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='预测结果分析')
+    """Main entrypoint"""
+    parser = argparse.ArgumentParser(description='Prediction analysis')
     
-    parser.add_argument('project', help='项目目录')
-    parser.add_argument('--model', '-m', help='模型名称（默认使用最佳模型）')
-    parser.add_argument('--output', '-o', help='输出目录')
+    parser.add_argument('project', help='Project directory')
+    parser.add_argument('--model', '-m', help='Model name (default best)')
+    parser.add_argument('--output', '-o', help='Output directory')
     parser.add_argument('--plots', nargs='+',
                        choices=['range', 'scatter', 'residual', 'all'],
                        default=['all'],
-                       help='要生成的图表类型')
+                       help='Plot types to generate')
     
     args = parser.parse_args()
     
@@ -444,19 +444,19 @@ def main():
     output_dir.mkdir(exist_ok=True, parents=True)
     
     print("=" * 60)
-    print("预测结果分析")
+    print("Prediction analysis")
     print("=" * 60)
-    print(f"项目: {args.project}")
-    print(f"输出目录: {output_dir}")
+    print(f"Project: {args.project}")
+    print(f"Output dir: {output_dir}")
     
-    # 加载预测数据
+    # Load predictions
     predictions = load_predictions(args.project, args.model)
     
     if not predictions:
-        print("❌ 无法加载预测数据")
+        print("ERROR: Failed to load predictions")
         return
     
-    # 生成图表
+    # Generate plots
     if 'all' in args.plots or 'range' in args.plots:
         plot_plqy_range_accuracy(predictions, output_dir)
     
@@ -466,12 +466,12 @@ def main():
     if 'all' in args.plots or 'residual' in args.plots:
         plot_residual_analysis(predictions, output_dir)
     
-    # 生成报告
+    # Generate report
     generate_prediction_report(predictions, output_dir)
     
     print("\n" + "=" * 60)
-    print("✅ 分析完成！")
-    print(f"结果保存在: {output_dir}")
+    print("INFO: Analysis completed!")
+    print(f"Saved to: {output_dir}")
     print("=" * 60)
 
 if __name__ == "__main__":

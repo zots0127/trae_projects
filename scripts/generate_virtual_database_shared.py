@@ -22,7 +22,7 @@ from utils.shared import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description='生成虚拟数据库(共享工具版)')
+    parser = argparse.ArgumentParser(description='Generate virtual database (shared utils)')
     parser.add_argument('--data', '-d', default='data/Database_normalized.csv')
     parser.add_argument('--project', '-p', default='paper_table')
     parser.add_argument('--model', '-m', default='xgboost')
@@ -32,57 +32,57 @@ def main():
     parser.add_argument('--feature-type', default='combined', choices=['morgan', 'descriptors', 'combined'])
     args = parser.parse_args()
 
-    log_banner('生成虚拟数据库(共享工具版)')
-    print(f'原始数据: {args.data}')
-    print(f'项目目录: {args.project}')
-    print(f'使用模型: {args.model}')
-    print(f'特征类型: {args.feature_type}')
+    log_banner('Generate virtual database (shared utils)')
+    print(f'INFO: Original data: {args.data}')
+    print(f'INFO: Project dir: {args.project}')
+    print(f'INFO: Model: {args.model}')
+    print(f'INFO: Feature type: {args.feature_type}')
 
-    log_step('步骤1: 加载原始数据')
+    log_step('Step 1: Load original data')
     df = pd.read_csv(args.data)
     l1u = df['L1'].dropna().unique()
     l2u = df['L2'].dropna().unique()
     l3u = df['L3'].dropna().unique()
-    print(f'L1唯一: {len(l1u)}')
-    print(f'L2唯一: {len(l2u)}')
-    print(f'L3唯一: {len(l3u)}')
-    print(f'原始组合数: {len(df)}')
+    print(f'INFO: L1 unique: {len(l1u)}')
+    print(f'INFO: L2 unique: {len(l2u)}')
+    print(f'INFO: L3 unique: {len(l3u)}')
+    print(f'INFO: Original combinations: {len(df)}')
 
-    log_step('步骤2: 生成所有组合(L1=L2)')
+    log_step('Step 2: Generate all combinations (L1=L2)')
     assembled = generate_combinations(l1u, l2u, l3u, max_combinations=args.max_combinations)
-    print(f'生成组合数: {len(assembled):,}')
+    print(f'INFO: Generated combinations: {len(assembled):,}')
 
     if not args.include_existing:
-        log_step('步骤3: 移除已存在的组合')
+        log_step('Step 3: Remove existing combinations')
         assembled = remove_existing(assembled, df)
-        print(f'新组合数: {len(assembled):,}')
+        print(f'INFO: New combinations: {len(assembled):,}')
 
     combos_file = args.output.replace('.csv', '_combinations.csv')
     assembled.to_csv(combos_file, index=False)
-    print(f'保存组合文件: {combos_file}')
+    print(f'INFO: Saved combinations file: {combos_file}')
 
     project_path = Path(args.project)
     automl_dir = project_path / 'all_models' / 'automl_train'
     if not automl_dir.exists():
         assembled.to_csv(args.output, index=False)
-        log_banner('统计')
-        print(f'总组合数: {len(assembled):,}')
+        log_banner('Stats')
+        print(f'Total combinations: {len(assembled):,}')
         return
 
-    log_step('步骤4: 提取分子特征')
+    log_step('Step 4: Extract molecular features')
     X, df_valid = extract_features_dataframe(assembled, feature_type=args.feature_type)
     if X is None:
-        print('特征提取失败')
+        print('ERROR: Feature extraction failed')
         return
-    print(f'成功提取特征: {len(X)}')
+    print(f'INFO: Successfully extracted features: {len(X)}')
 
-    log_step('步骤5: 加载模型并预测')
+    log_step('Step 5: Load models and predict')
     mdir = resolve_model_dir(args.project, args.model)
     if not mdir or not mdir.exists():
-        print('模型目录不存在')
+        print('ERROR: Model directory not found')
         return
-    print(f'模型目录: {mdir}')
-    models = load_models_from_dir(mdir)
+        print(f'INFO: Model directory: {mdir}')
+        models = load_models_from_dir(mdir)
 
     predictions = {}
     if 'wavelength' in models:
@@ -99,15 +99,15 @@ def main():
 
     out = args.output
     df_valid.to_csv(out, index=False)
-    print(f'虚拟数据库已保存: {out}')
+    print(f'INFO: Virtual database saved: {out}')
 
     if 'Predicted_PLQY' in df_valid.columns:
         top = df_valid.nlargest(100, 'Predicted_PLQY')
         top_file = out.replace('.csv', '_top100.csv')
         top.to_csv(top_file, index=False)
-        print(f'Top100候选已保存: {top_file}')
+        print(f'INFO: Top100 candidates saved: {top_file}')
 
-    log_banner('完成')
+    log_banner('Completed')
 
 
 if __name__ == '__main__':

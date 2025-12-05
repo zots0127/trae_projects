@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-使用训练好的模型对所有组合进行完整预测
-显示详细进度，不限制输出数量
+Run full predictions on all combinations using trained models
+Shows detailed progress; no output size limits
 """
 
 import pandas as pd
@@ -29,90 +29,80 @@ performance_stats = {
 }
 
 def get_hardware_info():
-    """获取硬件信息"""
+    """Collect hardware and system information"""
     info = {}
-    
-    # 基本系统信息
-    info['操作系统'] = platform.system()
-    info['系统版本'] = platform.version()
-    info['机器架构'] = platform.machine()
-    info['处理器'] = platform.processor()
-    info['Python版本'] = platform.python_version()
-    
-    # CPU信息
+    # Basic system info
+    info['OS'] = platform.system()
+    info['OS_version'] = platform.version()
+    info['Machine'] = platform.machine()
+    info['Processor'] = platform.processor()
+    info['Python_version'] = platform.python_version()
+    # CPU info
     try:
-        info['CPU物理核心数'] = psutil.cpu_count(logical=False)
-        info['CPU逻辑核心数'] = psutil.cpu_count(logical=True)
-        info['CPU使用率'] = f"{psutil.cpu_percent(interval=1)}%"
-    except:
+        info['CPU_physical_cores'] = psutil.cpu_count(logical=False)
+        info['CPU_logical_cores'] = psutil.cpu_count(logical=True)
+        info['CPU_usage'] = f"{psutil.cpu_percent(interval=1)}%"
+    except Exception:
         pass
-    
-    # 内存信息
+    # Memory info
     try:
         mem = psutil.virtual_memory()
-        info['总内存'] = f"{mem.total / (1024**3):.1f} GB"
-        info['可用内存'] = f"{mem.available / (1024**3):.1f} GB"
-        info['内存使用率'] = f"{mem.percent}%"
-    except:
+        info['Memory_total'] = f"{mem.total / (1024**3):.1f} GB"
+        info['Memory_available'] = f"{mem.available / (1024**3):.1f} GB"
+        info['Memory_usage'] = f"{mem.percent}%"
+    except Exception:
         pass
-    
-    # macOS特定信息
+    # macOS specific
     if platform.system() == 'Darwin':
         try:
-            # 获取Mac型号
-            result = subprocess.run(['sysctl', '-n', 'hw.model'], 
-                                 capture_output=True, text=True)
+            result = subprocess.run(['sysctl', '-n', 'hw.model'], capture_output=True, text=True)
             if result.returncode == 0:
-                info['Mac型号'] = result.stdout.strip()
-            
-            # 获取芯片信息
-            result = subprocess.run(['sysctl', '-n', 'machdep.cpu.brand_string'], 
-                                 capture_output=True, text=True)
+                info['Mac_model'] = result.stdout.strip()
+            result = subprocess.run(['sysctl', '-n', 'machdep.cpu.brand_string'], capture_output=True, text=True)
             if result.returncode == 0:
-                info['CPU型号'] = result.stdout.strip()
-        except:
+                info['CPU_brand'] = result.stdout.strip()
+        except Exception:
             pass
-    
     return info
 
 def load_models(project_dir, model_name='xgboost', use_intersection=False):
-    """加载训练好的模型
+    """Load trained models
     
     Args:
-        project_dir: 项目目录
-        model_name: 模型名称
-        use_intersection: 是否使用交集训练的模型
+        project_dir: Project directory
+        model_name: Model name
+        use_intersection: Whether to use intersection-trained models
     """
     step_start = time.time()
     print("\n" + "="*80)
-    print("步骤1: 加载模型")
+    print("Step 1: Load models")
     print("-"*80)
     
     models = {}
     
-    # 尝试多种可能的模型路径
+    # Try multiple possible model paths
     possible_paths = [
-        # AutoML 训练路径
+        # AutoML training path
         Path(project_dir) / 'all_models' / 'automl_train' / model_name / 'models',
         Path(project_dir) / '*' / 'automl_train' / model_name / 'models',
-        # 标准路径
+        # Standard paths
         Path(project_dir) / model_name / 'models',
         Path(project_dir) / 'models' / model_name,
     ]
     
-    # 根据是否使用交集选择模型目录
+    # Add intersection paths when requested
     if use_intersection:
-        # 交集训练的模型通常在 intersection 子目录
+        # Intersection-trained models usually live under an intersection subdirectory
         possible_paths.extend([
             Path(project_dir) / model_name / 'intersection' / f'{model_name}_intersection' / 'models',
             Path(project_dir) / model_name / 'intersection' / 'models',
         ])
     
-    # 查找存在的模型目录
+    # Find existing model directory
     model_dir = None
     for path in possible_paths:
         if '*' in str(path):
-            # 处理通配符路径
+            # Handle wildcard path
             matches = list(Path(project_dir).glob(str(path.relative_to(Path(project_dir)))))
             if matches:
                 model_dir = matches[0]
@@ -122,54 +112,51 @@ def load_models(project_dir, model_name='xgboost', use_intersection=False):
             break
     
     if model_dir is None:
-        print(f"❌ 模型目录不存在: {project_dir}/{model_name}/models")
-        print(f"  尝试过的路径:")
-        for path in possible_paths[:3]:  # 只显示前3个主要路径
-            print(f"    • {path}")
+        print(f"ERROR: Model directory not found: {project_dir}/{model_name}/models")
+        print("  Tried paths:")
+        for path in possible_paths[:3]:
+            print(f"    - {path}")
         return models
-    
-    print(f"  📁 找到模型目录: {model_dir}")
+    print(f"INFO: Found model directory: {model_dir}")
     if 'automl_train' in str(model_dir):
-        print(f"  📌 使用AutoML训练的模型")
+        print("INFO: Using AutoML-trained models")
     elif 'intersection' in str(model_dir):
-        print(f"  📌 使用交集训练模型")
+        print("INFO: Using intersection-trained models")
     else:
-        print(f"  📌 使用标准训练模型")
+        print("INFO: Using regular-trained models")
     
-    print(f"  📁 模型目录: {model_dir}")
-    
-    # 查找模型文件（只加载wavelength和PLQY）
+    # Find model files (load wavelength and PLQY only)
     for model_file in model_dir.glob("*.joblib"):
         filename = model_file.stem
         if 'wavelength' in filename.lower():
             models['wavelength'] = joblib.load(model_file)
-            print(f"  ✅ 波长模型: {model_file.name}")
+            print(f"INFO: Wavelength model: {model_file.name}")
         elif 'plqy' in filename.lower():
             models['PLQY'] = joblib.load(model_file)
-            print(f"  ✅ PLQY模型: {model_file.name}")
-        # 跳过tau模型
+            print(f"INFO: PLQY model: {model_file.name}")
+        # Skip tau models
     
-    print(f"\n成功加载 {len(models)} 个模型")
+    print(f"\nINFO: Loaded {len(models)} models")
     
     step_time = time.time() - step_start
     performance_stats['steps'].append({
-        'name': '模型加载',
+        'name': 'Model loading',
         'time_seconds': step_time,
-        'details': f'加载{len(models)}个模型'
+        'details': f'Loaded {len(models)} models'
     })
     return models
 
 def extract_features_batch(df, feature_type='combined', batch_size=1000):
-    """批量提取特征，显示详细进度"""
+    """Extract features in batches with detailed progress"""
     step_start = time.time()
     print("\n" + "="*80)
-    print("步骤2: 特征提取")
+    print("Step 2: Feature extraction")
     print("-"*80)
-    print(f"配置:")
-    print(f"  • 特征类型: {feature_type}")
-    print(f"  • 批处理大小: {batch_size:,}")
-    print(f"  • 总样本数: {len(df):,}")
-    print("\n开始提取...")
+    print("Config:")
+    print(f"  - Feature type: {feature_type}")
+    print(f"  - Batch size: {batch_size:,}")
+    print(f"  - Total samples: {len(df):,}")
+    print("\nStart extracting...")
     
     extractor = FeatureExtractor(
         feature_type=feature_type,
@@ -193,7 +180,7 @@ def extract_features_batch(df, feature_type='combined', batch_size=1000):
         batch_valid = 0
         for idx, row in batch_df.iterrows():
             try:
-                # 提取组合特征
+                # Extract combination features
                 smiles_list = [row['L1'], row['L2'], row['L3']]
                 features = extractor.extract_combination(smiles_list)
                 
@@ -207,65 +194,65 @@ def extract_features_batch(df, feature_type='combined', batch_size=1000):
                 failed_count += 1
                 continue
         
-        # 计算速度和剩余时间
+        # Compute speed and remaining time
         batch_time = time.time() - batch_start_time
         elapsed_time = time.time() - start_time
         processed = batch_end
         rate = processed / elapsed_time if elapsed_time > 0 else 0
         remaining = (n_samples - processed) / rate if rate > 0 else 0
         
-        # 显示进度（每1000个样本或每10个批次显示一次）
+        # Show progress (every 1000 samples or every 10 batches)
         if i % (batch_size * 10) == 0 or batch_end == n_samples:
-            print(f"\r  进度: {processed:,}/{n_samples:,} ({100*processed/n_samples:.1f}%) | "
-                  f"成功: {len(valid_indices):,} | 失败: {failed_count:,} | "
-                  f"速度: {rate:.0f} samples/s | "
-                  f"剩余时间: {remaining/60:.1f} min", end='', flush=True)
+            print(f"\r  Progress: {processed:,}/{n_samples:,} ({100*processed/n_samples:.1f}%) | "
+                  f"Success: {len(valid_indices):,} | Fail: {failed_count:,} | "
+                  f"Speed: {rate:.0f} samples/s | "
+                  f"Remaining: {remaining/60:.1f} min", end='', flush=True)
     
-    print()  # 换行
+    print()  
     
     total_time = time.time() - start_time
     if features_list:
         X = np.vstack(features_list)
         df_valid = df.iloc[valid_indices].reset_index(drop=True)
-        print(f"\n✅ 特征提取完成:")
-        print(f"  • 成功: {len(X):,} 个样本")
-        print(f"  • 失败: {failed_count:,} 个样本")
-        print(f"  • 成功率: {100*len(X)/n_samples:.1f}%")
-        print(f"  • 总用时: {total_time/60:.1f} 分钟")
-        print(f"  • 平均速度: {n_samples/total_time:.0f} samples/s")
+        print(f"\nINFO: Feature extraction completed:")
+        print(f"  - Success: {len(X):,} samples")
+        print(f"  - Fail: {failed_count:,} samples")
+        print(f"  - Success rate: {100*len(X)/n_samples:.1f}%")
+        print(f"  - Total time: {total_time/60:.1f} min")
+        print(f"  - Avg speed: {n_samples/total_time:.0f} samples/s")
         
         step_time = time.time() - step_start
         performance_stats['steps'].append({
-            'name': '特征提取',
+        'name': 'Feature extraction',
             'time_seconds': step_time,
             'samples_processed': n_samples,
             'samples_success': len(X),
             'samples_failed': failed_count,
             'speed_samples_per_sec': n_samples/total_time,
-            'details': f'{len(X):,}/{n_samples:,}样本成功'
+            'details': f'{len(X):,}/{n_samples:,} samples succeeded'
         })
         return X, df_valid
     else:
-        print(f"\n❌ 特征提取失败，没有有效的特征")
+        print(f"\nERROR: Feature extraction failed: no valid features")
         return None, None
 
 def predict_batch(models, X, df_valid, batch_size=10000):
-    """批量预测，显示详细进度"""
+    """Predict in batches with detailed progress"""
     step_start = time.time()
     print("\n" + "="*80)
-    print("步骤3: 批量预测")
+    print("Step 3: Batch prediction")
     print("-"*80)
-    print(f"配置:")
-    print(f"  • 样本数: {len(X):,}")
-    print(f"  • 批大小: {batch_size:,}")
-    print(f"  • 模型数: {len(models)}")
+    print("Config:")
+    print(f"  - Samples: {len(X):,}")
+    print(f"  - Batch size: {batch_size:,}")
+    print(f"  - Models: {len(models)}")
     
     predictions = {}
     target_times = {}
     
-    # 预测每个目标
+    # Predict each target
     for target_idx, (target, model) in enumerate(models.items(), 1):
-        print(f"\n预测目标 {target_idx}/{len(models)}: {target}")
+        print(f"\nPredict target {target_idx}/{len(models)}: {target}")
         
         n_samples = len(X)
         preds = []
@@ -278,33 +265,33 @@ def predict_batch(models, X, df_valid, batch_size=10000):
             batch_pred = model.predict(batch_X)
             preds.append(batch_pred)
             
-            # 计算进度
+            # Compute progress
             elapsed = time.time() - start_time
             rate = batch_end / elapsed if elapsed > 0 else 0
             remaining = (n_samples - batch_end) / rate if rate > 0 else 0
             
-            # 显示进度
-            print(f"\r  进度: {batch_end:,}/{n_samples:,} ({100*batch_end/n_samples:.1f}%) | "
-                  f"速度: {rate:.0f} samples/s | "
-                  f"剩余: {remaining:.0f}s", end='', flush=True)
+            # Show progress
+            print(f"\r  Progress: {batch_end:,}/{n_samples:,} ({100*batch_end/n_samples:.1f}%) | "
+                  f"Speed: {rate:.0f} samples/s | "
+                  f"Remaining: {remaining:.0f}s", end='', flush=True)
         
         predictions[target] = np.concatenate(preds)
         
-        # 记录时间（提高精度）
+        # Record timing
         target_time = time.time() - start_time
         target_times[target] = target_time
         
-        # 统计信息
-        print(f"\n  ✅ 完成: {target}")
-        print(f"    • 最小值: {predictions[target].min():.6f}")
-        print(f"    • 最大值: {predictions[target].max():.6f}")
-        print(f"    • 平均值: {predictions[target].mean():.6f}")
-        print(f"    • 标准差: {predictions[target].std():.6f}")
-        print(f"    • 用时: {target_time:.3f}秒")
-        print(f"    • 速度: {n_samples/target_time:.0f} samples/s")
+        # Stats
+        print(f"\nINFO: Completed: {target}")
+        print(f"    - Min: {predictions[target].min():.6f}")
+        print(f"    - Max: {predictions[target].max():.6f}")
+        print(f"    - Mean: {predictions[target].mean():.6f}")
+        print(f"    - Std: {predictions[target].std():.6f}")
+        print(f"    - Time: {target_time:.3f}s")
+        print(f"    - Speed: {n_samples/target_time:.0f} samples/s")
     
-    # 添加预测到DataFrame
-    print("\n添加预测结果到数据框...")
+    # Add predictions to DataFrame
+    print("\nINFO: Adding predictions to DataFrame...")
     if 'wavelength' in predictions:
         df_valid['Predicted_wavelength'] = predictions['wavelength']
     if 'PLQY' in predictions:
@@ -314,36 +301,36 @@ def predict_batch(models, X, df_valid, batch_size=10000):
     prediction_speed = len(X) / step_time if step_time > 0 else 0
     
     performance_stats['steps'].append({
-        'name': '批量预测',
+        'name': 'Batch prediction',
         'time_seconds': step_time,
         'samples': len(X),
         'models': len(models),
         'prediction_speed_samples_per_sec': prediction_speed,
         'target_times': target_times,
-        'details': f'预测{len(models)}个目标，速度: {prediction_speed:.0f} samples/s'
+        'details': f'Predicted {len(models)} targets, speed: {prediction_speed:.0f} samples/s'
     })
     
     return df_valid
 
 def analyze_results(df):
-    """分析预测结果"""
+    """Analyze prediction results"""
     print("\n" + "="*80)
-    print("步骤4: 结果分析")
+    print("Step 4: Result analysis")
     print("-"*80)
     
     if 'Predicted_PLQY' in df.columns:
-        print("\n📊 PLQY分布:")
+        print("\nSTATS: PLQY distribution:")
         plqy = df['Predicted_PLQY']
-        print(f"  • 最小值: {plqy.min():.4f}")
-        print(f"  • 25分位: {plqy.quantile(0.25):.4f}")
-        print(f"  • 中位数: {plqy.median():.4f}")
-        print(f"  • 75分位: {plqy.quantile(0.75):.4f}")
-        print(f"  • 最大值: {plqy.max():.4f}")
-        print(f"  • 平均值: {plqy.mean():.4f}")
-        print(f"  • 标准差: {plqy.std():.4f}")
+        print(f"  - Min: {plqy.min():.4f}")
+        print(f"  - 25%: {plqy.quantile(0.25):.4f}")
+        print(f"  - Median: {plqy.median():.4f}")
+        print(f"  - 75%: {plqy.quantile(0.75):.4f}")
+        print(f"  - Max: {plqy.max():.4f}")
+        print(f"  - Mean: {plqy.mean():.4f}")
+        print(f"  - Std: {plqy.std():.4f}")
         
         # PLQY范围分布
-        print("\n  PLQY范围分布:")
+        print("\n  PLQY range distribution:")
         ranges = [
             (0.9, 1.0, "0.9-1.0"),
             (0.8, 0.9, "0.8-0.9"),
@@ -358,126 +345,126 @@ def analyze_results(df):
             print(f"    {label}: {count:,} ({pct:.1f}%)")
         
         # Top 10 PLQY
-        print("\n🏆 Top 10 PLQY组合:")
+        print("\nTop 10 PLQY combinations:")
         top10 = df.nlargest(10, 'Predicted_PLQY')
         for i, (idx, row) in enumerate(top10.iterrows(), 1):
             print(f"\n  #{i}:")
             print(f"    PLQY: {row['Predicted_PLQY']:.4f}")
             if 'Predicted_wavelength' in df.columns:
-                print(f"    波长: {row['Predicted_wavelength']:.1f} nm")
-            if i <= 3:  # 显示前3个的SMILES
+                print(f"    Wavelength: {row['Predicted_wavelength']:.1f} nm")
+            if i <= 3:
                 print(f"    L1/L2: {row['L1'][:60]}...")
                 print(f"    L3: {row['L3'][:60]}...")
     
     if 'Predicted_wavelength' in df.columns:
-        print("\n📊 波长分布:")
+        print("\nSTATS: Wavelength distribution:")
         wl = df['Predicted_wavelength']
-        print(f"  • 最小值: {wl.min():.1f} nm")
-        print(f"  • 25分位: {wl.quantile(0.25):.1f} nm")
-        print(f"  • 中位数: {wl.median():.1f} nm")
-        print(f"  • 75分位: {wl.quantile(0.75):.1f} nm")
-        print(f"  • 最大值: {wl.max():.1f} nm")
-        print(f"  • 平均值: {wl.mean():.1f} nm")
+        print(f"  - Min: {wl.min():.1f} nm")
+        print(f"  - 25%: {wl.quantile(0.25):.1f} nm")
+        print(f"  - Median: {wl.median():.1f} nm")
+        print(f"  - 75%: {wl.quantile(0.75):.1f} nm")
+        print(f"  - Max: {wl.max():.1f} nm")
+        print(f"  - Mean: {wl.mean():.1f} nm")
 
 def save_performance_stats(output_dir):
-    """保存性能统计表格"""
-    print("\n保存性能统计...")
+    """Save performance statistics tables"""
+    print("\nSaving performance statistics...")
     
-    # 创建性能统计表格
+    # Create performance statistics table
     perf_data = []
     for step in performance_stats['steps']:
         row = {
-            '步骤': step['name'],
-            '耗时(秒)': f"{step['time_seconds']:.3f}",
-            '耗时(分钟)': f"{step['time_seconds']/60:.3f}",
-            '详细信息': step['details']
+            'Step': step['name'],
+            'Time_seconds': f"{step['time_seconds']:.3f}",
+            'Time_minutes': f"{step['time_seconds']/60:.3f}",
+            'Details': step['details']
         }
         
-        # 添加额外信息 - 确保所有字段都有值
+        # Add extra info - ensure fields have values
         if 'samples_processed' in step:
-            row['处理样本数'] = f"{step['samples_processed']:,}"
-            row['成功样本数'] = f"{step['samples_success']:,}"
-            row['失败样本数'] = f"{step['samples_failed']:,}"
-            row['速度(样本/秒)'] = f"{step['speed_samples_per_sec']:.0f}"
-        elif 'samples' in step:  # 批量预测步骤
-            row['处理样本数'] = f"{step['samples']:,}"
-            row['成功样本数'] = f"{step['samples']:,}"
-            row['失败样本数'] = '0'
+            row['Samples_processed'] = f"{step['samples_processed']:,}"
+            row['Samples_success'] = f"{step['samples_success']:,}"
+            row['Samples_failed'] = f"{step['samples_failed']:,}"
+            row['Speed_samples_per_sec'] = f"{step['speed_samples_per_sec']:.0f}"
+        elif 'samples' in step:  
+            row['Samples_processed'] = f"{step['samples']:,}"
+            row['Samples_success'] = f"{step['samples']:,}"
+            row['Samples_failed'] = '0'
             if 'prediction_speed_samples_per_sec' in step:
-                row['速度(样本/秒)'] = f"{step['prediction_speed_samples_per_sec']:.0f}"
+                row['Speed_samples_per_sec'] = f"{step['prediction_speed_samples_per_sec']:.0f}"
             else:
-                row['速度(样本/秒)'] = '-'
+                row['Speed_samples_per_sec'] = '-'
         else:
-            row['处理样本数'] = '-'
-            row['成功样本数'] = '-'
-            row['失败样本数'] = '-'
-            row['速度(样本/秒)'] = '-'
+            row['Samples_processed'] = '-'
+            row['Samples_success'] = '-'
+            row['Samples_failed'] = '-'
+            row['Speed_samples_per_sec'] = '-'
         
         if 'target_times' in step:
             for target, t in step['target_times'].items():
-                row[f'{target}预测时间(秒)'] = f"{t:.3f}"
+                row[f'{target}_prediction_time_seconds'] = f"{t:.3f}"
         
         perf_data.append(row)
     
-    # 添加总计行
+    # Add total row
     total_time = performance_stats['end_time'] - performance_stats['start_time']
     perf_data.append({
-        '步骤': '总计',
-        '耗时(秒)': f"{total_time:.3f}",
-        '耗时(分钟)': f"{total_time/60:.3f}",
-        '详细信息': f"完成{len(performance_stats['steps'])}个步骤",
-        '处理样本数': '-',
-        '成功样本数': '-',
-        '失败样本数': '-',
-        '速度(样本/秒)': '-'
+        'Step': 'Total',
+        'Time_seconds': f"{total_time:.3f}",
+        'Time_minutes': f"{total_time/60:.3f}",
+        'Details': f"Completed {len(performance_stats['steps'])} steps",
+        'Samples_processed': '-',
+        'Samples_success': '-',
+        'Samples_failed': '-',
+        'Speed_samples_per_sec': '-'
     })
     
-    # 保存为CSV
+    # Save as CSV
     perf_df = pd.DataFrame(perf_data)
     perf_file = Path(output_dir) / 'performance_statistics.csv'
     perf_df.to_csv(perf_file, index=False, encoding='utf-8-sig')
-    print(f"  ✅ 性能统计: {perf_file}")
+    print(f"  [INFO] Performance statistics: {perf_file}")
     
-    # 保存硬件信息
+    # Save hardware info
     hardware_df = pd.DataFrame([performance_stats['hardware_info']])
     hardware_file = Path(output_dir) / 'hardware_info.csv'
     hardware_df.to_csv(hardware_file, index=False, encoding='utf-8-sig')
-    print(f"  ✅ 硬件信息: {hardware_file}")
+    print(f"  [INFO] Hardware info: {hardware_file}")
     
-    # 保存为JSON
+    # Save as JSON
     json_file = Path(output_dir) / 'performance_statistics.json'
     with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(performance_stats, f, ensure_ascii=False, indent=2)
-    print(f"  ✅ 详细统计: {json_file}")
+        json.dump(performance_stats, f, ensure_ascii=True, indent=2)
+    print(f"  [INFO] Detailed statistics: {json_file}")
     
-    # 打印性能表格
-    print("\n性能统计汇总:")
+    # Print performance table
+    print("\nPerformance summary:")
     print("-" * 80)
     print(perf_df.to_string(index=False))
     print("-" * 80)
     
-    # 打印硬件信息
-    print("\n硬件配置:")
+    # Print hardware info
+    print("\nHardware info:")
     print("-" * 80)
     for key, value in performance_stats['hardware_info'].items():
         print(f"{key:20s}: {value}")
     print("-" * 80)
     
-    # 打印性能摘要
+    # Print performance summary
     print("\n" + "="*80)
-    print("🚀 性能指标摘要")
+    print("SUMMARY: Performance Metrics")
     print("="*80)
     
-    # 提取关键性能数据
+    # Extract key performance data
     feature_speed = 0
     prediction_speed = 0
     total_samples = 0
     
     for step in performance_stats['steps']:
-        if step['name'] == '特征提取' and 'speed_samples_per_sec' in step:
+        if step['name'] == 'Feature extraction' and 'speed_samples_per_sec' in step:
             feature_speed = step['speed_samples_per_sec']
             total_samples = step.get('samples_processed', 0)
-        elif step['name'] == '批量预测' and 'prediction_speed_samples_per_sec' in step:
+        elif step['name'] == 'Batch prediction' and 'prediction_speed_samples_per_sec' in step:
             prediction_speed = step['prediction_speed_samples_per_sec']
             if total_samples == 0:
                 total_samples = step.get('samples', 0)
@@ -485,18 +472,18 @@ def save_performance_stats(output_dir):
     total_time = performance_stats['end_time'] - performance_stats['start_time']
     end_to_end_speed = total_samples / total_time if total_time > 0 else 0
     
-    print(f"  📊 处理样本数: {total_samples:,}")
-    print(f"  ⏱️  总耗时: {total_time:.1f}秒 ({total_time/60:.2f}分钟)")
-    print(f"  🔬 特征提取速度: {feature_speed:,.0f} samples/s")
-    print(f"  🎯 模型预测速度: {prediction_speed:,.0f} samples/s")
-    print(f"  🏁 端到端速度: {end_to_end_speed:,.0f} samples/s")
+    print(f"  SAMPLES: {total_samples:,}")
+    print(f"  TIME: Total {total_time:.1f}s ({total_time/60:.2f} min)")
+    print(f"  FEATURE: Extraction speed {feature_speed:,.0f} samples/s")
+    print(f"  PRED: Prediction speed {prediction_speed:,.0f} samples/s")
+    print(f"  END2END: End-to-end speed {end_to_end_speed:,.0f} samples/s")
     
     if prediction_speed > 100000:
-        print(f"  ⚡ 超高速预测: {prediction_speed/1000:.0f}K samples/s!")
+        print(f"  FAST: Ultra-fast prediction {prediction_speed/1000:.0f}k samples/s!")
     
     print("="*80)
     
-    # 保存详细性能报告
+    # Save detailed performance report
     performance_report = {
         'summary': {
             'total_samples': total_samples,
@@ -511,61 +498,61 @@ def save_performance_stats(output_dir):
     
     report_file = Path(output_dir) / 'performance_detailed.json'
     with open(report_file, 'w', encoding='utf-8') as f:
-        json.dump(performance_report, f, ensure_ascii=False, indent=2)
-    print(f"\n  ✅ 详细性能报告: {report_file}")
+        json.dump(performance_report, f, ensure_ascii=True, indent=2)
+    print(f"\nINFO: Detailed performance report: {report_file}")
     
     return perf_df
 
 def save_results(df, output_file):
-    """保存结果，包括排序版本"""
+    """Save results, including sorted versions"""
     step_start = time.time()
     print("\n" + "="*80)
-    print("步骤5: 保存结果")
+    print("Step 5: Save results")
     print("-"*80)
     
     # 保存完整结果
-    print(f"\n保存完整预测结果...")
+    print(f"\nSaving full prediction results...")
     df.to_csv(output_file, index=False)
-    print(f"  ✅ 文件: {output_file}")
-    print(f"  ✅ 行数: {len(df):,}")
+    print(f"  [INFO] File: {output_file}")
+    print(f"  [INFO] Rows: {len(df):,}")
     
-    # 按PLQY排序保存
+    # Save sorted by PLQY
     if 'Predicted_PLQY' in df.columns:
         sorted_file = output_file.replace('.csv', '_sorted_by_plqy.csv')
         df_sorted = df.sort_values('Predicted_PLQY', ascending=False)
         df_sorted.to_csv(sorted_file, index=False)
-        print(f"  ✅ PLQY排序版: {sorted_file}")
+        print(f"INFO: PLQY sorted: {sorted_file}")
         
-        # 保存不同阈值的筛选结果
+        # Save filtered results for thresholds
         thresholds = [0.9, 0.8, 0.7]
         for threshold in thresholds:
             filtered = df[df['Predicted_PLQY'] >= threshold]
             if len(filtered) > 0:
                 threshold_file = output_file.replace('.csv', f'_plqy_{threshold:.1f}+.csv')
                 filtered.to_csv(threshold_file, index=False)
-                print(f"  ✅ PLQY≥{threshold}: {threshold_file} ({len(filtered):,} 个)")
+                print(f"  [INFO] PLQY>={threshold}: {threshold_file} ({len(filtered):,})")
     
     step_time = time.time() - step_start
     performance_stats['steps'].append({
-        'name': '结果保存',
+        'name': 'Save results',
         'time_seconds': step_time,
-        'details': f'保存{len(df):,}条预测结果'
+        'details': f'Saved {len(df):,} predictions'
     })
 
 def main():
-    parser = argparse.ArgumentParser(description='预测所有组合性质')
+    parser = argparse.ArgumentParser(description='Predict properties for all combinations')
     parser.add_argument('--project', '-p',
-                       help='模型项目目录 (默认: paper_table)')
+                       help='Model project directory (default: paper_table)')
     parser.add_argument('--input', '-i', 
-                       help='组合文件 (默认: PROJECT/ir_assemble.csv)')
+                       help='Combination file (default: PROJECT/ir_assemble.csv)')
     parser.add_argument('--output', '-o',
-                       help='输出文件 (默认: PROJECT/ir_assemble_predicted_all.csv)')
+                       help='Output file (default: PROJECT/ir_assemble_predicted_all.csv)')
     parser.add_argument('--intersection', action='store_true',
-                       help='使用交集训练的模型（只用三个目标都有值的数据训练）')
+                       help='Use intersection-trained models (trained on samples with all targets)')
     parser.add_argument('--batch-size', type=int, default=1000,
-                       help='特征提取批处理大小')
+                       help='Batch size for feature extraction')
     parser.add_argument('--predict-batch', type=int, default=10000,
-                       help='预测批处理大小')
+                       help='Batch size for prediction')
     
     args = parser.parse_args()
     
@@ -583,14 +570,14 @@ def main():
             args.output = f"{args.project}/ir_assemble_predicted_all.csv"
     
     print("="*80)
-    print("完整预测流程 - 272,104个组合")
+    print("Full prediction pipeline - 272,104 combinations")
     print("="*80)
-    print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"\n配置:")
-    print(f"  • 项目目录: {args.project}")
-    print(f"  • 模型类型: {'交集训练模型' if args.intersection else '完整数据训练模型'}")
-    print(f"  • 输入文件: {args.input}")
-    print(f"  • 输出文件: {args.output}")
+    print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("\nConfig:")
+    print(f"  - Project: {args.project}")
+    print(f"  - Model type: {'Intersection-trained' if args.intersection else 'Full-data-trained'}")
+    print(f"  - Input file: {args.input}")
+    print(f"  - Output file: {args.output}")
     
     # 记录开始时间和硬件信息
     performance_stats['start_time'] = time.time()
@@ -598,29 +585,29 @@ def main():
     total_start = time.time()
     
     # 显示硬件信息
-    print("\n硬件配置:")
+    print("\nHardware info:")
     for key, value in performance_stats['hardware_info'].items():
-        print(f"  • {key}: {value}")
+        print(f"  - {key}: {value}")
     
     # 1. 加载组合
-    print(f"\n加载组合文件...")
+    print(f"\nLoading combination file...")
     df = pd.read_csv(args.input)
-    print(f"  ✅ 加载 {len(df):,} 个组合")
+    print(f"INFO: Loaded {len(df):,} combinations")
     
     # 验证L1=L2
     same_count = (df['L1'] == df['L2']).sum()
-    print(f"  ✅ L1=L2验证: {same_count:,}/{len(df):,}")
+    print(f"INFO: L1=L2 validation: {same_count:,}/{len(df):,}")
     
     # 2. 加载模型
     models = load_models(args.project, use_intersection=args.intersection)
     if not models:
-        print("❌ 没有找到模型")
+        print("ERROR: No models found")
         return
     
     # 3. 提取特征
     X, df_valid = extract_features_batch(df, batch_size=args.batch_size)
     if X is None:
-        print("❌ 特征提取失败")
+        print("ERROR: Feature extraction failed")
         return
     
     # 4. 预测
@@ -642,10 +629,10 @@ def main():
     # 总结
     total_time = time.time() - total_start
     print("\n" + "="*80)
-    print("✅ 预测完成!")
-    print(f"  • 总用时: {total_time:.3f} 秒 ({total_time/60:.3f} 分钟)")
-    print(f"  • 处理速度: {len(df)/total_time:.0f} samples/s")
-    print(f"  • 完成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("Prediction completed!")
+    print(f"  - Total time: {total_time:.3f} s ({total_time/60:.3f} min)")
+    print(f"  - Processing speed: {len(df)/total_time:.0f} samples/s")
+    print(f"  - End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*80)
 
 if __name__ == "__main__":

@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# uv environment setup script
+# UV-based Python environment setup script
 
-set -e  # Exit on error
+set -e  # Exit on any error
 
 echo "==========================================="
 echo "Setting up Python environment with uv"
 echo "==========================================="
 
-# Check if uv is installed
+# Check if uv is available
 if ! command -v uv &> /dev/null; then
-    # Try to source the uv environment first
+    # Try sourcing uv environment first
     if [ -f "$HOME/.local/bin/uv" ]; then
         export PATH="$HOME/.local/bin:$PATH"
     elif [ -f "$HOME/.cargo/env" ]; then
@@ -19,7 +19,7 @@ if ! command -v uv &> /dev/null; then
 
     # Check again after sourcing
     if ! command -v uv &> /dev/null; then
-        echo "uv is not installed. Installing uv..."
+        echo "uv not found. Installing uv..."
         curl -LsSf https://astral.sh/uv/install.sh | sh || true
 
         # Add to PATH manually
@@ -27,7 +27,7 @@ if ! command -v uv &> /dev/null; then
 
         # Verify installation
         if ! command -v uv &> /dev/null; then
-            echo "Failed to install or locate uv. Please install manually."
+            echo "Failed to install or locate uv. Please install it manually."
             exit 1
         fi
     fi
@@ -37,7 +37,7 @@ echo "uv version: $(uv --version)"
 
 # Create virtual environment (clear if exists)
 echo ""
-echo "Creating virtual environment..."
+echo "Creating virtual environment (.venv)..."
 uv venv .venv --clear --python 3.9
 
 # Activate virtual environment
@@ -52,7 +52,7 @@ echo "Installing dependencies..."
 # Core ML libraries
 uv pip install numpy pandas scikit-learn xgboost lightgbm catboost
 
-# Deep learning
+# Deep learning (CPU)
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # Data visualization
@@ -80,15 +80,15 @@ echo ""
 
 # Run workflow if available
 if [ -f "./run_workflow.sh" ]; then
-    echo "Running run_workflow.sh..."
+    echo "Running workflow: run_workflow.sh"
     echo "==========================================="
     bash ./run_workflow.sh
 elif [ -f "./0913.sh" ]; then
-    echo "Running 0913.sh..."
+    echo "Running workflow: 0913.sh"
     echo "==========================================="
     bash ./0913.sh
 else
-    echo "No workflow script found (run_workflow.sh or 0913.sh)"
+    echo "No workflow script found (run_workflow.sh or 0913.sh)."
     echo "To activate the environment manually, run:"
     echo "  source .venv/bin/activate"
 fi

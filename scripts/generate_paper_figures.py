@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-生成论文所需的所有图表
-包括图c-g的所有分析图
+Generate submission-ready project figures (C-G)
 """
 
 import os
@@ -65,7 +64,7 @@ def load_predictions(project_dir, model_name='xgboost'):
             # 回退：使用统一预测目录
             predictions_dir = project_path / 'predictions'
             if not predictions_dir.exists():
-                print(f"⚠️ 未找到预测目录: {model_dir/'predictions'} 或 {predictions_dir} 或 {automl_dir}")
+                print(f"WARNING: Prediction directory not found: {model_dir/'predictions'} or {predictions_dir} or {automl_dir}")
                 return None
     all_predictions = {}
     target_types = {'wavelength': [], 'PLQY': [], 'tau': []}
@@ -123,7 +122,7 @@ def load_predictions(project_dir, model_name='xgboost'):
                         'predicted': test_df[pred_col].values
                     })
         except Exception as e:
-            print(f"⚠️ 读取文件失败 {csv_file}: {e}")
+            print(f"WARNING: Failed to read file {csv_file}: {e}")
     
     for target_type in ['wavelength', 'PLQY', 'tau']:
         if target_types[target_type]:
@@ -176,7 +175,7 @@ def load_predictions(project_dir, model_name='xgboost'):
                         'predicted': predicted
                     }
                 except Exception as e:
-                    print(f"⚠️ 无法读取测试预测 {tf}: {e}")
+                    print(f"WARNING: Failed to read test predictions {tf}: {e}")
     except Exception:
         pass
 
@@ -184,9 +183,9 @@ def load_predictions(project_dir, model_name='xgboost'):
 
 def plot_figure_c(df, output_dir):
     """
-    图c: 波长-PLQY散点图，按溶剂类型着色
+    Figure C: Wavelength-PLQY scatter plot colored by solvent
     """
-    print("生成图c: 波长-PLQY散点图...")
+    print("Generating Figure C: Wavelength-PLQY scatter plot...")
     
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
     
@@ -243,7 +242,7 @@ def plot_figure_c(df, output_dir):
         save_path = output_dir / 'figure_c_wavelength_plqy.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ 保存: {save_path}")
+        print(f"INFO: Saved: {save_path}")
 
         # 导出用于绘图的数据
         try:
@@ -256,9 +255,9 @@ def plot_figure_c(df, output_dir):
 
 def plot_figure_d(df, output_dir):
     """
-    图d: PLQY分布直方图（堆叠柱状图）
+    Figure D: PLQY distribution histogram (stacked bar)
     """
-    print("生成图d: PLQY分布直方图...")
+    print("Generating Figure D: PLQY distribution histogram...")
     
     fig, ax = plt.subplots(1, 1, figsize=(6, 6))
     
@@ -271,7 +270,7 @@ def plot_figure_d(df, output_dir):
     if plqy_col:
         # 定义PLQY范围
         bins = [-0.001, 0.1, 0.5, 1.001]
-        labels = ['≤0.1', '0.1-0.5', '>0.5']
+        labels = ['<=0.1', '0.1-0.5', '>0.5']
         
         # 计算每个范围的数量
         df['PLQY_range'] = pd.cut(df[plqy_col], bins=bins, labels=labels)
@@ -328,7 +327,7 @@ def plot_figure_d(df, output_dir):
         save_path = output_dir / 'figure_d_plqy_distribution.png'
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-        print(f"✅ 保存: {save_path}")
+        print(f"INFO: Saved: {save_path}")
 
         # 导出用于绘图的数据
         try:
@@ -341,12 +340,12 @@ def plot_figure_d(df, output_dir):
 
 def plot_figure_e_f(predictions, output_dir):
     """
-    图e和f: 预测vs实验散点图
+    Figures E and F: Predicted vs Experimental scatter plots
     """
-    print("生成图e和f: 预测vs实验散点图...")
+    print("Generating Figures E and F: Predicted vs Experimental scatter plots...")
     
     if not predictions:
-        print("⚠️ 没有预测数据")
+        print("WARNING: No prediction data")
         return
     
     # 创建两个子图
@@ -372,11 +371,11 @@ def plot_figure_e_f(predictions, output_dir):
         max_val = max(actual.max(), predicted.max())
         ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=1.5, alpha=0.7)
         
-        ax.set_xlabel('Experimental λem (nm)', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Predicted λem (nm)', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Experimental Wavelength (nm)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Predicted Wavelength (nm)', fontsize=12, fontweight='bold')
         
         # 添加指标文本
-        ax.text(0.05, 0.95, f'MAE = {mae:.1f}\nR² = {r2:.2f}',
+        ax.text(0.05, 0.95, f'MAE = {mae:.1f}\nR^2 = {r2:.2f}',
                transform=ax.transAxes, fontsize=11,
                verticalalignment='top',
                bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
@@ -418,7 +417,7 @@ def plot_figure_e_f(predictions, output_dir):
         ax.set_ylim(-0.05, 1.05)
         
         # 添加指标文本
-        ax.text(0.05, 0.95, f'MAE = {mae:.2f}\nR² = {r2:.2f}',
+        ax.text(0.05, 0.95, f'MAE = {mae:.2f}\nR^2 = {r2:.2f}',
                transform=ax.transAxes, fontsize=11,
                verticalalignment='top',
                bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
@@ -440,16 +439,16 @@ def plot_figure_e_f(predictions, output_dir):
     save_path = output_dir / 'figure_e_f_predictions.png'
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"✅ 保存: {save_path}")
+    print(f"INFO: Saved: {save_path}")
 
 def plot_figure_g(predictions, output_dir):
     """
-    图g: PLQY范围预测准确率热图
+    Figure G: PLQY-range prediction accuracy heatmap
     """
-    print("生成图g: PLQY范围准确率热图...")
+    print("Generating Figure G: PLQY-range accuracy heatmap...")
     
     if 'PLQY' not in predictions:
-        print("⚠️ 没有PLQY预测数据")
+        print("WARNING: No PLQY prediction data")
         return
     
     fig, ax = plt.subplots(1, 1, figsize=(7, 6))
@@ -510,7 +509,7 @@ def plot_figure_g(predictions, output_dir):
     save_path = output_dir / 'figure_g_plqy_accuracy.png'
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"✅ 保存: {save_path}")
+    print(f"INFO: Saved: {save_path}")
 
     # 导出混淆矩阵数据
     try:
@@ -520,30 +519,30 @@ def plot_figure_g(predictions, output_dir):
         pass
 
 def generate_all_figures(project_dir, data_file, output_dir):
-    """生成所有图表"""
+    """Generate all figures"""
     
     # 创建输出目录
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True, parents=True)
     
     print("=" * 60)
-    print("生成论文图表")
+    print("Generate project figures")
     print("=" * 60)
     
     # 加载数据
-    print("\n加载数据...")
+    print("\nLoading data...")
     df = load_data(data_file)
-    print(f"✅ 加载 {len(df)} 个样本")
+    print(f"INFO: Loaded {len(df)} samples")
     
     # 加载预测结果
-    print("\n加载预测结果...")
+    print("\nLoading predictions...")
     predictions = load_predictions(project_dir)
     if predictions:
         for key, value in predictions.items():
-            print(f"✅ {key}: {len(value['actual'])} 个预测")
+            print(f"INFO: {key}: {len(value['actual'])} predictions")
     
     # 生成各个图表
-    print("\n生成图表...")
+    print("\nGenerating figures...")
     print("-" * 40)
     
     # 图c: 波长-PLQY散点图
@@ -560,8 +559,8 @@ def generate_all_figures(project_dir, data_file, output_dir):
         plot_figure_g(predictions, output_path)
     
     print("\n" + "=" * 60)
-    print("✅ 所有图表生成完成！")
-    print(f"保存位置: {output_path}")
+    print("INFO: All figures generated")
+    print(f"Saved to: {output_path}")
     print("=" * 60)
     
     # 返回文件列表
@@ -569,14 +568,14 @@ def generate_all_figures(project_dir, data_file, output_dir):
     return files
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='生成论文图表')
+    """Main entry"""
+    parser = argparse.ArgumentParser(description='Generate project figures')
     
-    parser.add_argument('--project', '-p', default='paper_table',
-                       help='项目目录')
+    parser.add_argument('--project', '-p', default='.',
+                       help='Project directory')
     parser.add_argument('--data', '-d', default='../data/Database_normalized.csv',
-                       help='数据文件')
-    parser.add_argument('--output', '-o', help='输出目录')
+                       help='Data file')
+    parser.add_argument('--output', '-o', help='Output directory')
     
     args = parser.parse_args()
     
@@ -584,13 +583,13 @@ def main():
     if args.output:
         output_dir = args.output
     else:
-        output_dir = Path(args.project) / 'paper_figures'
+        output_dir = Path(args.project) / 'figures'
     
     # 生成所有图表
     files = generate_all_figures(args.project, args.data, output_dir)
     
     # 显示生成的文件
-    print("\n📁 生成的图表文件：")
+    print("\nGenerated figure files:")
     print("-" * 40)
     for f in sorted(files):
         print(f"  {f}")

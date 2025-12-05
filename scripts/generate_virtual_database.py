@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-生成虚拟数据库 - 重组L1、L2、L3的所有组合并预测
+Generate virtual database - reassemble all L1/L2/L3 combinations and predict
 """
 
 import os
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.feature_extractor import FeatureExtractor
 
 def load_original_data(data_file):
-    """加载原始数据并提取唯一的配体"""
+    """Load original data and extract unique ligands"""
     df = pd.read_csv(data_file)
     
     # 提取所有唯一的L1, L2, L3
@@ -29,36 +29,35 @@ def load_original_data(data_file):
     l2_unique = df['L2'].dropna().unique()
     l3_unique = df['L3'].dropna().unique()
     
-    print(f"原始数据统计:")
-    print(f"  L1: {len(l1_unique)} 个唯一配体")
-    print(f"  L2: {len(l2_unique)} 个唯一配体")
-    print(f"  L3: {len(l3_unique)} 个唯一配体")
-    print(f"  原始组合数: {len(df)}")
+    print("Original data stats:")
+    print(f"  L1: {len(l1_unique)} unique ligands")
+    print(f"  L2: {len(l2_unique)} unique ligands")
+    print(f"  L3: {len(l3_unique)} unique ligands")
+    print(f"  Original combinations: {len(df)}")
     
     return l1_unique, l2_unique, l3_unique, df
 
 def generate_all_combinations(l1_unique, l2_unique, l3_unique, max_combinations=None):
-    """生成所有可能的L1、L2、L3组合
-    
-    注意：L1和L2应该是相同的配体（理论上），所以我们使用L1=L2的组合
+    """Generate all possible L1/L2/L3 combinations
+    Note: L1 and L2 are constrained to be the same ligand (L1=L2)
     """
     
-    # 合并L1和L2的唯一值（因为理论上它们应该是相同的配体集）
+    # Merge unique values from L1 and L2 (shared pool)
     l12_unique = np.unique(np.concatenate([l1_unique, l2_unique]))
     
-    print(f"\n组合策略：")
-    print(f"  L1/L2共享配体池: {len(l12_unique)} 个配体")
-    print(f"  L3配体池: {len(l3_unique)} 个配体")
+    print("\nCombination strategy:")
+    print(f"  L1/L2 shared pool: {len(l12_unique)} ligands")
+    print(f"  L3 pool: {len(l3_unique)} ligands")
     
-    # 生成所有可能的组合
+    # Generate all combinations
     all_combinations = []
     
-    # L1=L2的情况（对称配体）
+    # L1=L2 cases (symmetric ligands)
     total_possible = len(l12_unique) * len(l3_unique)
-    print(f"  理论组合数: {total_possible:,} (L1=L2配对)")
+    print(f"  Theoretical combinations: {total_possible:,} (L1=L2)")
     
     if max_combinations and total_possible > max_combinations:
-        print(f"⚠️ 限制组合数为: {max_combinations:,}")
+        print(f"WARNING: Limiting combinations to: {max_combinations:,}")
         # 随机采样
         import random
         random.seed(42)
@@ -70,48 +69,48 @@ def generate_all_combinations(l1_unique, l2_unique, l3_unique, max_combinations=
             if idx in sampled_indices:
                 all_combinations.append({
                     'L1': l12,
-                    'L2': l12,  # L1和L2相同
+                    'L2': l12,
                     'L3': l3
                 })
                 count += 1
                 if count >= max_combinations:
                     break
     else:
-        # 生成所有L1=L2的组合
+        # Generate all L1=L2 combinations
         for l12 in l12_unique:
             for l3 in l3_unique:
                 all_combinations.append({
                     'L1': l12,
-                    'L2': l12,  # L1和L2相同
+                    'L2': l12,
                     'L3': l3
                 })
     
-    # 创建DataFrame
+    # Create DataFrame
     assembled_df = pd.DataFrame(all_combinations)
-    print(f"生成组合数: {len(assembled_df):,}")
+    print(f"Generated combinations: {len(assembled_df):,}")
     
     return assembled_df
 
 def remove_existing_combinations(assembled_df, original_df):
-    """移除已存在的组合，只保留新组合"""
+    """Remove existing combinations, keep only new ones"""
     
-    # 创建组合键
+    # Create combo keys
     assembled_df['combo_key'] = assembled_df['L1'] + '|' + assembled_df['L2'] + '|' + assembled_df['L3']
     original_df['combo_key'] = original_df['L1'] + '|' + original_df['L2'] + '|' + original_df['L3']
     
-    # 找出新组合
+    # Identify new combinations
     existing_keys = set(original_df['combo_key'].dropna())
     new_df = assembled_df[~assembled_df['combo_key'].isin(existing_keys)].copy()
     
-    # 删除辅助列
+    # Drop helper column
     new_df = new_df.drop('combo_key', axis=1)
     
-    print(f"新组合数（排除已有）: {len(new_df):,}")
+    print(f"New combinations (excluding existing): {len(new_df):,}")
     
     return new_df
 
 def extract_features_for_prediction(df, feature_type='combined'):
-    print("\n提取分子特征...")
+    print("\nExtracting molecular features...")
     extractor = FeatureExtractor(
         feature_type=feature_type,
         morgan_radius=2,
@@ -135,20 +134,20 @@ def extract_features_for_prediction(df, feature_type='combined'):
                     features_list.append(features)
                     valid_indices.append(idx)
                     if len(features_list) % 100 == 0:
-                        print(f"  已处理: {len(features_list)} 个组合")
+                        print(f"  Processed: {len(features_list)} combinations")
         except Exception:
             continue
     if features_list:
         X = np.vstack(features_list)
         df_valid = df.iloc[valid_indices].reset_index(drop=True)
-        print(f"✅ 成功提取特征: {len(X)} 个组合")
+        print(f"INFO: Successfully extracted features: {len(X)} combinations")
         return X, df_valid
     else:
-        print("❌ 没有成功提取任何特征")
+        print("ERROR: No features extracted")
         return None, None
 
 def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
-    """加载训练好的模型（支持AutoML与标准路径，并自动发现最新Paper_*目录）"""
+    """Load trained model (supports AutoML paths and Paper_* auto-discovery)"""
 
     project_path = Path(project_dir)
 
@@ -165,7 +164,7 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
             break
 
     if model_dir is None:
-        # 自动发现最近的 Paper_* 目录下的模型
+        # Auto-discover latest Paper_* models
         root = project_path.parent if project_path.name == 'paper_table' else project_path
         candidates = []
         try:
@@ -176,15 +175,15 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
             if candidates:
                 candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
                 model_dir = candidates[0]
-                print(f"🔁 自动切换到最新模型目录: {model_dir}")
+                print(f"INFO: Switched to latest model directory: {model_dir}")
         except Exception:
             pass
 
     if model_dir is None or not model_dir.exists():
-        print(f"❌ 模型目录不存在: {project_path}/{model_name}/models")
+        print(f"ERROR: Model directory not found: {project_path}/{model_name}/models")
         return None
 
-    print(f"📁 模型目录: {model_dir}")
+    print(f"INFO: Model directory: {model_dir}")
 
     # 查找对应目标的模型文件
     model_files = list(model_dir.glob(f"*{target}*.joblib"))
@@ -204,21 +203,21 @@ def load_trained_model(project_dir, model_name='xgboost', target='PLQY'):
     if model_files:
         # 使用最新的模型文件
         model_file = sorted(model_files)[-1]
-        print(f"✅ 加载模型: {model_file.name}")
+        print(f"INFO: Loaded model: {model_file.name}")
         model = joblib.load(model_file)
         return model
     else:
-        print(f"❌ 未找到{target}的模型文件")
+        print(f"ERROR: No model file found for target: {target}")
         return None
 
 def predict_properties(X, df_valid, project_dir, model_name='xgboost'):
-    """使用训练好的模型预测分子性质"""
+    """Predict molecular properties using trained models"""
     
-    print("\n加载模型并预测...")
+    print("\nLoading models and predicting...")
     
     predictions = {}
     
-    # 预测三个目标
+    # Predict three targets
     targets = {
         'Max_wavelength(nm)': 'wavelength',
         'PLQY': 'PLQY',
@@ -229,20 +228,20 @@ def predict_properties(X, df_valid, project_dir, model_name='xgboost'):
         model = load_trained_model(project_dir, model_name, target_key)
         
         if model:
-            print(f"  预测 {target_col}...")
+            print(f"  Predicting {target_col}...")
             try:
                 pred = model.predict(X)
                 predictions[target_col] = pred
                 
-                # 统计预测结果
-                print(f"    范围: [{pred.min():.3f}, {pred.max():.3f}]")
-                print(f"    均值: {pred.mean():.3f}")
-                print(f"    标准差: {pred.std():.3f}")
+                # Prediction stats
+                print(f"    Range: [{pred.min():.3f}, {pred.max():.3f}]")
+                print(f"    Mean: {pred.mean():.3f}")
+                print(f"    Std: {pred.std():.3f}")
             except Exception as e:
-                print(f"    ❌ 预测失败: {e}")
+                print(f"    ERROR: Prediction failed: {e}")
                 predictions[target_col] = np.zeros(len(X))
         else:
-            print(f"  ⚠️ 跳过 {target_col} (无模型)")
+            print(f"  WARNING: Skipping {target_col} (no model)")
             predictions[target_col] = np.zeros(len(X))
     
     # 将预测结果添加到DataFrame
@@ -252,43 +251,43 @@ def predict_properties(X, df_valid, project_dir, model_name='xgboost'):
     return df_valid
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='生成虚拟数据库')
+    """Main entrypoint"""
+    parser = argparse.ArgumentParser(description='Generate virtual database')
     
     parser.add_argument('--data', '-d', default='data/Database_normalized.csv',
-                       help='原始数据文件')
+                       help='Original data file path')
     parser.add_argument('--project', '-p', default='paper_table',
-                       help='训练项目目录')
+                       help='Training project directory')
     parser.add_argument('--model', '-m', default='xgboost',
-                       help='使用的模型')
+                       help='Model to use')
     parser.add_argument('--output', '-o', default='data/ir_assemble.csv',
-                       help='输出文件名')
+                       help='Output file name')
     parser.add_argument('--max-combinations', type=int,
-                       help='最大组合数限制')
+                       help='Max combinations limit')
     parser.add_argument('--include-existing', action='store_true',
-                       help='包含已存在的组合')
+                       help='Include existing combinations')
     parser.add_argument('--feature-type', default='combined',
                        choices=['morgan', 'descriptors', 'combined'],
-                       help='特征类型')
+                       help='Feature type')
     
     args = parser.parse_args()
     
     print("=" * 60)
-    print("生成虚拟数据库")
+    print("Generate virtual database")
     print("=" * 60)
-    print(f"原始数据: {args.data}")
-    print(f"项目目录: {args.project}")
-    print(f"使用模型: {args.model}")
-    print(f"特征类型: {args.feature_type}")
+    print(f"Original data: {args.data}")
+    print(f"Project dir: {args.project}")
+    print(f"Model: {args.model}")
+    print(f"Feature type: {args.feature_type}")
     
     # 1. 加载原始数据
     print("\n" + "-" * 40)
-    print("步骤1: 加载原始数据")
+    print("Step 1: Load original data")
     l1_unique, l2_unique, l3_unique, original_df = load_original_data(args.data)
     
     # 2. 生成所有组合
     print("\n" + "-" * 40)
-    print("步骤2: 生成所有组合")
+    print("Step 2: Generate all combinations")
     assembled_df = generate_all_combinations(
         l1_unique, l2_unique, l3_unique, 
         max_combinations=args.max_combinations
@@ -297,81 +296,80 @@ def main():
     # 3. 可选：移除已存在的组合
     if not args.include_existing:
         print("\n" + "-" * 40)
-        print("步骤3: 移除已存在的组合")
+        print("Step 3: Remove existing combinations")
         assembled_df = remove_existing_combinations(assembled_df, original_df)
     
     # 保存组合文件
     assembled_file = args.output.replace('.csv', '_combinations.csv')
     assembled_df.to_csv(assembled_file, index=False)
-    print(f"\n✅ 保存组合文件: {assembled_file}")
+    print(f"\nINFO: Saved combinations file: {assembled_file}")
     
     # 4. 若尚未训练模型，仅保存组合文件以供后续预测
     project_path = Path(args.project)
     automl_dir = project_path / 'all_models' / 'automl_train'
     if not automl_dir.exists():
         assembled_df.to_csv(args.output, index=False)
-        print(f"\n✅ 已保存组合文件用于后续预测: {args.output}")
-        # 统计信息
+        print(f"\nINFO: Saved combinations for later prediction: {args.output}")
         print("\n" + "=" * 60)
-        print("📊 虚拟数据库统计:")
+        print("Virtual database stats:")
         print("-" * 40)
-        print(f"总组合数: {len(assembled_df):,}")
+        print(f"Total combinations: {len(assembled_df):,}")
         print("\n" + "=" * 60)
-        print("✅ 虚拟数据库生成完成！")
+        print("INFO: Virtual database generation completed")
         print("=" * 60)
         return
     
     # 5. 已有训练模型则进行特征提取与预测
     print("\n" + "-" * 40)
-    print("步骤4: 提取分子特征")
+    print("Step 4: Extract molecular features")
     X, df_valid = extract_features_for_prediction(assembled_df, args.feature_type)
     if X is None:
-        print("❌ 特征提取失败")
+        print("ERROR: Feature extraction failed")
         return
     print("\n" + "-" * 40)
-    print("步骤5: 预测分子性质")
+    print("Step 5: Predict molecular properties")
     df_predicted = predict_properties(X, df_valid, args.project, args.model)
     print("\n" + "-" * 40)
-    print("步骤6: 保存虚拟数据库")
+    print("Step 6: Save virtual database")
     output_file = args.output
     df_predicted.to_csv(output_file, index=False)
-    print(f"✅ 虚拟数据库已保存: {output_file}")
+    print(f"INFO: Virtual database saved: {output_file}")
     
     # 统计信息
     print("\n" + "=" * 60)
-    print("📊 虚拟数据库统计:")
+    print("Virtual database stats:")
     print("-" * 40)
-    print(f"总组合数: {len(df_predicted):,}")
+    print(f"Total combinations: {len(df_predicted):,}")
     
     # 找出最优组合
     if 'Predicted_PLQY' in df_predicted.columns:
         # PLQY最高的组合
         best_plqy_idx = df_predicted['Predicted_PLQY'].idxmax()
         best_plqy = df_predicted.loc[best_plqy_idx]
-        print(f"\n🏆 最高PLQY组合:")
+        print(f"\nTop PLQY combination:")
         print(f"  L1: {best_plqy['L1'][:30]}...")
         print(f"  L2: {best_plqy['L2'][:30]}...")
         print(f"  L3: {best_plqy['L3'][:30]}...")
-        print(f"  预测PLQY: {best_plqy['Predicted_PLQY']:.3f}")
+        print(f"  Predicted PLQY: {best_plqy['Predicted_PLQY']:.3f}")
     
     if 'Predicted_Max_wavelength(nm)' in df_predicted.columns:
         # 波长最长的组合
         best_wl_idx = df_predicted['Predicted_Max_wavelength(nm)'].idxmax()
         best_wl = df_predicted.loc[best_wl_idx]
-        print(f"\n🏆 最长波长组合:")
+        print(f"\nLongest wavelength combination:")
         print(f"  L1: {best_wl['L1'][:30]}...")
         print(f"  L2: {best_wl['L2'][:30]}...")
         print(f"  L3: {best_wl['L3'][:30]}...")
-        print(f"  预测波长: {best_wl['Predicted_Max_wavelength(nm)']:.1f} nm")
+        print(f"  Predicted wavelength: {best_wl['Predicted_Max_wavelength(nm)']:.1f} nm")
     
     # 保存Top候选组合
     top_candidates = df_predicted.nlargest(100, 'Predicted_PLQY')
     top_file = output_file.replace('.csv', '_top100.csv')
     top_candidates.to_csv(top_file, index=False)
-    print(f"\n✅ Top 100候选已保存: {top_file}")
+    print(f"\nINFO: Top 100 candidates saved: {top_file}")
     
     print("\n" + "=" * 60)
-    print("✅ 虚拟数据库生成完成！")
+    print("INFO: Virtual database generation completed")
     print("=" * 60)
 
 if __name__ == "__main__":

@@ -72,27 +72,27 @@ NC='\033[0m' # No Color
 # Print functions
 print_header() {
     echo ""
-    echo -e "${BLUE}============================================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}============================================================${NC}"
+    echo "============================================================"
+    echo "$1"
+    echo "============================================================"
 }
 
 print_step() {
     echo ""
-    echo -e "${GREEN}>>> $1${NC}"
+    echo "[STEP] $1"
     echo "------------------------------------------------------------"
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo "[INFO] $1"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo "[ERROR] $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo "[WARNING] $1"
 }
 
 # Setup output directory

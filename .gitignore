@@ -4,3 +4,5 @@ config/.DS_Store
 /Paper_*
 /catboost_info
 /file_feature_cache
+/refhistory
+/compare

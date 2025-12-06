@@ -162,7 +162,7 @@ class BatchPredictorV2:
         failed_indices = []
         
         if self.use_file_cache and input_file and self.file_cache:
-            print("\n🔍 Checking file-level cache...")
+            print("\nChecking file-level cache...")
             X = self.file_cache.load_features(
                 file_path=input_file,
                 feature_type=feature_type,
@@ -174,13 +174,13 @@ class BatchPredictorV2:
             )
             
             if X is not None:
-                print(f"✅ Loaded features from cache!")
+                print("Loaded features from cache")
                 print(f"   Shape: {X.shape}")
-                print(f"   Cache hit - skipping feature extraction")
+                print("   Cache hit - skipping feature extraction")
         
         # If not cached, extract features
         if X is None:
-            print("\n🔧 Extracting features (not in cache)...")
+            print("\nExtracting features (not in cache)...")
             X, failed_indices = self.extract_features_batch(
                 df=df,
                 feature_extractor=feature_extractor,
@@ -194,7 +194,7 @@ class BatchPredictorV2:
             
             # Save to cache for next time
             if self.use_file_cache and input_file and self.file_cache:
-                print("💾 Saving features to cache...")
+                print("Saving features to cache...")
                 self.file_cache.save_features(
                     features=X,
                     file_path=input_file,
@@ -210,7 +210,7 @@ class BatchPredictorV2:
                 print("   Features cached for next use")
         
         # Perform prediction
-        print("\n🎯 Running model prediction...")
+        print("\nRunning model prediction...")
         try:
             predictions = model.predict(X)
             
@@ -222,7 +222,7 @@ class BatchPredictorV2:
             print(f"   Predictions complete: {len(predictions)} samples")
             
         except Exception as e:
-            print(f"❌ Prediction failed: {e}")
+            print(f"Prediction failed: {e}")
             predictions = np.full(n_samples, np.nan)
         
         return predictions, failed_indices
@@ -235,7 +235,7 @@ class BatchPredictorV2:
                 for error in self.error_log:
                     smiles_str = ','.join([s if s else 'None' for s in error['smiles']])
                     f.write(f"{error['index']}\t{smiles_str}\t{error['error']}\n")
-            print(f"❗ Error log saved to {filepath} ({len(self.error_log)} errors)")
+            print(f"Error log saved to {filepath} ({len(self.error_log)} errors)")
     
     def get_statistics(self, predictions: np.ndarray) -> Dict[str, float]:
         """Calculate statistics for predictions"""

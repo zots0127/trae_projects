@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-机器学习模型模块
-包含各种ML模型的实现和训练逻辑
+Machine learning model modules
+Includes implementations and training logic for various ML models
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Dict, List, Tuple, Optional, Union
 import joblib
 from pathlib import Path
 
-# 机器学习相关
+# Machine learning imports
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor, ExtraTreesRegressor
 from sklearn.linear_model import Ridge, Lasso, ElasticNet
 from sklearn.svm import SVR
@@ -24,7 +24,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 # ========================================
-#           模型默认参数配置
+#           Default model parameter configuration
 # ========================================
 
 MODEL_PARAMS = {
@@ -133,65 +133,65 @@ MODEL_PARAMS = {
         'random_state': 42
     },
     'mlp': {
-        'hidden_layer_sizes': (256, 128),  # 优化后的网络结构，平衡性能和过拟合风险
+        'hidden_layer_sizes': (256, 128),  # Optimized network structure, balances performance and overfitting risk
         'activation': 'relu',
         'solver': 'adam',
-        'alpha': 0.001,  # 降低正则化强度，允许更好拟合
-        'batch_size': 128,  # 固定批次大小，提升训练稳定性
-        'learning_rate': 'adaptive',  # 自适应学习率策略
-        'learning_rate_init': 0.0005,  # 适中的初始学习率
-        'max_iter': 2000,  # 增加最大迭代次数
+        'alpha': 0.001,  # Lower regularization strength to allow better fit
+        'batch_size': 128,  # Fixed batch size for training stability
+        'learning_rate': 'adaptive',  # Adaptive learning rate strategy
+        'learning_rate_init': 0.0005,  # Moderate initial learning rate
+        'max_iter': 2000,  # Increase maximum iterations
         'random_state': 42,
         'early_stopping': True,
-        'validation_fraction': 0.2,  # 增加验证集比例
-        'n_iter_no_change': 50,  # 增加早停耐心值
-        'tol': 0.0001  # 降低收敛容忍度，提升精度
+        'validation_fraction': 0.2,  # Increase validation split
+        'n_iter_no_change': 50,  # Increase early stopping patience
+        'tol': 0.0001  # Lower tolerance for higher precision
     }
 }
 
 
 # ========================================
-#           基础模型类
+#           Base model class
 # ========================================
 
 class BaseModel:
-    """基础模型类"""
+    """Base model class"""
     
     def __init__(self, model_type: str, params: Dict = None):
         """
-        初始化模型
+        Initialize model
         
         Args:
-            model_type: 模型类型
-            params: 模型参数
+            model_type: model type
+            params: model parameters
         """
         self.model_type = model_type
-        # 获取默认参数
+        # Get default parameters
         default_params = MODEL_PARAMS.get(model_type, {}).copy()
         
-        # 如果提供了params，只使用对该模型有效的参数
+        # If params are provided, only use parameters valid for this model
         if params:
-            # 过滤出只对该模型有效的参数
+            # Filter parameters valid for this model
             valid_params = {}
             for key, value in params.items():
-                # 只添加在默认参数中存在的键
+                # Only add keys present in default parameters
                 if key in default_params:
                     valid_params[key] = value
-            # 更新默认参数
+            # Update default parameters
             default_params.update(valid_params)
         
         self.params = default_params
         self.model = None
         self.is_trained = False
         self.scaler = None
-        # SVR、KNN和MLP需要数据标准化
+        # SVR, KNN and MLP require feature scaling
         self.needs_scaling = model_type in ['svr', 'knn', 'mlp']
-        # MLP还需要对目标值标准化
+        # MLP also needs target scaling
         self.needs_target_scaling = model_type in ['mlp']
         self.target_scaler = None
         
     def create_model(self):
-        """创建模型实例"""
+        """Create model instance"""
         if self.model_type == 'xgboost':
             import xgboost as xgb
             self.model = xgb.XGBRegressor(**self.params)
@@ -224,26 +224,26 @@ class BaseModel:
         elif self.model_type == 'mlp':
             self.model = MLPRegressor(**self.params)
         else:
-            raise ValueError(f"不支持的模型类型: {self.model_type}")
+            raise ValueError(f"Unsupported model type: {self.model_type}")
         
         return self.model
     
     def fit(self, X, y, **kwargs):
-        """训练模型"""
+        """Train model"""
         if self.model is None:
             self.create_model()
 
-        # 对SVR、KNN和MLP进行数据标准化
+        # Scale features for SVR, KNN, and MLP
         if self.needs_scaling:
             self.scaler = StandardScaler()
             X = self.scaler.fit_transform(X)
 
-        # MLP还需要对目标值进行标准化
+        # Scale target values for MLP
         if self.needs_target_scaling:
             self.target_scaler = StandardScaler()
             y = self.target_scaler.fit_transform(y.reshape(-1, 1)).ravel()
         
-        # 特殊处理某些模型的训练参数
+        # Special handling for certain model training parameters
         if self.model_type == 'xgboost' and 'eval_set' in kwargs:
             fit_fn = getattr(self.model, 'fit')
             sig = inspect.signature(fit_fn)
@@ -299,28 +299,28 @@ class BaseModel:
         return self.model
     
     def predict(self, X):
-        """预测"""
+        """Predict"""
         if not self.is_trained:
-            raise ValueError("模型未训练")
+            raise ValueError("Model not trained")
 
-        # 如果训练时使用了标准化，预测时也要标准化
+        # If scaling was used during training, scale features for prediction
         if self.needs_scaling and self.scaler is not None:
             X = self.scaler.transform(X)
 
         predictions = self.model.predict(X)
 
-        # 如果对目标值进行了标准化，需要反标准化
+        # If target values were scaled, inverse transform predictions
         if self.needs_target_scaling and self.target_scaler is not None:
             predictions = self.target_scaler.inverse_transform(predictions.reshape(-1, 1)).ravel()
 
         return predictions
     
     def save(self, filepath: Union[str, Path]):
-        """保存模型"""
+        """Save model"""
         if not self.is_trained:
-            raise ValueError("模型未训练")
+            raise ValueError("Model not trained")
         
-        # 如果有scaler或target_scaler，一起保存
+        # Save scaler and target_scaler together if present
         if self.scaler is not None or self.target_scaler is not None:
             save_dict = {
                 'model': self.model,
@@ -333,10 +333,10 @@ class BaseModel:
             joblib.dump(self.model, filepath)
     
     def load(self, filepath: Union[str, Path]):
-        """加载模型"""
+        """Load model"""
         loaded = joblib.load(filepath)
         
-        # 检查是否包含scaler
+        # Check if scaler is included
         if isinstance(loaded, dict) and 'model' in loaded:
             self.model = loaded['model']
             self.scaler = loaded.get('scaler', None)
@@ -349,19 +349,19 @@ class BaseModel:
 
 
 # ========================================
-#           XGBoost专用训练器
+#           XGBoost-specific trainer
 # ========================================
 
 class XGBoostTrainer:
-    """XGBoost训练器类"""
+    """XGBoost trainer class"""
     
     def __init__(self, params: Dict = None, n_folds: int = 10):
         """
-        初始化训练器
+        Initialize trainer
         
         Args:
-            params: XGBoost参数
-            n_folds: 交叉验证折数
+            params: XGBoost parameters
+            n_folds: number of cross-validation folds
         """
         self.params = params or MODEL_PARAMS['xgboost'].copy()
         self.n_folds = n_folds
@@ -369,24 +369,24 @@ class XGBoostTrainer:
         self.cv_results = []
         self.best_model = None
         
-        print(f"\n✅ XGBoost训练器初始化")
-        print(f"   交叉验证: {self.n_folds}折")
-        print(f"   XGBoost参数:")
+        print(f"\nXGBoost trainer initialized")
+        print(f"   Cross-validation: {self.n_folds} folds")
+        print(f"   XGBoost parameters:")
         for key, value in self.params.items():
             print(f"     {key}: {value}")
     
     def train_cv(self, X: np.ndarray, y: np.ndarray) -> Dict:
         """
-        执行K折交叉验证训练
+        Perform K-fold cross-validation training
         
         Args:
-            X: 特征矩阵
-            y: 目标值
+            X: feature matrix
+            y: target values
         
         Returns:
-            交叉验证结果
+            Cross-validation results
         """
-        print(f"\n🚀 开始{self.n_folds}折交叉验证训练...")
+        print(f"\nStarting {self.n_folds}-fold cross-validation training...")
         
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.params.get('random_state', 42))
         
@@ -400,17 +400,17 @@ class XGBoostTrainer:
         all_predictions = np.zeros_like(y)
         fold_models = []
         
-        # 延迟导入xgboost，避免模块加载开销和依赖问题
+        # Lazy import xgboost to avoid import overhead and dependency issues
         import xgboost as xgb
 
         for fold, (train_idx, val_idx) in enumerate(kf.split(X), 1):
-            print(f"\n  折 {fold}/{self.n_folds}:")
+            print(f"\n  Fold {fold}/{self.n_folds}:")
             
-            # 分割数据
+            # Split data
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
             
-            # 训练模型
+            # Train model
             model = xgb.XGBRegressor(**self.params)
             model.fit(
                 X_train, y_train,
@@ -418,16 +418,16 @@ class XGBoostTrainer:
                 verbose=False
             )
             
-            # 预测
+            # Predict
             y_pred = model.predict(X_val)
             all_predictions[val_idx] = y_pred
             
-            # 计算指标
+            # Compute metrics
             rmse = np.sqrt(mean_squared_error(y_val, y_pred))
             mae = mean_absolute_error(y_val, y_pred)
             r2 = r2_score(y_val, y_pred)
             
-            # MAPE (避免除零)
+            # MAPE (avoid division by zero)
             mask = y_val != 0
             if mask.sum() > 0:
                 mape = np.mean(np.abs((y_val[mask] - y_pred[mask]) / y_val[mask])) * 100
@@ -443,14 +443,14 @@ class XGBoostTrainer:
             
             print(f"    RMSE: {rmse:.4f}")
             print(f"    MAE:  {mae:.4f}")
-            print(f"    R²:   {r2:.4f}")
+            print(f"    R^2:   {r2:.4f}")
             if not np.isnan(mape):
                 print(f"    MAPE: {mape:.2f}%")
         
-        # 保存模型
+        # Save models
         self.models = fold_models
         
-        # 计算平均得分
+        # Compute average scores
         results = {
             'cv_scores': cv_scores,
             'mean_rmse': np.mean(cv_scores['rmse']),
@@ -467,74 +467,74 @@ class XGBoostTrainer:
         
         self.cv_results = results
         
-        print(f"\n📊 交叉验证结果汇总:")
-        print(f"   RMSE: {results['mean_rmse']:.4f} ± {results['std_rmse']:.4f}")
-        print(f"   MAE:  {results['mean_mae']:.4f} ± {results['std_mae']:.4f}")
-        print(f"   R²:   {results['mean_r2']:.4f} ± {results['std_r2']:.4f}")
+        print(f"\nCross-validation summary:")
+        print(f"   RMSE: {results['mean_rmse']:.4f} +/- {results['std_rmse']:.4f}")
+        print(f"   MAE:  {results['mean_mae']:.4f} +/- {results['std_mae']:.4f}")
+        print(f"   R^2:   {results['mean_r2']:.4f} +/- {results['std_r2']:.4f}")
         if not np.isnan(results['mean_mape']):
-            print(f"   MAPE: {results['mean_mape']:.2f}% ± {results['std_mape']:.2f}%")
+            print(f"   MAPE: {results['mean_mape']:.2f}% +/- {results['std_mape']:.2f}%")
         
         return results
     
     def train_full(self, X: np.ndarray, y: np.ndarray) -> xgb.XGBRegressor:
         """
-        在全部数据上训练最终模型
+        Train the final model on all data
         
         Args:
-            X: 特征矩阵
-            y: 目标值
+            X: feature matrix
+            y: target values
         
         Returns:
-            训练好的模型
+            Trained model
         """
-        print(f"\n🎯 训练最终模型（全部数据）...")
+        print(f"\nTraining final model (full data)...")
         
-        # 延迟导入xgboost
+        # Lazy import xgboost
         import xgboost as xgb
         model = xgb.XGBRegressor(**self.params)
         model.fit(X, y, verbose=False)
         
         self.best_model = model
         
-        # 计算训练集指标
+        # Compute training metrics
         y_pred = model.predict(X)
         train_rmse = np.sqrt(mean_squared_error(y, y_pred))
         train_r2 = r2_score(y, y_pred)
         
-        print(f"   训练RMSE: {train_rmse:.4f}")
-        print(f"   训练R²:   {train_r2:.4f}")
+        print(f"   Train RMSE: {train_rmse:.4f}")
+        print(f"   Train R^2:   {train_r2:.4f}")
         
         return model
     
     def save_model(self, model: xgb.XGBRegressor, filepath: Union[str, Path]):
         """
-        保存模型
+        Save model
         
         Args:
-            model: 模型对象
-            filepath: 保存路径
+            model: model object
+            filepath: save path
         """
         joblib.dump(model, filepath)
-        print(f"   💾 模型已保存: {filepath}")
+        print(f"   Model saved: {filepath}")
         
         return filepath
 
 
 # ========================================
-#           通用模型训练器
+#           General model trainer
 # ========================================
 
 class ModelTrainer:
-    """通用模型训练器"""
+    """General model trainer"""
     
     def __init__(self, model_type: str, params: Dict = None, n_folds: int = 10):
         """
-        初始化训练器
+        Initialize trainer
         
         Args:
-            model_type: 模型类型
-            params: 模型参数
-            n_folds: 交叉验证折数
+            model_type: model type
+            params: model parameters
+            n_folds: number of folds
         """
         self.model_type = model_type
         self.params = params or MODEL_PARAMS.get(model_type, {}).copy()
@@ -543,23 +543,23 @@ class ModelTrainer:
         self.cv_results = []
         self.best_model = None
         
-        print(f"\n✅ {model_type.upper()}训练器初始化")
-        print(f"   交叉验证: {self.n_folds}折")
+        print(f"\n{model_type.upper()} trainer initialized")
+        print(f"   Cross-validation: {self.n_folds} folds")
     
     def train_cv(self, X: np.ndarray, y: np.ndarray, verbose: bool = True) -> Dict:
         """
-        执行K折交叉验证训练
+        Perform K-fold cross-validation training
         
         Args:
-            X: 特征矩阵
-            y: 目标值
-            verbose: 是否显示详细信息
+            X: feature matrix
+            y: target values
+            verbose: whether to show details
         
         Returns:
-            交叉验证结果
+            Cross-validation results
         """
         if verbose:
-            print(f"\n🚀 开始{self.n_folds}折交叉验证训练...")
+            print(f"\nStarting {self.n_folds}-fold cross-validation training...")
         
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=42)
         
@@ -575,26 +575,26 @@ class ModelTrainer:
         
         for fold, (train_idx, val_idx) in enumerate(kf.split(X), 1):
             if verbose:
-                print(f"\n  折 {fold}/{self.n_folds}:")
+                print(f"\n  Fold {fold}/{self.n_folds}:")
             
-            # 分割数据
+            # Split data
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
             
-            # 创建并训练模型
+            # Create and train model
             model = BaseModel(self.model_type, self.params)
             model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
             
-            # 预测
+            # Predict
             y_pred = model.predict(X_val)
             all_predictions[val_idx] = y_pred
             
-            # 计算指标
+            # Compute metrics
             rmse = np.sqrt(mean_squared_error(y_val, y_pred))
             mae = mean_absolute_error(y_val, y_pred)
             r2 = r2_score(y_val, y_pred)
             
-            # MAPE (避免除零)
+            # MAPE (avoid division by zero)
             mask = y_val != 0
             if mask.sum() > 0:
                 mape = np.mean(np.abs((y_val[mask] - y_pred[mask]) / y_val[mask])) * 100
@@ -611,14 +611,14 @@ class ModelTrainer:
             if verbose:
                 print(f"    RMSE: {rmse:.4f}")
                 print(f"    MAE:  {mae:.4f}")
-                print(f"    R²:   {r2:.4f}")
+                print(f"    R^2:   {r2:.4f}")
                 if not np.isnan(mape):
                     print(f"    MAPE: {mape:.2f}%")
         
-        # 保存模型
+        # Save models
         self.models = fold_models
         
-        # 计算平均得分
+        # Compute average scores
         results = {
             'model_type': self.model_type,
             'cv_scores': cv_scores,
@@ -637,69 +637,69 @@ class ModelTrainer:
         self.cv_results = results
         
         if verbose:
-            print(f"\n📊 交叉验证结果汇总:")
-            print(f"   RMSE: {results['mean_rmse']:.4f} ± {results['std_rmse']:.4f}")
-            print(f"   MAE:  {results['mean_mae']:.4f} ± {results['std_mae']:.4f}")
-            print(f"   R²:   {results['mean_r2']:.4f} ± {results['std_r2']:.4f}")
+            print(f"\nCross-validation summary:")
+            print(f"   RMSE: {results['mean_rmse']:.4f} +/- {results['std_rmse']:.4f}")
+            print(f"   MAE:  {results['mean_mae']:.4f} +/- {results['std_mae']:.4f}")
+            print(f"   R^2:   {results['mean_r2']:.4f} +/- {results['std_r2']:.4f}")
             if not np.isnan(results['mean_mape']):
-                print(f"   MAPE: {results['mean_mape']:.2f}% ± {results['std_mape']:.2f}%")
+                print(f"   MAPE: {results['mean_mape']:.2f}% +/- {results['std_mape']:.2f}%")
         
         return results
     
     def train_full(self, X: np.ndarray, y: np.ndarray, verbose: bool = True):
         """
-        在全部数据上训练最终模型
+        Train the final model on all data
         
         Args:
-            X: 特征矩阵
-            y: 目标值
-            verbose: 是否显示详细信息
+            X: feature matrix
+            y: target values
+            verbose: whether to show details
         
         Returns:
-            训练好的模型
+            Trained model
         """
         if verbose:
-            print(f"\n🎯 训练最终模型（全部数据）...")
+            print(f"\nTraining final model (full data)...")
         
         model = BaseModel(self.model_type, self.params)
         model.fit(X, y, verbose=False)
         
         self.best_model = model
         
-        # 计算训练集指标
+        # Compute training metrics
         y_pred = model.predict(X)
         train_rmse = np.sqrt(mean_squared_error(y, y_pred))
         train_r2 = r2_score(y, y_pred)
         
         if verbose:
-            print(f"   训练RMSE: {train_rmse:.4f}")
-            print(f"   训练R²:   {train_r2:.4f}")
+            print(f"   Train RMSE: {train_rmse:.4f}")
+            print(f"   Train R^2:   {train_r2:.4f}")
         
         return model
     
     def save_model(self, model, filepath: Union[str, Path]):
         """
-        保存模型
+        Save model
         
         Args:
-            model: 模型对象
-            filepath: 保存路径
+            model: model object
+            filepath: save path
         """
         if isinstance(model, BaseModel):
             model.save(filepath)
         else:
             joblib.dump(model, filepath)
-        print(f"   💾 模型已保存: {filepath}")
+        print(f"   Model saved: {filepath}")
         
         return filepath
 
 
 # ========================================
-#           模型工厂
+#           Model factory
 # ========================================
 
 class ModelFactory:
-    """模型工厂类，用于创建各种模型训练器"""
+    """Model factory to create various model trainers"""
     
     SUPPORTED_MODELS = [
         'xgboost', 'lightgbm', 'catboost',
@@ -711,18 +711,18 @@ class ModelFactory:
     @classmethod
     def create_trainer(cls, model_type: str, params: Dict = None, n_folds: int = 10):
         """
-        创建模型训练器
+        Create a model trainer
         
         Args:
-            model_type: 模型类型
-            params: 模型参数
-            n_folds: 交叉验证折数
+            model_type: model type
+            params: model parameters
+            n_folds: number of folds
         
         Returns:
-            训练器实例
+            Trainer instance
         """
         if model_type not in cls.SUPPORTED_MODELS:
-            raise ValueError(f"不支持的模型类型: {model_type}. 支持的模型: {cls.SUPPORTED_MODELS}")
+            raise ValueError(f"Unsupported model type: {model_type}. Supported: {cls.SUPPORTED_MODELS}")
         
         if model_type == 'xgboost':
             return XGBoostTrainer(params, n_folds)
@@ -731,34 +731,34 @@ class ModelFactory:
     
     @classmethod
     def get_supported_models(cls) -> List[str]:
-        """获取支持的模型列表"""
+        """Get supported model list"""
         return cls.SUPPORTED_MODELS.copy()
     
     @classmethod
     def get_model_params(cls, model_type: str) -> Dict:
-        """获取模型默认参数"""
+        """Get default model parameters"""
         if model_type not in cls.SUPPORTED_MODELS:
-            raise ValueError(f"不支持的模型类型: {model_type}")
+            raise ValueError(f"Unsupported model type: {model_type}")
         return MODEL_PARAMS.get(model_type, {}).copy()
 
 
 # ========================================
-#           辅助函数
+#           Helper functions
 # ========================================
 
 def generate_model_filename(model_type: str, target_col: str, suffix: str = "") -> str:
     """
-    生成模型文件名
+    Generate model filename
     
     Args:
-        model_type: 模型类型
-        target_col: 目标列名
-        suffix: 文件名后缀
+        model_type: model type
+        target_col: target column name
+        suffix: filename suffix
     
     Returns:
-        文件名
+        Filename
     """
-    # 更全面的特殊字符替换，生成shell友好的文件名
+    # Replace special characters thoroughly to generate shell-friendly filename
     clean_target = (target_col
                    .replace('(', '_')
                    .replace(')', '')
@@ -767,7 +767,7 @@ def generate_model_filename(model_type: str, target_col: str, suffix: str = "") 
                    .replace('^', '')
                    .replace(' ', '_'))
     
-    # 移除可能的重复下划线
+    # Remove possible duplicate underscores
     while '__' in clean_target:
         clean_target = clean_target.replace('__', '_')
     clean_target = clean_target.strip('_')
@@ -778,33 +778,33 @@ def generate_model_filename(model_type: str, target_col: str, suffix: str = "") 
 
 def load_model(filepath: Union[str, Path]):
     """
-    加载模型
+    Load model
     
     Args:
-        filepath: 模型文件路径
+        filepath: model file path
     
     Returns:
-        加载的模型
+        Loaded model
     """
     return joblib.load(filepath)
 
 
 def evaluate_model(y_true: np.ndarray, y_pred: np.ndarray) -> Dict:
     """
-    评估模型性能
+    Evaluate model performance
     
     Args:
-        y_true: 真实值
-        y_pred: 预测值
+        y_true: ground truth values
+        y_pred: predicted values
     
     Returns:
-        评估指标字典
+        Metrics dictionary
     """
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
     mae = mean_absolute_error(y_true, y_pred)
     r2 = r2_score(y_true, y_pred)
     
-    # MAPE (避免除零)
+    # MAPE (avoid division by zero)
     mask = y_true != 0
     if mask.sum() > 0:
         mape = np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100

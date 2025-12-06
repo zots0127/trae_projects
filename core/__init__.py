@@ -1,5 +1,5 @@
 """
-核心功能模块
+Core modules
 """
 
 from .feature_extractor import FeatureExtractor

@@ -1,7 +1,7 @@
 """
-AutoML v3 - YOLO风格的通用自动机器学习框架
+AutoML v3 - YOLO-style general automated machine learning framework
 
-使用方法:
+Usage:
     from v3 import AutoML
     
     model = AutoML('xgboost')
@@ -9,7 +9,7 @@ AutoML v3 - YOLO风格的通用自动机器学习框架
     results = model.predict(test_data)
 """
 
-# 主要接口
+# Main interfaces
 from .automl_model import (
     AutoML,
     XGBoost,
@@ -19,11 +19,11 @@ from .automl_model import (
     load_model
 )
 
-# 版本信息
+# Version info
 __version__ = '3.0.0'
 __author__ = 'AutoML Team'
 
-# 导出的公共API
+# Exported public API
 __all__ = [
     'AutoML',
     'XGBoost',
@@ -33,14 +33,14 @@ __all__ = [
     'load_model'
 ]
 
-# 快速使用函数
+# Quick-use functions
 def quick_train(data_path: str, model_type: str = 'xgboost', **kwargs):
-    """快速训练模型"""
+    """Quickly train a model"""
     model = AutoML(model_type)
     model.train(data_path, **kwargs)
     return model
 
 def quick_predict(model_path: str, smiles_list: list):
-    """快速预测"""
+    """Quick prediction"""
     model = load_model(model_path)
     return model.predict(smiles_list)

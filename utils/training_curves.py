@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-训练曲线保存和可视化模块
+Training curve saving and visualization module
 """
 
 import json
@@ -14,16 +14,16 @@ from datetime import datetime
 
 
 class TrainingCurveRecorder:
-    """训练曲线记录器"""
+    """Training curve recorder"""
     
     def __init__(self, save_dir: Path, model_name: str, target: str):
         """
-        初始化记录器
+        Initialize recorder
         
         Args:
-            save_dir: 保存目录
-            model_name: 模型名称
-            target: 目标变量名
+            save_dir: Save directory
+            model_name: Model name
+            target: Target variable name
         """
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -31,16 +31,16 @@ class TrainingCurveRecorder:
         self.model_name = model_name
         self.target = target
         
-        # 存储训练数据
+        # Store training data
         self.fold_data = []
         self.current_fold = None
         
-        # 创建子目录
+        # Create subdirectory
         self.curves_dir = self.save_dir / "training_curves"
         self.curves_dir.mkdir(exist_ok=True)
         
     def start_fold(self, fold_idx: int):
-        """开始新的折"""
+        """Start a new fold"""
         self.current_fold = {
             'fold': fold_idx,
             'train_scores': [],
@@ -51,14 +51,14 @@ class TrainingCurveRecorder:
         }
     
     def add_iteration(self, iteration: int, train_score: float, val_score: float):
-        """添加一次迭代的分数"""
+        """Add one iteration score"""
         if self.current_fold is not None:
             self.current_fold['iterations'].append(iteration)
             self.current_fold['train_scores'].append(train_score)
             self.current_fold['val_scores'].append(val_score)
     
     def end_fold(self, train_metrics: Dict, val_metrics: Dict):
-        """结束当前折"""
+        """End current fold"""
         if self.current_fold is not None:
             self.current_fold['train_metrics'] = train_metrics
             self.current_fold['val_metrics'] = val_metrics
@@ -66,11 +66,11 @@ class TrainingCurveRecorder:
             self.current_fold = None
     
     def save_curves(self):
-        """保存训练曲线数据和图表"""
+        """Save training curve data and charts"""
         if not self.fold_data:
             return
         
-        # 保存原始数据为JSON
+        # Save raw data as JSON
         data_file = self.curves_dir / f"{self.model_name}_{self.target}_curves.json"
         with open(data_file, 'w') as f:
             json.dump({
@@ -80,17 +80,17 @@ class TrainingCurveRecorder:
                 'folds': self.fold_data
             }, f, indent=2)
         
-        # 生成并保存可视化图表
+        # Generate and save visualization charts
         self._generate_plots()
         
         return data_file
     
     def _generate_plots(self):
-        """生成训练曲线图表"""
+        """Generate training curve charts"""
         if not self.fold_data:
             return
         
-        # 创建子图：每个折一个
+        # Create subplots: one per fold
         n_folds = len(self.fold_data)
         fig = make_subplots(
             rows=(n_folds + 1) // 2,
@@ -99,13 +99,13 @@ class TrainingCurveRecorder:
             vertical_spacing=0.1
         )
         
-        # 为每个折添加曲线
+        # Add curves for each fold
         for idx, fold_data in enumerate(self.fold_data):
             row = idx // 2 + 1
             col = idx % 2 + 1
             
             if fold_data['iterations']:
-                # 训练曲线
+                # Train curve
                 fig.add_trace(
                     go.Scatter(
                         x=fold_data['iterations'],
@@ -118,7 +118,7 @@ class TrainingCurveRecorder:
                     row=row, col=col
                 )
                 
-                # 验证曲线
+                # Validation curve
                 fig.add_trace(
                     go.Scatter(
                         x=fold_data['iterations'],
@@ -131,7 +131,7 @@ class TrainingCurveRecorder:
                     row=row, col=col
                 )
         
-        # 更新布局
+        # Update layout
         fig.update_layout(
             title=f"{self.model_name} - {self.target} Training Curves",
             height=300 * ((n_folds + 1) // 2),
@@ -139,20 +139,20 @@ class TrainingCurveRecorder:
             hovermode='x unified'
         )
         
-        # 更新坐标轴标签
+        # Update axis labels
         fig.update_xaxes(title_text="Iteration")
         fig.update_yaxes(title_text="Score")
         
-        # 保存HTML
+        # Save HTML
         html_file = self.curves_dir / f"{self.model_name}_{self.target}_curves.html"
         fig.write_html(str(html_file))
         
-        # 同时生成汇总图（平均曲线）
+        # Also generate aggregate plot (average curve)
         self._generate_average_plot()
     
     def _generate_average_plot(self):
-        """生成平均训练曲线"""
-        # 收集所有折的数据
+        """Generate average training curve"""
+        # Collect data for all folds
         all_iterations = []
         all_train_scores = []
         all_val_scores = []
@@ -166,20 +166,20 @@ class TrainingCurveRecorder:
         if not all_iterations:
             return
         
-        # 找到最小长度
+        # Find minimum length
         min_len = min(len(iters) for iters in all_iterations)
         
-        # 截断到相同长度并计算平均
+        # Truncate to same length and compute averages
         train_mean = np.mean([scores[:min_len] for scores in all_train_scores], axis=0)
         train_std = np.std([scores[:min_len] for scores in all_train_scores], axis=0)
         val_mean = np.mean([scores[:min_len] for scores in all_val_scores], axis=0)
         val_std = np.std([scores[:min_len] for scores in all_val_scores], axis=0)
         iterations = all_iterations[0][:min_len]
         
-        # 创建图表
+        # Create figure
         fig = go.Figure()
         
-        # 训练曲线（带置信区间）
+        # Train curve (with confidence band)
         fig.add_trace(go.Scatter(
             x=iterations,
             y=train_mean,
@@ -198,7 +198,7 @@ class TrainingCurveRecorder:
             name='Train std'
         ))
         
-        # 验证曲线（带置信区间）
+        # Validation curve (with confidence band)
         fig.add_trace(go.Scatter(
             x=iterations,
             y=val_mean,
@@ -217,7 +217,7 @@ class TrainingCurveRecorder:
             name='Val std'
         ))
         
-        # 更新布局
+        # Update layout
         fig.update_layout(
             title=f"{self.model_name} - {self.target} Average Training Curves",
             xaxis_title="Iteration",
@@ -226,32 +226,32 @@ class TrainingCurveRecorder:
             showlegend=True
         )
         
-        # 保存
+        # Save
         html_file = self.curves_dir / f"{self.model_name}_{self.target}_avg_curves.html"
         fig.write_html(str(html_file))
 
 
 class TrainingCurveAggregator:
-    """训练曲线聚合器 - 用于比较多个模型"""
+    """Training curve aggregator - compare multiple models"""
     
     @staticmethod
     def aggregate_curves(curves_dir: Path, output_file: Optional[Path] = None):
         """
-        聚合所有模型的训练曲线
+        Aggregate training curves for all models
         
         Args:
-            curves_dir: 曲线数据目录
-            output_file: 输出文件路径
+            curves_dir: Curves data directory
+            output_file: Output file path
         """
         if output_file is None:
             output_file = curves_dir / "all_models_comparison.html"
         
-        # 读取所有JSON文件
+        # Read all JSON files
         json_files = list(curves_dir.glob("*_curves.json"))
         if not json_files:
             return
         
-        # 创建比较图
+        # Create comparison plot
         fig = make_subplots(
             rows=1, cols=1,
             subplot_titles=["All Models Comparison"]
@@ -267,7 +267,7 @@ class TrainingCurveAggregator:
             target = data['target']
             color = colors[idx % len(colors)]
             
-            # 计算平均曲线
+            # Compute average curve
             all_val_scores = []
             for fold_data in data['folds']:
                 if fold_data['val_scores']:
@@ -286,7 +286,7 @@ class TrainingCurveAggregator:
                     line=dict(color=color, width=2)
                 ))
         
-        # 更新布局
+        # Update layout
         fig.update_layout(
             title="Model Training Curves Comparison",
             xaxis_title="Iteration",
@@ -296,7 +296,7 @@ class TrainingCurveAggregator:
             height=500
         )
         
-        # 保存
+        # Save
         fig.write_html(str(output_file))
         
         return output_file

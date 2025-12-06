@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-演示如何使用paper_comparison配置训练所有模型并生成对比表格
+Demonstrate using the paper_comparison config to train all models and generate comparison tables
 """
 
 import sys
@@ -10,18 +10,18 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(description='Paper Comparison Demo')
     parser.add_argument('--data', default='../data/Database_normalized.csv',
-                       help='训练数据文件')
+                       help='Training data file')
     parser.add_argument('--test-data', default=None,
-                       help='测试数据文件（可选）')
+                       help='Test data file (optional)')
     parser.add_argument('--project', default='PaperDemo',
-                       help='项目名称')
+                       help='Project name')
     parser.add_argument('--quick', action='store_true',
-                       help='快速模式（只训练3个模型）')
+                       help='Quick mode (train only 3 models)')
     
     args = parser.parse_args()
     
     print("="*60)
-    print("       论文级模型对比演示")
+    print("       Paper-level Model Comparison Demo")
     print("="*60)
     print()
     
@@ -37,17 +37,17 @@ def main():
         cmd_parts.append(f'test_data={args.test_data}')
     
     if args.quick:
-        # 快速模式：只训练几个关键模型
+        # Quick mode: train only several key models
         cmd_parts.extend([
             'optimization.automl_models=[xgboost,catboost,lightgbm]',
             'training.n_folds=5'
         ])
-        print("🚀 快速模式：只训练 XGBoost, CatBoost, LightGBM")
+        print("Quick mode: train XGBoost, CatBoost, LightGBM only")
     else:
-        print("📊 完整模式：训练所有13个模型")
+        print("Full mode: train all 13 models")
     
-    # 显示命令
-    print("\n执行命令:")
+    # Show command
+    print("\nExecute command:")
     print(" ".join(cmd_parts))
     print()
     
@@ -56,19 +56,19 @@ def main():
     result = subprocess.run(cmd_parts, capture_output=False, text=True)
     
     if result.returncode == 0:
-        print("\n✅ 训练完成！")
+        print("\nTraining completed!")
         
         # 查找结果目录
         project_dir = Path(args.project)
         if project_dir.exists():
-            # 找到最新的训练目录
+            # Find the latest training directory
             train_dirs = sorted(project_dir.glob('train*'), key=lambda x: x.stat().st_mtime)
             if train_dirs:
                 latest_dir = train_dirs[-1]
-                print(f"\n📁 结果目录: {latest_dir}")
+                print(f"\nResults directory: {latest_dir}")
                 
-                # 生成对比表格
-                print("\n生成对比表格...")
+                # Generate comparison table
+                print("\nGenerating comparison table...")
                 try:
                     sys.path.append('.')
                     from utils.comparison_table import ComparisonTableGenerator
@@ -76,25 +76,25 @@ def main():
                     generator = ComparisonTableGenerator(str(latest_dir))
                     exported = generator.export_all_formats()
                     
-                    # 显示最佳模型
+                    # Show best models
                     print("\n" + "="*60)
-                    print("最佳模型总结")
+                    print("Best Models Summary")
                     print("="*60)
                     best_models = generator.get_best_models()
                     for target, info in best_models.items():
                         print(f"\n{target}:")
-                        print(f"  最佳模型: {info['algorithm']}")
-                        print(f"  R²: {info['r2']}")
+                        print(f"  Best Model: {info['algorithm']}")
+                        print(f"  R^2: {info['r2']}")
                         print(f"  RMSE: {info['rmse']}")
                     
-                    print("\n📊 生成的表格文件:")
+                    print("\nGenerated table files:")
                     for fmt, path in exported.items():
                         print(f"  - {fmt.upper()}: {path}")
                     
                 except Exception as e:
-                    print(f"⚠️ 生成表格时出错: {e}")
+                    print(f"Warning: error generating tables: {e}")
     else:
-        print("\n❌ 训练失败")
+        print("\nTraining failed")
         sys.exit(1)
 
 

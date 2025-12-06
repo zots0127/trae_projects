@@ -37,9 +37,9 @@ class ResultsAnalyzer:
         target_match = re.search(r'<strong>Target:</strong>\s*([^<]+)', content)
         
         # Extract performance metrics
-        rmse_match = re.search(r'<strong>RMSE:</strong>\s*([\d.]+)\s*±\s*([\d.]+)', content)
-        mae_match = re.search(r'<strong>MAE:</strong>\s*([\d.]+)\s*±\s*([\d.]+)', content)
-        r2_match = re.search(r'<strong>R²:</strong>\s*([\d.]+)\s*±\s*([\d.]+)', content)
+        rmse_match = re.search(r'<strong>RMSE:</strong>\s*([\d.]+)\s*(?:\+/-|\u00B1)\s*([\d.]+)', content)
+        mae_match = re.search(r'<strong>MAE:</strong>\s*([\d.]+)\s*(?:\+/-|\u00B1)\s*([\d.]+)', content)
+        r2_match = re.search(r'<strong>R(?:\^2|\u00B2):</strong>\s*([\d.]+)\s*(?:\+/-|\u00B1)\s*([\d.]+)', content)
         
         # Extract duration
         duration_match = re.search(r'<strong>Duration:</strong>\s*([\d.]+)\s*seconds', content)
@@ -251,7 +251,7 @@ class ResultsAnalyzer:
         return pd.DataFrame(results)
     
     def get_best_models(self, df: pd.DataFrame) -> Dict:
-        """Find the best model for each target based on R² score"""
+        """Find the best model for each target based on R^2 score"""
         best_models = {}
         
         for target in df['target'].unique():
@@ -306,7 +306,7 @@ class ResultsAnalyzer:
         lines.append("")
         
         # Summary statistics
-        lines.append("📊 SUMMARY STATISTICS")
+        lines.append("SUMMARY STATISTICS")
         lines.append("-" * 100)
         lines.append(f"Total experiments: {len(df)}")
         if 'duration' in df.columns:
@@ -323,37 +323,37 @@ class ResultsAnalyzer:
             target_df = df[df['target'] == target].copy()
             target_df = target_df.sort_values('mean_r2', ascending=False)
             
-            lines.append(f"🎯 TARGET: {target}")
+            lines.append(f"TARGET: {target}")
             lines.append("-" * 100)
             
             # Check if MAPE data is available
             has_mape = 'mean_mape' in df.columns and df['mean_mape'].sum() > 0
             
             if has_mape:
-                lines.append(f"{'Model':<15} {'R² (±std)':<18} {'RMSE (±std)':<18} {'MAE (±std)':<18} {'MAPE (±std)':<18} {'Folds':<6}")
+                lines.append(f"{'Model':<15} {'R^2 (+/-std)':<18} {'RMSE (+/-std)':<18} {'MAE (+/-std)':<18} {'MAPE (+/-std)':<18} {'Folds':<6}")
             else:
-                lines.append(f"{'Model':<15} {'R² (±std)':<18} {'RMSE (±std)':<18} {'MAE (±std)':<18} {'Folds':<6}")
+                lines.append(f"{'Model':<15} {'R^2 (+/-std)':<18} {'RMSE (+/-std)':<18} {'MAE (+/-std)':<18} {'Folds':<6}")
             lines.append("-" * 100)
             
             for idx, row in target_df.iterrows():
-                # Mark best model with star
+                # Mark best model
                 model_name = row['model']
                 if idx == target_df.index[0]:
-                    model_name = f"{model_name} ⭐"
+                    model_name = f"{model_name} [BEST]"
                 
-                r2_str = f"{row['mean_r2']:.4f}±{row['std_r2']:.4f}" if row['std_r2'] > 0 else f"{row['mean_r2']:.4f}"
-                rmse_str = f"{row['mean_rmse']:.3f}±{row['std_rmse']:.3f}" if row['std_rmse'] > 0 else f"{row['mean_rmse']:.3f}"
-                mae_str = f"{row['mean_mae']:.3f}±{row['std_mae']:.3f}" if row['std_mae'] > 0 else f"{row['mean_mae']:.3f}"
+                r2_str = f"{row['mean_r2']:.4f}+/-{row['std_r2']:.4f}" if row['std_r2'] > 0 else f"{row['mean_r2']:.4f}"
+                rmse_str = f"{row['mean_rmse']:.3f}+/-{row['std_rmse']:.3f}" if row['std_rmse'] > 0 else f"{row['mean_rmse']:.3f}"
+                mae_str = f"{row['mean_mae']:.3f}+/-{row['std_mae']:.3f}" if row['std_mae'] > 0 else f"{row['mean_mae']:.3f}"
                 
                 if has_mape and 'mean_mape' in row and row['mean_mape'] > 0:
-                    mape_str = f"{row['mean_mape']:.2f}%±{row.get('std_mape', 0):.2f}%" if row.get('std_mape', 0) > 0 else f"{row['mean_mape']:.2f}%"
+                    mape_str = f"{row['mean_mape']:.2f}%+/-{row.get('std_mape', 0):.2f}%" if row.get('std_mape', 0) > 0 else f"{row['mean_mape']:.2f}%"
                     lines.append(f"{model_name:<15} {r2_str:<18} {rmse_str:<18} {mae_str:<18} {mape_str:<18} {row.get('n_folds', 10):<6}")
                 else:
                     lines.append(f"{model_name:<15} {r2_str:<18} {rmse_str:<18} {mae_str:<18} {row.get('n_folds', 10):<6}")
             
             # Best model summary
             best = target_df.iloc[0]
-            lines.append(f"\n✅ Best model: {best['model']} (R²={best['mean_r2']:.4f}±{best['std_r2']:.4f}, RMSE={best['mean_rmse']:.3f}±{best['std_rmse']:.3f})")
+            lines.append(f"\nBest model: {best['model']} (R^2={best['mean_r2']:.4f}+/-{best['std_r2']:.4f}, RMSE={best['mean_rmse']:.3f}+/-{best['std_rmse']:.3f})")
             
             # Add CV stability analysis
             if best['std_r2'] > 0:
@@ -363,7 +363,7 @@ class ResultsAnalyzer:
             lines.append("")
         
         # Model rankings
-        lines.append("📈 MODEL RANKINGS (Average R² across all targets)")
+        lines.append("MODEL RANKINGS (Average R^2 across all targets)")
         lines.append("-" * 100)
         
         model_avg = df.groupby('model')['mean_r2'].mean().sort_values(ascending=False)
@@ -432,11 +432,11 @@ class ResultsAnalyzer:
 </head>
 <body>
     <div class="container">
-        <h1>🤖 AutoML Analysis Report</h1>
+        <h1>AutoML Analysis Report</h1>
         <p class="timestamp">Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         <p class="timestamp">Directory: {self.run_dir}</p>
         
-        <h2>📊 Summary Statistics</h2>
+        <h2>Summary Statistics</h2>
         <div>
             <div class="metric-card">
                 <strong>Total Experiments:</strong> {len(df)}
@@ -459,17 +459,17 @@ class ResultsAnalyzer:
             target_df = target_df.sort_values('mean_r2', ascending=False)
             
             html += f"""
-        <h2>🎯 Target: {target}</h2>
+        <h2>Target: {target}</h2>
         <table>
             <tr>
                 <th>Rank</th>
                 <th>Model</th>
-                <th>R² Score (±std)</th>
-                <th>RMSE (±std)</th>
-                <th>MAE (±std)</th>"""
+                <th>R^2 Score (+/-std)</th>
+                <th>RMSE (+/-std)</th>
+                <th>MAE (+/-std)</th>"""
             
             if has_mape:
-                html += "<th>MAPE (±std)</th>"
+                html += "<th>MAPE (+/-std)</th>"
             
             html += """<th>CV Folds</th>
                 <th>Trials</th>
@@ -477,11 +477,11 @@ class ResultsAnalyzer:
 """
             for rank, (idx, row) in enumerate(target_df.iterrows(), 1):
                 row_class = 'class="best-row"' if rank == 1 else ''
-                star = '<span class="star">⭐</span>' if rank == 1 else ''
+                star = '[BEST]' if rank == 1 else ''
                 
-                r2_str = f"<span class='metric-value'>{row['mean_r2']:.4f}</span> <span class='std-value'>±{row['std_r2']:.4f}</span>" if row['std_r2'] > 0 else f"{row['mean_r2']:.4f}"
-                rmse_str = f"<span class='metric-value'>{row['mean_rmse']:.3f}</span> <span class='std-value'>±{row['std_rmse']:.3f}</span>" if row['std_rmse'] > 0 else f"{row['mean_rmse']:.3f}"
-                mae_str = f"<span class='metric-value'>{row['mean_mae']:.3f}</span> <span class='std-value'>±{row['std_mae']:.3f}</span>" if row['std_mae'] > 0 else f"{row['mean_mae']:.3f}"
+                r2_str = f"<span class='metric-value'>{row['mean_r2']:.4f}</span> <span class='std-value'>+/-{row['std_r2']:.4f}</span>" if row['std_r2'] > 0 else f"{row['mean_r2']:.4f}"
+                rmse_str = f"<span class='metric-value'>{row['mean_rmse']:.3f}</span> <span class='std-value'>+/-{row['std_rmse']:.3f}</span>" if row['std_rmse'] > 0 else f"{row['mean_rmse']:.3f}"
+                mae_str = f"<span class='metric-value'>{row['mean_mae']:.3f}</span> <span class='std-value'>+/-{row['std_mae']:.3f}</span>" if row['std_mae'] > 0 else f"{row['mean_mae']:.3f}"
                 
                 html += f"""
             <tr {row_class}>
@@ -492,7 +492,7 @@ class ResultsAnalyzer:
                 <td>{mae_str}</td>"""
                 
                 if has_mape and 'mean_mape' in row:
-                    mape_str = f"<span class='metric-value'>{row['mean_mape']:.2f}%</span> <span class='std-value'>±{row.get('std_mape', 0):.2f}%</span>" if row.get('std_mape', 0) > 0 else f"{row.get('mean_mape', 0):.2f}%"
+                    mape_str = f"<span class='metric-value'>{row['mean_mape']:.2f}%</span> <span class='std-value'>+/-{row.get('std_mape', 0):.2f}%</span>" if row.get('std_mape', 0) > 0 else f"{row.get('mean_mape', 0):.2f}%"
                     html += f"<td>{mape_str}</td>"
                 
                 html += f"""
@@ -507,10 +507,10 @@ class ResultsAnalyzer:
             
             html += f"""
         <div class="best-model">
-            🏆 Best Model: <strong>{best['model']}</strong><br>
-            • R²: {best['r2']:.4f} ± {best.get('r2_std', 0):.4f}<br>
-            • RMSE: {best['rmse']:.3f} ± {best.get('rmse_std', 0):.3f}<br>
-            • MAE: {best['mae']:.3f} ± {best.get('mae_std', 0):.3f}
+            Best Model: <strong>{best['model']}</strong><br>
+            - R^2: {best['r2']:.4f} +/- {best.get('r2_std', 0):.4f}<br>
+            - RMSE: {best['rmse']:.3f} +/- {best.get('rmse_std', 0):.3f}<br>
+            - MAE: {best['mae']:.3f} +/- {best.get('mae_std', 0):.3f}
             {f'<span class="cv-stability">CV Stability: {cv_coefficient:.1f}%</span>' if cv_coefficient > 0 else ''}
         </div>
 """
@@ -518,12 +518,12 @@ class ResultsAnalyzer:
         # Add model rankings
         model_avg = df.groupby('model')['mean_r2'].mean().sort_values(ascending=False)
         html += """
-        <h2>📈 Overall Model Rankings</h2>
+        <h2>Overall Model Rankings</h2>
         <table>
             <tr>
                 <th>Rank</th>
                 <th>Model</th>
-                <th>Average R² Score</th>
+                <th>Average R^2 Score</th>
             </tr>
 """
         for rank, (model, avg_r2) in enumerate(model_avg.items(), 1):
@@ -581,13 +581,13 @@ class ResultsAnalyzer:
             
             # Save to CSV
             df[columns_order + ['is_best']].to_csv(output_path, index=False)
-            print(f"📊 CSV results with CV statistics saved to: {output_path}")
+            print(f"CSV results with CV statistics saved to: {output_path}")
             
             # Print summary
-            print(f"\n📋 Summary:")
+            print(f"\nSummary:")
             for target in df['target'].unique():
                 best_model = df[(df['target'] == target) & df['is_best']].iloc[0]
-                print(f"  {target}: {best_model['model']} (R²={best_model['mean_r2']:.4f}±{best_model['std_r2']:.4f})")
+                print(f"  {target}: {best_model['model']} (R^2={best_model['mean_r2']:.4f}+/-{best_model['std_r2']:.4f})")
             
             return
         
@@ -601,7 +601,7 @@ class ResultsAnalyzer:
         with open(output_path, 'w') as f:
             f.write(report)
         
-        print(f"✅ Report saved to: {output_path}")
+        print(f"Report saved to: {output_path}")
         
         # Also save CSV for further analysis
         df = self.collect_all_results()
@@ -625,7 +625,7 @@ class ResultsAnalyzer:
                 df.loc[best_idx, 'is_best'] = True
             
             df[columns_order + ['is_best']].to_csv(csv_path, index=False)
-            print(f"📊 CSV data with CV statistics saved to: {csv_path}")
+            print(f"CSV data with CV statistics saved to: {csv_path}")
 
 
 def analyze_command(args):

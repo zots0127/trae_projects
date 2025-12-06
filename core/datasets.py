@@ -41,7 +41,7 @@ def create_iris_dataset(save_path: str = "data/iris.csv") -> pd.DataFrame:
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ Iris dataset saved to {save_path}")
+    print(f"Iris dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   Features: {list(iris.feature_names)}")
     print(f"   Targets: species (classification), petal_area (regression)")
@@ -67,7 +67,7 @@ def create_wine_dataset(save_path: str = "data/wine.csv") -> pd.DataFrame:
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ Wine dataset saved to {save_path}")
+    print(f"Wine dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   Features: {len(wine.feature_names)} chemical properties")
     print(f"   Targets: quality (classification), alcohol_score (regression)")
@@ -91,7 +91,7 @@ def create_housing_dataset(save_path: str = "data/housing.csv") -> pd.DataFrame:
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ Housing dataset saved to {save_path}")
+    print(f"Housing dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   Features: {list(housing.feature_names)}")
     print(f"   Target: price (regression)")
@@ -114,7 +114,7 @@ def create_diabetes_dataset(save_path: str = "data/diabetes.csv") -> pd.DataFram
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ Diabetes dataset saved to {save_path}")
+    print(f"Diabetes dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   Features: {list(diabetes.feature_names)}")
     print(f"   Target: progression (regression)")
@@ -169,7 +169,7 @@ def create_synthetic_molecular_dataset(save_path: str = "data/synthetic_molecule
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ Synthetic molecular dataset saved to {save_path}")
+    print(f"Synthetic molecular dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   SMILES columns: L1, L2, L3")
     print(f"   Targets: wavelength, plqy, lifetime")
@@ -212,7 +212,7 @@ def create_mixed_dataset(save_path: str = "data/mixed_features.csv",
     Path(save_path).parent.mkdir(exist_ok=True)
     mol_df.to_csv(save_path, index=False)
     
-    print(f"✅ Mixed dataset saved to {save_path}")
+    print(f"Mixed dataset saved to {save_path}")
     print(f"   Shape: {mol_df.shape}")
     print(f"   Molecular features: L1, L2, L3 (SMILES)")
     print(f"   Numerical features: pressure, ph, concentration, reaction_time")
@@ -243,12 +243,12 @@ def create_mnist_dataset(save_path: str = "data/mnist.csv",
     if subset_for_demo:
         n_samples = n_samples or 1000
         save_path = save_path.replace('mnist.csv', 'mnist_small.csv')
-        print(f"📥 Creating MNIST subset ({n_samples} samples) for quick demo...")
+        print(f"Creating MNIST subset ({n_samples} samples) for quick demo...")
     elif n_samples:
-        print(f"📥 Creating MNIST dataset with {n_samples} samples...")
+        print(f"Creating MNIST dataset with {n_samples} samples...")
     else:
-        print(f"📥 Downloading full MNIST dataset (70,000 samples)...")
-        print("   ⏱️ This may take a few minutes on first download...")
+        print(f"Downloading full MNIST dataset (70,000 samples)...")
+        print("   Note: This may take a few minutes on first download...")
     
     # Fetch MNIST data
     mnist = fetch_openml('mnist_784', version=1, parser='auto', as_frame=True)
@@ -293,14 +293,14 @@ def create_mnist_dataset(save_path: str = "data/mnist.csv",
     Path(save_path).parent.mkdir(exist_ok=True)
     df.to_csv(save_path, index=False)
     
-    print(f"✅ MNIST {dataset_type} dataset saved to {save_path}")
+    print(f"MNIST {dataset_type} dataset saved to {save_path}")
     print(f"   Shape: {df.shape}")
     print(f"   Features: 784 pixels (28x28 image flattened)")
     print(f"   Classification target: digit (0-9)")
     print(f"   Regression target: complexity_score")
     print(f"   Dataset size: {n_samples:,} images")
     if dataset_type == "full":
-        print(f"   💡 This is the complete MNIST dataset!")
+        print(f"   This is the complete MNIST dataset!")
     
     return df
 
@@ -386,14 +386,14 @@ class DatasetManager:
     def show_menu(self):
         """Display interactive menu"""
         print("\n" + "="*60)
-        print("📊 AutoML Dataset Manager")
+        print("AutoML Dataset Manager")
         print("="*60)
         print("\nAvailable Datasets:")
         print("-"*60)
         
         for key, info in self.datasets.items():
             status = self._check_dataset_exists(info['name'])
-            status_icon = "✅" if status else "⬇️"
+            status_icon = "OK" if status else "MISSING"
             print(f"{key}. {status_icon} {info['name']:<20} - {info['description']}")
             print(f"      Type: {info['type']:<15} Size: {info['size']}")
         
@@ -426,25 +426,25 @@ class DatasetManager:
     def download_dataset(self, key: str) -> bool:
         """Download a specific dataset"""
         if key not in self.datasets:
-            print(f"❌ Invalid selection: {key}")
+            print(f"ERROR: Invalid selection: {key}")
             return False
         
         info = self.datasets[key]
         
         # Check if already exists
         if self._check_dataset_exists(info['name']):
-            response = input(f"⚠️ {info['name']} already exists. Overwrite? (y/n): ")
+            response = input(f"WARNING: {info['name']} already exists. Overwrite? (y/n): ")
             if response.lower() != 'y':
                 print("Skipped.")
                 return False
         
-        print(f"\n📥 Downloading {info['name']}...")
+        print(f"\nDownloading {info['name']}...")
         try:
             info['function'](**info['args'])
-            print(f"✅ {info['name']} downloaded successfully!")
+            print(f"{info['name']} downloaded successfully!")
             return True
         except Exception as e:
-            print(f"❌ Failed to download {info['name']}: {e}")
+            print(f"ERROR: Failed to download {info['name']}: {e}")
             return False
     
     def download_multiple(self, keys: List[str]):
@@ -458,7 +458,7 @@ class DatasetManager:
             else:
                 failed += 1
         
-        print(f"\n📊 Summary: {success} successful, {failed} failed/skipped")
+        print(f"\nSummary: {success} successful, {failed} failed/skipped")
     
     def download_all(self, include_large: bool = False):
         """Download all datasets"""
@@ -467,30 +467,30 @@ class DatasetManager:
             # Exclude MNIST Full
             keys = [k for k in keys if k != '6']
         
-        print(f"\n📦 Downloading {len(keys)} datasets...")
+        print(f"\nDownloading {len(keys)} datasets...")
         self.download_multiple(keys)
     
     def download_quick_start(self):
         """Download essential datasets for quick start"""
-        print("\n🚀 Downloading quick-start datasets...")
+        print("\nDownloading quick-start datasets...")
         # Iris, Wine, MNIST Demo
         self.download_multiple(['1', '2', '5'])
     
     def download_molecular(self):
         """Download molecular datasets"""
-        print("\n🧪 Downloading molecular datasets...")
+        print("\nDownloading molecular datasets...")
         # Synthetic Molecules, Mixed Features
         self.download_multiple(['7', '8'])
     
     def download_tabular(self):
         """Download tabular datasets"""
-        print("\n📊 Downloading tabular datasets...")
+        print("\nDownloading tabular datasets...")
         # Iris, Wine, Diabetes, Housing
         self.download_multiple(['1', '2', '3', '4'])
     
     def check_existing(self):
         """Check which datasets exist"""
-        print("\n📁 Existing Datasets:")
+        print("\nExisting Datasets:")
         print("-"*40)
         
         existing = []
@@ -503,7 +503,7 @@ class DatasetManager:
                 missing.append(info['name'])
         
         if existing:
-            print("✅ Downloaded:")
+            print("Downloaded:")
             for name in existing:
                 file_map = {
                     'Iris': 'data/iris.csv',
@@ -521,19 +521,19 @@ class DatasetManager:
                     print(f"   - {name:<20} ({size_mb:.1f} MB)")
         
         if missing:
-            print("\n⬇️ Not downloaded:")
+            print("\nNot downloaded:")
             for name in missing:
                 print(f"   - {name}")
     
     def remove_all(self):
         """Remove all datasets"""
-        response = input("⚠️ Remove ALL datasets? This cannot be undone. (yes/no): ")
+        response = input("WARNING: Remove ALL datasets? This cannot be undone. (yes/no): ")
         if response.lower() == 'yes':
             import shutil
             if self.data_dir.exists():
                 shutil.rmtree(self.data_dir)
                 self.data_dir.mkdir()
-            print("✅ All datasets removed.")
+            print("All datasets removed.")
         else:
             print("Cancelled.")
     
@@ -544,7 +544,7 @@ class DatasetManager:
             choice = input("\nSelect option: ").strip().upper()
             
             if choice == 'X':
-                print("\n👋 Goodbye!")
+                print("\nGoodbye!")
                 break
             elif choice == 'A':
                 self.download_all(include_large=False)
@@ -561,7 +561,7 @@ class DatasetManager:
             elif choice in self.datasets:
                 self.download_dataset(choice)
             else:
-                print(f"❌ Invalid option: {choice}")
+                print(f"ERROR: Invalid option: {choice}")
             
             input("\nPress Enter to continue...")
 
@@ -602,11 +602,11 @@ def main():
         manager.check_existing()
     elif args.create_all:
         # Non-interactive mode: create all datasets
-        print("🔧 Creating all datasets...")
+        print("Creating all datasets...")
         print("-"*40)
         manager.download_all(include_large=False)
-        print("\n✅ All datasets created successfully!")
-        print("\n💡 Usage examples:")
+        print("\nAll datasets created successfully!")
+        print("\nUsage examples:")
         print("   python automl.py train data=data/iris.csv target=petal_area")
         print("   python automl.py train data=data/wine.csv target=alcohol_score")
         print("   python automl.py train data=data/synthetic_molecules.csv target=wavelength")

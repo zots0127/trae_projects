@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-交互式CLI功能演示
-展示主要功能的截图和说明
+Interactive CLI feature demo
+Screenshots and explanations of main features
 """
 
 from interactive_cli import InteractiveCLI
@@ -11,13 +11,13 @@ import pandas as pd
 from pathlib import Path
 
 def demo_features():
-    """演示交互式CLI的主要功能"""
+    """Demonstrate the main features of the interactive CLI"""
     
     print("\n" + "="*80)
     print(" "*20 + "AutoML Interactive CLI Demo")
     print("="*80)
     
-    # 1. 项目列表
+    # 1. Project list
     print("\n📋 Feature 1: Project List")
     print("-"*40)
     manager = ProjectManager()
@@ -26,7 +26,7 @@ def demo_features():
         df_projects = pd.DataFrame(projects)
         print(df_projects[['name', 'models', 'runs', 'created']].to_string(index=False))
     
-    # 2. 项目信息和模型性能（包含标准差）
+    # 2. Project info and model performance (with standard deviations)
     print("\n\n📊 Feature 2: Project Information with Standard Deviations")
     print("-"*40)
     
@@ -36,23 +36,23 @@ def demo_features():
     print(f"Project: {test_project}")
     print(f"Models: {len(predictor.models)}")
     
-    # 显示带标准差的模型性能
+    # Show model performance with standard deviation
     print("\nModel Performance (mean±std):")
     for i, (key, info) in enumerate(predictor.models.items()):
-        if i >= 3:  # 只显示前3个
+        if i >= 3:  # Show only first 3
             print("  ...")
             break
         perf = info.get('performance', {})
         target = info.get('original_target', info['target'])
         r2 = perf.get('r2', 0)
         r2_std = perf.get('r2_std', 0)
-        print(f"  {info['type']:8} → {target:20} R²={r2:.4f}±{r2_std:.4f}")
+        print(f"  {info['type']:8} -> {target:20} R^2={r2:.4f}+/-{r2_std:.4f}")
     
-    # 3. 对比表格
+    # 3. Comparison table
     print("\n\n📈 Feature 3: Comparison Table")
     print("-"*40)
     
-    # 兼容固定命名与旧版时间戳命名
+    # Compatible with fixed naming and legacy timestamp naming
     table_files = list(Path(test_project).glob("comparison_table.csv"))
     if not table_files:
         table_files = list(Path(test_project).glob("comparison_table_*.csv"))
@@ -63,14 +63,14 @@ def demo_features():
         print(f"File: {latest_table.name}")
         print("\nModel Performance Comparison:")
         
-        # 显示简化版对比表
-        for target in df_comp['Target'].unique()[:2]:  # 显示前2个目标
+        # Show simplified comparison table
+        for target in df_comp['Target'].unique()[:2]:  # Show first 2 targets
             print(f"\n  Target: {target}")
             target_df = df_comp[df_comp['Target'] == target][['Algorithm', 'R2_mean', 'R2_std']]
             for _, row in target_df.iterrows():
-                print(f"    {row['Algorithm']:20} R²={row['R2_mean']:.4f}±{row['R2_std']:.4f}")
+                print(f"    {row['Algorithm']:20} R^2={row['R2_mean']:.4f}+/-{row['R2_std']:.4f}")
     
-    # 4. 批量预测配置
+    # 4. Batch prediction options
     print("\n\n🚀 Feature 4: Batch Prediction Options")
     print("-"*40)
     print("Available Modes:")
@@ -82,7 +82,7 @@ def demo_features():
     print("  • Median   - Median value")
     print("  • Weighted - Weighted by R² scores")
     
-    # 5. 项目管理功能
+    # 5. Project management features
     print("\n\n💼 Feature 5: Project Management")
     print("-"*40)
     print("Available Operations:")
@@ -91,7 +91,7 @@ def demo_features():
     print("  ✓ Clean Project   - Remove temporary files")
     print("  ✓ Train New Models - Launch training pipeline")
     
-    # 6. 交互式界面特性
+    # 6. Interactive interface features
     print("\n\n✨ Feature 6: Interactive Interface Features")
     print("-"*40)
     print("Rich Library Enhancements:")

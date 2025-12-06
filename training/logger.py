@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-训练日志记录模块
-类似TensorBoard的全面训练过程记录器，保存所有训练数据用于论文绘图
+Training log recording module
+Comprehensive recorder similar to TensorBoard that saves all training data for paper plotting
 """
 
 import os
@@ -21,12 +21,12 @@ import yaml
 
 
 # ========================================
-#           数据类定义
+#           Data Class Definitions
 # ========================================
 
 @dataclass
 class FoldResult:
-    """单个折的训练结果"""
+    """Training results for a single fold"""
     fold_id: int
     train_indices: List[int]
     val_indices: List[int]
@@ -40,7 +40,7 @@ class FoldResult:
     timing: Optional[Dict[str, float]] = None
     
     def to_dict(self) -> Dict:
-        """转换为字典（处理numpy数组）"""
+        """Convert to dict (handles NumPy arrays)"""
         result = {}
         for key, value in asdict(self).items():
             if isinstance(value, np.ndarray):
@@ -52,7 +52,7 @@ class FoldResult:
 
 @dataclass
 class ExperimentResult:
-    """完整实验结果"""
+    """Complete experiment result"""
     experiment_id: str
     timestamp: str
     model_type: str
@@ -68,18 +68,18 @@ class ExperimentResult:
     system_info: Dict = field(default_factory=dict)
     
     def to_dict(self) -> Dict:
-        """转换为字典"""
+        """Convert to dict"""
         result = asdict(self)
         result['fold_results'] = [fold.to_dict() for fold in self.fold_results]
         return result
 
 
 # ========================================
-#           训练记录器主类
+#           Training Logger
 # ========================================
 
 class TrainingLogger:
-    """训练过程记录器"""
+    """Training process recorder"""
     
     def __init__(self, 
                  project_name: str,
@@ -87,37 +87,37 @@ class TrainingLogger:
                  auto_save: bool = True,
                  save_plots: bool = True):
         """
-        初始化训练记录器
+        Initialize training logger
         
         Args:
-            project_name: 项目名称
-            base_dir: 基础保存目录
-            auto_save: 是否自动保存
-            save_plots: 是否保存图表
+            project_name: Project name
+            base_dir: Base save directory
+            auto_save: Auto-save flag
+            save_plots: Save plots flag
         """
         self.project_name = project_name
         self.base_dir = Path(base_dir)
         self.auto_save = auto_save
         self.save_plots = save_plots
         
-        # 创建项目目录结构
+        # Create project directory structure
         self.project_dir = self.base_dir / project_name
         self.create_directory_structure()
         
-        # 当前实验
+        # Current experiment
         self.current_experiment = None
         self.experiment_history = []
         
-        # 实时记录
+        # Real-time records
         self.current_fold_data = {}
         self.global_metrics = {}
         
-        print(f"📊 训练记录器初始化")
-        print(f"   项目: {project_name}")
-        print(f"   保存路径: {self.project_dir}")
+        print("INFO Training logger initialized")
+        print(f"   Project: {project_name}")
+        print(f"   Save path: {self.project_dir}")
     
     def create_directory_structure(self):
-        """创建目录结构"""
+        """Create directory structure"""
         directories = [
             self.project_dir,
             self.project_dir / "experiments",
@@ -138,7 +138,7 @@ class TrainingLogger:
             dir_path.mkdir(parents=True, exist_ok=True)
     
     # ========================================
-    #           实验管理
+    #           Experiment Management
     # ========================================
     
     def start_experiment(self, 
@@ -149,15 +149,15 @@ class TrainingLogger:
                         n_folds: int = 10,
                         **kwargs):
         """
-        开始新实验
+        Start a new experiment
         
         Args:
-            model_type: 模型类型
-            target: 目标变量
-            feature_type: 特征类型
-            hyperparameters: 超参数
-            n_folds: 交叉验证折数
-            **kwargs: 其他信息
+            model_type: Model type
+            target: Target variable
+            feature_type: Feature type
+            hyperparameters: Hyperparameters
+            n_folds: Number of CV folds
+            **kwargs: Additional info
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         experiment_id = f"{model_type}_{target}"
@@ -176,7 +176,7 @@ class TrainingLogger:
             **kwargs
         }
         
-        # 保存实验配置
+        # Save experiment config
         config_path = self.project_dir / "experiments" / f"{experiment_id}_config.json"
         with open(config_path, 'w') as f:
             json.dump({
@@ -188,43 +188,43 @@ class TrainingLogger:
                 'hyperparameters': hyperparameters,
                 'n_folds': n_folds,
                 **kwargs
-            }, f, indent=2)
+            }, f, indent=2, ensure_ascii=True)
         
-        print(f"\n🚀 实验开始: {experiment_id}")
+        print(f"\nINFO Experiment started: {experiment_id}")
         
         return experiment_id
     
     def end_experiment(self, final_metrics: Optional[Dict] = None):
         """
-        结束当前实验
+        End current experiment
         
         Args:
-            final_metrics: 最终评估指标
+            final_metrics: Final evaluation metrics
         """
         if self.current_experiment is None:
             return
         
-        # 计算实验时长
+        # Compute experiment duration
         duration = (datetime.now() - self.current_experiment['start_time']).total_seconds()
         self.current_experiment['duration_seconds'] = duration
         self.current_experiment['final_metrics'] = final_metrics
         
-        # 保存完整实验结果
+        # Save full experiment results
         self.save_experiment_results()
         
-        # 生成报告
+        # Generate report
         self.generate_experiment_report()
         
-        # 添加到历史
+        # Add to history
         self.experiment_history.append(self.current_experiment)
         
-        print(f"\n✅ 实验结束: {self.current_experiment['experiment_id']}")
-        print(f"   耗时: {duration:.2f}秒")
+        print(f"\nINFO Experiment ended: {self.current_experiment['experiment_id']}")
+        print(f"   Duration: {duration:.2f}s")
         
         self.current_experiment = None
 
     def add_timing(self, key: str, seconds: float):
-        """为当前实验添加时间记录"""
+        """Add timing record for current experiment"""
         try:
             if self.current_experiment is not None:
                 timing = self.current_experiment.get('timing', {})
@@ -234,17 +234,17 @@ class TrainingLogger:
             pass
     
     # ========================================
-    #           折记录
+    #           Fold Logging
     # ========================================
     
     def log_fold_start(self, fold_id: int, train_indices: List[int], val_indices: List[int]):
         """
-        记录折开始
+        Record fold start
         
         Args:
-            fold_id: 折编号
-            train_indices: 训练集索引
-            val_indices: 验证集索引
+            fold_id: Fold index
+            train_indices: Training indices
+            val_indices: Validation indices
         """
         self.current_fold_data = {
             'fold_id': fold_id,
@@ -253,9 +253,9 @@ class TrainingLogger:
             'start_time': datetime.now()
         }
         
-        print(f"\n  📁 折 {fold_id} 开始")
-        print(f"     训练样本: {len(train_indices)}")
-        print(f"     验证样本: {len(val_indices)}")
+        print(f"\n  INFO Fold {fold_id} started")
+        print(f"     Train samples: {len(train_indices)}")
+        print(f"     Val samples: {len(val_indices)}")
     
     def log_fold_end(self, 
                      y_train: np.ndarray,
@@ -266,24 +266,24 @@ class TrainingLogger:
                      feature_importance: Optional[Dict] = None,
                      **kwargs):
         """
-        记录折结束
+        Record fold end
         
         Args:
-            y_train: 训练集真值
-            y_train_pred: 训练集预测值
-            y_val: 验证集真值
-            y_val_pred: 验证集预测值
-            metrics: 评估指标
-            feature_importance: 特征重要性
-            **kwargs: 其他信息
+            y_train: Training true values
+            y_train_pred: Training predictions
+            y_val: Validation true values
+            y_val_pred: Validation predictions
+            metrics: Evaluation metrics
+            feature_importance: Feature importance
+            **kwargs: Additional info
         """
         if not self.current_fold_data:
             return
         
-        # 计算折时长
+        # Compute fold duration
         duration = (datetime.now() - self.current_fold_data['start_time']).total_seconds()
         
-        # 创建折结果
+        # Create fold result
         fold_result = FoldResult(
             fold_id=self.current_fold_data['fold_id'],
             train_indices=self.current_fold_data['train_indices'],
@@ -297,35 +297,35 @@ class TrainingLogger:
             timing={'duration_seconds': duration}
         )
         
-        # 添加到当前实验
+        # Append to current experiment
         if self.current_experiment:
             self.current_experiment['fold_results'].append(fold_result)
         
-        # 保存折数据
+        # Save fold data
         if self.auto_save:
             self.save_fold_data(fold_result)
         
-        # 生成折图表
+        # Generate fold plots
         if self.save_plots:
             self.plot_fold_results(fold_result)
         
-        print(f"     ✓ 折 {fold_result.fold_id} 完成 (耗时: {duration:.2f}s)")
-        print(f"       验证RMSE: {metrics.get('rmse', 0):.4f}")
-        print(f"       验证R²: {metrics.get('r2', 0):.4f}")
+        print(f"     INFO Fold {fold_result.fold_id} completed (duration: {duration:.2f}s)")
+        print(f"       Validation RMSE: {metrics.get('rmse', 0):.4f}")
+        print(f"       Validation R^2: {metrics.get('r2', 0):.4f}")
     
     # ========================================
-    #           数据保存
+    #           Data Saving
     # ========================================
     
     def save_fold_data(self, fold_result: FoldResult):
-        """保存单折数据"""
+        """Save single fold data"""
         if not self.current_experiment:
             return
         
         exp_id = self.current_experiment['experiment_id']
         fold_id = fold_result.fold_id
         
-        # 保存预测结果CSV
+        # Save prediction CSV
         pred_df = pd.DataFrame({
             'fold': fold_id,
             'split': ['train'] * len(fold_result.train_true) + ['val'] * len(fold_result.val_true),
@@ -340,7 +340,7 @@ class TrainingLogger:
         csv_path = self.project_dir / "predictions" / f"{exp_id}_fold{fold_id}.csv"
         pred_df.to_csv(csv_path, index=False)
         
-        # 保存原始numpy数组（用于精确重现）
+        # Save raw NumPy arrays (for exact reproduction)
         np_path = self.project_dir / "predictions" / f"{exp_id}_fold{fold_id}.npz"
         np.savez(np_path,
                 train_true=fold_result.train_true,
@@ -351,13 +351,13 @@ class TrainingLogger:
                 val_indices=fold_result.val_indices)
     
     def save_experiment_results(self):
-        """保存完整实验结果"""
+        """Save complete experiment results"""
         if not self.current_experiment:
             return
         
         exp_id = self.current_experiment['experiment_id']
         
-        # 汇总所有折的结果
+        # Aggregate all fold results
         all_val_true = []
         all_val_pred = []
         all_metrics = {key: [] for key in ['rmse', 'mae', 'r2', 'mape']}
@@ -369,7 +369,7 @@ class TrainingLogger:
                 if key in fold_result.metrics:
                     all_metrics[key].append(fold_result.metrics[key])
         
-        # 计算汇总指标
+        # Compute summary metrics
         summary_metrics = {
             f"{key}_mean": np.mean(values) if values else 0
             for key, values in all_metrics.items()
@@ -379,7 +379,7 @@ class TrainingLogger:
             for key, values in all_metrics.items()
         })
         
-        # 保存汇总CSV
+        # Save summary CSV
         summary_df = pd.DataFrame({
             'true': all_val_true,
             'predicted': all_val_pred,
@@ -413,7 +413,7 @@ class TrainingLogger:
                 summary_metrics_df = pd.DataFrame([summary_metrics])
                 summary_metrics_df.to_excel(writer, sheet_name='Summary', index=False)
         
-        # 保存完整JSON
+        # Save complete JSON
         json_path = self.project_dir / "exports" / "json" / f"{exp_id}_complete.json"
         with open(json_path, 'w') as f:
             json.dump({
@@ -421,14 +421,14 @@ class TrainingLogger:
                    if k not in ['fold_results', 'start_time']},
                 'fold_results': [fold.to_dict() for fold in self.current_experiment['fold_results']],
                 'summary_metrics': summary_metrics
-            }, f, indent=2)
+            }, f, indent=2, ensure_ascii=True)
         
-        # 保存pickle（完整Python对象）
+        # Save pickle (full Python object)
         pickle_path = self.project_dir / "experiments" / f"{exp_id}_complete.pkl"
         with open(pickle_path, 'wb') as f:
             pickle.dump(self.current_experiment, f)
         
-        # 保存JSON汇总（用于automl analyze命令）
+        # Save JSON summary (for automl analyze command)
         json_summary_path = self.project_dir / "exports" / f"{exp_id}_summary.json"
         with open(json_summary_path, 'w') as f:
             json.dump({
@@ -446,24 +446,24 @@ class TrainingLogger:
                 'std_r2': summary_metrics.get('r2_std', 0),
                 'total_duration': self.current_experiment.get('duration_seconds', 0),
                 'hyperparameters': self.current_experiment.get('hyperparameters', {})
-            }, f, indent=2)
+            }, f, indent=2, ensure_ascii=True)
     
     # ========================================
-    #           可视化
+    #           Visualization
     # ========================================
     
     def plot_fold_results(self, fold_result: FoldResult):
-        """绘制单折结果图"""
+        """Plot single fold results"""
         if not self.current_experiment:
             return
         
         exp_id = self.current_experiment['experiment_id']
         fold_id = fold_result.fold_id
         
-        # 创建图表
+        # Create plots
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
         
-        # 1. 散点图：真值 vs 预测值
+        # 1. Scatter: True vs Predicted
         ax = axes[0, 0]
         ax.scatter(fold_result.val_true, fold_result.val_predictions, alpha=0.5)
         ax.plot([fold_result.val_true.min(), fold_result.val_true.max()],
@@ -472,10 +472,10 @@ class TrainingLogger:
         ax.set_xlabel('True Values')
         ax.set_ylabel('Predictions')
         ax.set_title(f'Fold {fold_id}: True vs Predicted')
-        ax.text(0.05, 0.95, f"R² = {fold_result.metrics.get('r2', 0):.4f}",
+        ax.text(0.05, 0.95, f"R^2 = {fold_result.metrics.get('r2', 0):.4f}",
                 transform=ax.transAxes, va='top')
         
-        # 2. 残差图
+        # 2. Residual plot
         ax = axes[0, 1]
         residuals = fold_result.val_true - fold_result.val_predictions
         ax.scatter(fold_result.val_predictions, residuals, alpha=0.5)
@@ -484,7 +484,7 @@ class TrainingLogger:
         ax.set_ylabel('Residuals')
         ax.set_title(f'Fold {fold_id}: Residual Plot')
         
-        # 3. 误差分布
+        # 3. Error distribution
         ax = axes[1, 0]
         ax.hist(residuals, bins=30, edgecolor='black')
         ax.set_xlabel('Residuals')
@@ -492,7 +492,7 @@ class TrainingLogger:
         ax.set_title(f'Fold {fold_id}: Error Distribution')
         ax.axvline(x=0, color='r', linestyle='--')
         
-        # 4. Q-Q图
+        # 4. Q-Q plot
         ax = axes[1, 1]
         from scipy import stats
         stats.probplot(residuals, dist="norm", plot=ax)
@@ -501,19 +501,19 @@ class TrainingLogger:
         plt.suptitle(f'Experiment: {exp_id}', fontsize=14)
         plt.tight_layout()
         
-        # 保存图表
+        # Save plot
         plot_path = self.project_dir / "plots" / "fold_results" / f"{exp_id}_fold{fold_id}.png"
         plt.savefig(plot_path, dpi=150, bbox_inches='tight')
         plt.close()
     
     def plot_experiment_summary(self):
-        """绘制实验汇总图表"""
+        """Plot experiment summary charts"""
         if not self.current_experiment or not self.current_experiment['fold_results']:
             return
         
         exp_id = self.current_experiment['experiment_id']
         
-        # 收集所有数据
+        # Collect all data
         all_val_true = []
         all_val_pred = []
         fold_metrics = []
@@ -529,10 +529,10 @@ class TrainingLogger:
         all_val_true = np.array(all_val_true)
         all_val_pred = np.array(all_val_pred)
         
-        # 创建汇总图表
+        # Create summary plots
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
         
-        # 1. 总体散点图
+        # 1. Overall scatter
         ax = axes[0, 0]
         ax.scatter(all_val_true, all_val_pred, alpha=0.3)
         ax.plot([all_val_true.min(), all_val_true.max()],
@@ -542,7 +542,7 @@ class TrainingLogger:
         ax.set_ylabel('Predictions')
         ax.set_title('All Folds: True vs Predicted')
         
-        # 2. 各折RMSE
+        # 2. RMSE per fold
         ax = axes[0, 1]
         fold_df = pd.DataFrame(fold_metrics)
         ax.bar(fold_df['fold'], fold_df['rmse'])
@@ -553,17 +553,17 @@ class TrainingLogger:
                    label=f"Mean: {fold_df['rmse'].mean():.4f}")
         ax.legend()
         
-        # 3. 各折R²
+        # 3. R^2 per fold
         ax = axes[0, 2]
         ax.bar(fold_df['fold'], fold_df['r2'])
         ax.set_xlabel('Fold')
-        ax.set_ylabel('R²')
-        ax.set_title('R² by Fold')
+        ax.set_ylabel('R^2')
+        ax.set_title('R^2 by Fold')
         ax.axhline(y=fold_df['r2'].mean(), color='r', linestyle='--',
                    label=f"Mean: {fold_df['r2'].mean():.4f}")
         ax.legend()
         
-        # 4. 误差箱线图
+        # 4. Error box plot
         ax = axes[1, 0]
         errors_by_fold = []
         for fold_result in self.current_experiment['fold_results']:
@@ -575,7 +575,7 @@ class TrainingLogger:
         ax.set_title('Error Distribution by Fold')
         ax.axhline(y=0, color='r', linestyle='--')
         
-        # 5. 学习曲线（如果有的话）
+        # 5. Learning curve (if available)
         ax = axes[1, 1]
         if fold_df.shape[0] > 1:
             ax.plot(fold_df['fold'], fold_df['rmse'], 'o-', label='Validation RMSE')
@@ -587,15 +587,15 @@ class TrainingLogger:
             ax.text(0.5, 0.5, 'Not enough folds for learning curve',
                    ha='center', va='center', transform=ax.transAxes)
         
-        # 6. 指标汇总
+        # 6. Metrics summary
         ax = axes[1, 2]
         ax.axis('off')
         metrics_text = f"""
         Summary Metrics:
         
-        RMSE: {fold_df['rmse'].mean():.4f} ± {fold_df['rmse'].std():.4f}
-        MAE:  {fold_df['mae'].mean():.4f} ± {fold_df['mae'].std():.4f}
-        R²:   {fold_df['r2'].mean():.4f} ± {fold_df['r2'].std():.4f}
+        RMSE: {fold_df['rmse'].mean():.4f} +/- {fold_df['rmse'].std():.4f}
+        MAE:  {fold_df['mae'].mean():.4f} +/- {fold_df['mae'].std():.4f}
+        R^2:  {fold_df['r2'].mean():.4f} +/- {fold_df['r2'].std():.4f}
         
         Model: {self.current_experiment['model_type']}
         Target: {self.current_experiment['target']}
@@ -608,26 +608,26 @@ class TrainingLogger:
         plt.suptitle(f'Experiment Summary: {exp_id}', fontsize=14)
         plt.tight_layout()
         
-        # 保存图表
+        # Save plot
         plot_path = self.project_dir / "plots" / f"{exp_id}_summary.png"
         plt.savefig(plot_path, dpi=150, bbox_inches='tight')
         plt.close()
     
     # ========================================
-    #           报告生成
+    #           Report Generation
     # ========================================
     
     def generate_experiment_report(self):
-        """生成实验HTML报告"""
+        """Generate experiment HTML report"""
         if not self.current_experiment:
             return
         
         exp_id = self.current_experiment['experiment_id']
         
-        # 生成汇总图表
+        # Generate summary plots
         self.plot_experiment_summary()
         
-        # 收集数据
+        # Collect data
         fold_metrics = pd.DataFrame([
             {
                 'fold': fold.fold_id,
@@ -636,7 +636,7 @@ class TrainingLogger:
             for fold in self.current_experiment['fold_results']
         ])
         
-        # 生成表格行
+        # Generate table rows
         table_rows = []
         for _, row in fold_metrics.iterrows():
             table_rows.append(f"""
@@ -650,7 +650,7 @@ class TrainingLogger:
             """)
         table_rows_html = ''.join(table_rows)
         
-        # 生成HTML报告
+        # Generate HTML report
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -688,9 +688,9 @@ class TrainingLogger:
             
             <h2>Performance Summary</h2>
             <div class="metric-box">
-                <strong>RMSE:</strong> {fold_metrics['rmse'].mean():.4f} ± {fold_metrics['rmse'].std():.4f}<br>
-                <strong>MAE:</strong> {fold_metrics['mae'].mean():.4f} ± {fold_metrics['mae'].std():.4f}<br>
-                <strong>R²:</strong> {fold_metrics['r2'].mean():.4f} ± {fold_metrics['r2'].std():.4f}
+                <strong>RMSE:</strong> {fold_metrics['rmse'].mean():.4f} +/- {fold_metrics['rmse'].std():.4f}<br>
+                <strong>MAE:</strong> {fold_metrics['mae'].mean():.4f} +/- {fold_metrics['mae'].std():.4f}<br>
+                <strong>R^2:</strong> {fold_metrics['r2'].mean():.4f} +/- {fold_metrics['r2'].std():.4f}
             </div>
             
             <h2>Fold-by-Fold Results</h2>
@@ -699,7 +699,7 @@ class TrainingLogger:
                     <th>Fold</th>
                     <th>RMSE</th>
                     <th>MAE</th>
-                    <th>R²</th>
+                    <th>R^2</th>
                     <th>MAPE (%)</th>
                 </tr>
                 {table_rows_html}
@@ -723,20 +723,20 @@ class TrainingLogger:
         with open(report_path, 'w') as f:
             f.write(html_content)
         
-        print(f"   📄 报告已生成: {report_path}")
+        print(f"   Report generated: {report_path}")
     
     # ========================================
-    #           比较功能
+    #           Comparison Utilities
     # ========================================
     
     def compare_experiments(self, experiment_ids: List[str] = None):
         """
-        比较多个实验
+        Compare multiple experiments
         
         Args:
-            experiment_ids: 要比较的实验ID列表，None则比较所有
+            experiment_ids: List of experiment IDs to compare; None for all
         """
-        # 加载所有实验
+        # Load all experiments
         experiments = []
         exp_dir = self.project_dir / "experiments"
         
@@ -747,10 +747,10 @@ class TrainingLogger:
                     experiments.append(exp)
         
         if not experiments:
-            print("没有找到实验数据")
+            print("No experiment data found")
             return
         
-        # 创建比较表
+        # Create comparison table
         comparison_data = []
         for exp in experiments:
             fold_results = exp['fold_results']
@@ -770,14 +770,14 @@ class TrainingLogger:
         
         comparison_df = pd.DataFrame(comparison_data)
         
-        # 保存比较结果
+        # Save comparison results
         comparison_path = self.project_dir / "exports" / "experiment_comparison.csv"
         comparison_df.to_csv(comparison_path, index=False)
         
-        # 生成比较图表
+        # Generate comparison plots
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
         
-        # RMSE比较
+        # RMSE comparison
         ax = axes[0]
         x = range(len(comparison_df))
         ax.bar(x, comparison_df['rmse_mean'], yerr=comparison_df['rmse_std'], capsize=5)
@@ -786,37 +786,37 @@ class TrainingLogger:
         ax.set_ylabel('RMSE')
         ax.set_title('Model Comparison: RMSE')
         
-        # R²比较
+        # R^2 comparison
         ax = axes[1]
         ax.bar(x, comparison_df['r2_mean'], yerr=comparison_df['r2_std'], capsize=5)
         ax.set_xticks(x)
         ax.set_xticklabels(comparison_df['model'], rotation=45)
-        ax.set_ylabel('R²')
-        ax.set_title('Model Comparison: R²')
+        ax.set_ylabel('R^2')
+        ax.set_title('Model Comparison: R^2')
         
         plt.tight_layout()
         comparison_plot_path = self.project_dir / "plots" / "comparison" / "model_comparison.png"
         plt.savefig(comparison_plot_path, dpi=150, bbox_inches='tight')
         plt.close()
         
-        print(f"   📊 比较结果已保存: {comparison_path}")
+        print(f"   Comparison results saved: {comparison_path}")
         
         return comparison_df
     
     # ========================================
-    #           实用方法
+    #           Utilities
     # ========================================
     
     def get_best_model(self, metric: str = 'rmse', ascending: bool = True):
         """
-        获取最佳模型
+        Get best model
         
         Args:
-            metric: 评估指标
-            ascending: 是否升序（True表示越小越好）
+            metric: Evaluation metric
+            ascending: Sort ascending (True means smaller is better)
         
         Returns:
-            最佳实验信息
+            Best experiment info
         """
         experiments = []
         exp_dir = self.project_dir / "experiments"
@@ -832,24 +832,24 @@ class TrainingLogger:
         if not experiments:
             return None
         
-        # 排序
+        # Sort
         experiments.sort(key=lambda x: x['mean_' + metric], reverse=not ascending)
         best_exp = experiments[0]
         
-        print(f"🏆 最佳模型 ({metric}):")
-        print(f"   实验ID: {best_exp['experiment_id']}")
-        print(f"   模型: {best_exp['model_type']}")
+        print(f"Best model ({metric}):")
+        print(f"   Experiment ID: {best_exp['experiment_id']}")
+        print(f"   Model: {best_exp['model_type']}")
         print(f"   {metric}: {best_exp['mean_' + metric]:.4f}")
         
         return best_exp
     
     def export_for_paper(self, experiment_id: str, output_dir: str = None):
         """
-        导出用于论文的数据
+        Export data for paper use
         
         Args:
-            experiment_id: 实验ID
-            output_dir: 输出目录
+            experiment_id: Experiment ID
+            output_dir: Output directory
         """
         if output_dir is None:
             output_dir = self.project_dir / "exports" / "paper_ready"
@@ -858,12 +858,12 @@ class TrainingLogger:
         
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 加载实验
+        # Load experiment
         pkl_path = self.project_dir / "experiments" / f"{experiment_id}_complete.pkl"
         with open(pkl_path, 'rb') as f:
             exp = pickle.load(f)
         
-        # 导出预测数据
+        # Export prediction data
         all_true = []
         all_pred = []
         for fold in exp['fold_results']:
@@ -876,31 +876,31 @@ class TrainingLogger:
         })
         pred_df.to_csv(output_dir / f"{experiment_id}_predictions.csv", index=False)
         
-        # 导出指标
+        # Export metrics
         metrics_df = pd.DataFrame([fold.metrics for fold in exp['fold_results']])
         metrics_df.to_csv(output_dir / f"{experiment_id}_fold_metrics.csv", index=False)
         
-        # 复制图表
+        # Copy plots
         plot_src = self.project_dir / "plots" / f"{experiment_id}_summary.png"
         if plot_src.exists():
             shutil.copy(plot_src, output_dir / f"{experiment_id}_summary.png")
         
-        print(f"   📦 论文数据已导出: {output_dir}")
+        print(f"   Paper-ready data exported: {output_dir}")
         
         return output_dir
 
 
 # ========================================
-#           便捷函数
+#           Convenience Functions
 # ========================================
 
 def create_logger(project_name: str, **kwargs) -> TrainingLogger:
-    """创建训练记录器的便捷函数"""
+    """Convenience function to create TrainingLogger"""
     return TrainingLogger(project_name, **kwargs)
 
 
 def load_experiment(experiment_path: Union[str, Path]) -> Dict:
-    """加载实验结果"""
+    """Load experiment results"""
     with open(experiment_path, 'rb') as f:
         return pickle.load(f)
 
@@ -910,39 +910,39 @@ def plot_paper_figure(true_values: np.ndarray,
                       title: str = None,
                       save_path: str = None):
     """
-    生成论文级别的图表
+    Generate publication-quality plot
     
     Args:
-        true_values: 真实值
-        predicted_values: 预测值
-        title: 图表标题
-        save_path: 保存路径
+        true_values: True values
+        predicted_values: Predicted values
+        title: Plot title
+        save_path: Save path
     """
-    # 设置论文风格
+    # Set paper style
     plt.style.use('seaborn-v0_8-paper')
     
     fig, ax = plt.subplots(figsize=(6, 6))
     
-    # 散点图
+    # Scatter
     ax.scatter(true_values, predicted_values, alpha=0.5, s=20, edgecolors='k', linewidth=0.5)
     
-    # 对角线
+    # Diagonal
     min_val = min(true_values.min(), predicted_values.min())
     max_val = max(true_values.max(), predicted_values.max())
     ax.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
     
-    # 计算R²
+    # Compute R^2
     from sklearn.metrics import r2_score
     r2 = r2_score(true_values, predicted_values)
     
-    # 设置标签
+    # Labels
     ax.set_xlabel('True Values', fontsize=12)
     ax.set_ylabel('Predicted Values', fontsize=12)
     if title:
         ax.set_title(title, fontsize=14)
     
-    # 添加R²文本
-    ax.text(0.05, 0.95, f'R² = {r2:.4f}', transform=ax.transAxes,
+    # Add R^2 text
+    ax.text(0.05, 0.95, f'R^2 = {r2:.4f}', transform=ax.transAxes,
             fontsize=11, va='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     ax.legend(loc='lower right')
@@ -959,10 +959,10 @@ def plot_paper_figure(true_values: np.ndarray,
 
 
 if __name__ == "__main__":
-    # 测试代码
+    # Test code
     logger = TrainingLogger("test_project")
     
-    # 模拟实验
+    # Mock experiment
     logger.start_experiment(
         model_type="xgboost",
         target="wavelength",
@@ -971,11 +971,11 @@ if __name__ == "__main__":
         n_folds=3
     )
     
-    # 模拟折训练
+    # Mock fold training
     for fold in range(3):
         logger.log_fold_start(fold, list(range(80)), list(range(80, 100)))
         
-        # 模拟数据
+        # Mock data
         y_train = np.random.randn(80)
         y_train_pred = y_train + np.random.randn(80) * 0.1
         y_val = np.random.randn(20)
@@ -990,4 +990,4 @@ if __name__ == "__main__":
         logger.log_fold_end(y_train, y_train_pred, y_val, y_val_pred, metrics)
     
     logger.end_experiment()
-    print("\n✅ 测试完成")
+    print("\nOK Test complete")

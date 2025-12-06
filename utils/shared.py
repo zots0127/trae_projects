@@ -85,9 +85,9 @@ def log_step(title: str):
 
 
 def log_stats_range(arr: np.ndarray):
-    print(f"    范围: [{arr.min():.3f}, {arr.max():.3f}]")
-    print(f"    均值: {arr.mean():.3f}")
-    print(f"    标准差: {arr.std():.3f}")
+    print(f"    Range: [{arr.min():.3f}, {arr.max():.3f}]")
+    print(f"    Mean: {arr.mean():.3f}")
+    print(f"    Std: {arr.std():.3f}")
 
 
 def regression_metrics(actual: np.ndarray, pred: np.ndarray) -> dict:
@@ -177,12 +177,12 @@ def plqy_distribution(df: pd.DataFrame, col: str = 'Predicted_PLQY') -> dict:
         'max': float(s.max()),
         'mean': float(s.mean()),
     }
-    print(f"最小值: {q['min']:.4f}")
-    print(f"25分位: {q['q25']:.4f}")
-    print(f"中位数: {q['median']:.4f}")
-    print(f"75分位: {q['q75']:.4f}")
-    print(f"最大值: {q['max']:.4f}")
-    print(f"平均值: {q['mean']:.4f}")
+    print(f"Min: {q['min']:.4f}")
+    print(f"Q25: {q['q25']:.4f}")
+    print(f"Median: {q['median']:.4f}")
+    print(f"Q75: {q['q75']:.4f}")
+    print(f"Max: {q['max']:.4f}")
+    print(f"Mean: {q['mean']:.4f}")
     return q
 
 

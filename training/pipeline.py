@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-基于配置的训练管道
-类似YOLO的一键训练系统
+Config-driven training pipeline
+One-click training system similar to YOLO-style workflows
 """
 
 import os
@@ -15,10 +15,10 @@ from typing import Optional, Dict, List, Tuple
 import traceback
 from tqdm import tqdm
 
-# 添加项目根目录到路径
+# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 导入自定义模块
+# Import custom modules
 from config.system import (
     ExperimentConfig, ConfigManager, ConfigValidator,
     BatchExperimentConfig, load_config
@@ -35,18 +35,18 @@ warnings.filterwarnings('ignore')
 
 
 # ========================================
-#           训练管道
+#           Training Pipeline
 # ========================================
 
 class TrainingPipeline:
-    """基于配置的训练管道"""
+    """Config-driven training pipeline"""
     
     def __init__(self, config: ExperimentConfig):
         """
-        初始化训练管道
+        Initialize training pipeline
         
         Args:
-            config: 实验配置
+            config: Experiment configuration
         """
         self.config = config
         self.logger = None
@@ -54,34 +54,34 @@ class TrainingPipeline:
         self.features = None
         self.targets = None
         
-        # 验证配置
+        # Validate config
         if not ConfigValidator.validate_all(config):
-            raise ValueError("配置验证失败")
+            raise ValueError("Configuration validation failed")
         
         print("\n" + "="*60)
-        print(f"🚀 训练管道初始化: {config.name}")
+        print(f"INFO Training pipeline initialized: {config.name}")
         print("="*60)
-        print(f"模型: {config.model.model_type}")
-        print(f"特征: {config.feature.feature_type}")
-        print(f"交叉验证: {config.training.n_folds}折")
-        # 初始化细粒度计时器
+        print(f"Model: {config.model.model_type}")
+        print(f"Feature: {config.feature.feature_type}")
+        print(f"Cross-validation: {config.training.n_folds} folds")
+        # Initialize fine-grained timer
         self.timing = TimingTracker()
         
     def load_data(self, target_col: str = None) -> pd.DataFrame:
         """
-        加载数据
+        Load data
         
         Args:
-            target_col: 如果指定，只为该目标列过滤数据；否则加载所有数据
+            target_col: If provided, filter data for this target; else load all
         """
         if target_col is None:
-            # 兼容性：如果没有指定目标，加载所有数据（用于初始检查）
-            print(f"\n📊 加载数据: {self.config.data.data_path}")
+            # Compatibility: if no target specified, load all data (initial check)
+            print(f"\nINFO Loading data: {self.config.data.data_path}")
             with self.timing.measure('data_load_train'):
                 df = pd.read_csv(self.config.data.data_path)
-            print(f"   原始数据: {len(df)} 行, {len(df.columns)} 列")
+            print(f"   Raw data: {len(df)} rows, {len(df.columns)} columns")
             
-            # 检查可用的目标列
+            # Check available target columns
             available_targets = []
             target_stats = {}
             for target in self.config.data.target_columns:
@@ -89,37 +89,37 @@ class TrainingPipeline:
                     available_targets.append(target)
                     n_valid = df[target].notna().sum()
                     target_stats[target] = n_valid
-                    print(f"   {target}: {n_valid} 个有效值")
+                    print(f"   {target}: {n_valid} valid values")
             
             if not available_targets:
-                raise ValueError(f"没有找到任何目标列: {self.config.data.target_columns}")
+                raise ValueError(f"No target columns found: {self.config.data.target_columns}")
             
-            # 根据多目标策略显示数据选择信息
+            # Show data selection info based on multi-target strategy
             if not hasattr(self.config.data, 'multi_target_strategy'):
                 self.config.data.multi_target_strategy = 'independent'
             
             if self.config.data.multi_target_strategy == 'intersection':
-                # 计算交集数据量
+                # Compute intersection size
                 valid_mask = pd.Series([True] * len(df))
                 for target in available_targets:
                     valid_mask &= df[target].notna()
                 n_intersection = valid_mask.sum()
-                print(f"\n   📊 多目标策略: 交集模式")
-                print(f"      所有目标都有值的数据: {n_intersection} 行")
-                print(f"      数据利用率: {n_intersection/len(df)*100:.1f}%")
+                print(f"\n   Multi-target strategy: intersection")
+                print(f"      Rows with values for all targets: {n_intersection}")
+                print(f"      Data utilization: {n_intersection/len(df)*100:.1f}%")
             elif self.config.data.multi_target_strategy == 'independent':
-                print(f"\n   📊 多目标策略: 独立模式")
-                print(f"      每个目标独立使用其有效数据")
+                print(f"\n   Multi-target strategy: independent")
+                print(f"      Each target uses its own valid data")
             elif self.config.data.multi_target_strategy == 'union':
-                print(f"\n   📊 多目标策略: 并集模式")
-                print(f"      使用所有数据，缺失值将被填充")
+                print(f"\n   Multi-target strategy: union")
+                print(f"      Use all data; missing values will be filled")
             
             self.available_targets = available_targets
             self.target_stats = target_stats
-            self.raw_data = df  # 保存原始数据
+            self.raw_data = df  # save raw data
             return df
         else:
-            # 为特定目标加载和过滤数据
+            # Load and filter data for specific target
             if not hasattr(self, 'raw_data'):
                 with self.timing.measure('data_load_train'):
                     df = pd.read_csv(self.config.data.data_path)
@@ -127,22 +127,22 @@ class TrainingPipeline:
             else:
                 df = self.raw_data.copy()
             
-            # 处理缺失值
+            # Handle missing values
             if not hasattr(self.config.data, 'nan_handling'):
-                self.config.data.nan_handling = 'skip'  # 默认值
+                self.config.data.nan_handling = 'skip'  # default
             if not hasattr(self.config.data, 'multi_target_strategy'):
-                self.config.data.multi_target_strategy = 'independent'  # 默认值
+                self.config.data.multi_target_strategy = 'independent'  # default
             
-            # 根据多目标策略和缺失值处理策略处理数据
+            # Process data per multi-target and missing-value strategy
             if self.config.data.multi_target_strategy == 'intersection':
-                # 交集模式：只使用所有目标都有值的数据
-                print(f"\n   📌 使用交集模式处理 {target_col}")
+                # Intersection: only rows with values for all targets
+                print(f"\n   Using intersection mode for {target_col}")
                 valid_mask = pd.Series([True] * len(df))
                 for target in self.config.data.target_columns:
                     if target in df.columns:
                         valid_mask &= df[target].notna()
                 
-                # 检查SMILES列
+                # Check SMILES columns
                 if self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
                     for col in self.config.data.smiles_columns:
                         if col in df.columns:
@@ -150,35 +150,35 @@ class TrainingPipeline:
                 
                 df_valid = df[valid_mask].copy()
                 n_dropped = len(df) - len(df_valid)
-                print(f"   {target_col} 的有效数据: {len(df_valid)} 行 (交集模式)")
-                # 直接设置数据并返回
+                print(f"   Valid {target_col} rows: {len(df_valid)} (intersection mode)")
+                # set data and return directly
                 self.data = df_valid
                 return df_valid
                 
             elif self.config.data.multi_target_strategy == 'union':
-                # 并集模式：使用所有数据，配合nan_handling策略
-                print(f"\n   📌 使用并集模式处理 {target_col}")
+                # Union: use all data with nan_handling strategy
+                print(f"\n   Using union mode for {target_col}")
                 df_valid = df.copy()
                 
-                # 根据nan_handling策略填充缺失值
+                # Fill missing values per nan_handling strategy
                 if self.config.data.nan_handling != 'skip':
-                    # 处理目标列缺失值
+                    # Handle missing target values
                     if target_col in df_valid.columns:
                         n_missing = df_valid[target_col].isna().sum()
                         if n_missing > 0:
                             if self.config.data.nan_handling == 'mean':
                                 mean_val = df_valid[target_col].mean()
                                 df_valid[target_col].fillna(mean_val, inplace=True)
-                                print(f"   ✅ 使用均值 {mean_val:.4f} 填充了 {n_missing} 个缺失值")
+                                print(f"   Filled {n_missing} missing values with mean {mean_val:.4f}")
                             elif self.config.data.nan_handling == 'median':
                                 median_val = df_valid[target_col].median()
                                 df_valid[target_col].fillna(median_val, inplace=True)
-                                print(f"   ✅ 使用中位数 {median_val:.4f} 填充了 {n_missing} 个缺失值")
+                                print(f"   Filled {n_missing} missing values with median {median_val:.4f}")
                             elif self.config.data.nan_handling == 'zero':
                                 df_valid[target_col].fillna(0, inplace=True)
-                                print(f"   ✅ 使用0填充了 {n_missing} 个缺失值")
+                                print(f"   Filled {n_missing} missing values with 0")
                 
-                # SMILES缺失仍需跳过
+                # Missing SMILES still need to be skipped
                 if self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
                     for col in self.config.data.smiles_columns:
                         if col in df_valid.columns:
@@ -186,76 +186,76 @@ class TrainingPipeline:
                             n_missing = (~mask).sum()
                             if n_missing > 0:
                                 df_valid = df_valid[mask]
-                                print(f"   ⚠️ 跳过了 {n_missing} 行SMILES缺失的数据")
+                                print(f"   Skipped {n_missing} rows with missing SMILES")
                 
-                print(f"   {target_col} 的有效数据: {len(df_valid)} 行 (并集模式)")
-                # 直接设置数据并返回
+                print(f"   Valid {target_col} rows: {len(df_valid)} (union mode)")
+                # set data and return directly
                 self.data = df_valid
                 return df_valid
                 
             elif self.config.data.multi_target_strategy == 'independent':
-                # 独立模式：每个目标独立处理（原有逻辑）
+                # Independent: each target handled separately (original logic)
                 pass
                 
-            # 根据不同策略处理缺失值（独立模式的原有逻辑）
+            # Handle missing values under independent strategy (original logic)
             if self.config.data.multi_target_strategy == 'independent' and self.config.data.nan_handling == 'skip':
-                # 筛选有效数据：只检查当前目标列和SMILES列
+                # Filter valid data: only check current target and SMILES columns
                 valid_mask = pd.Series([True] * len(df))
                 
-                # 检查目标列
+                # Check target column
                 if target_col in df.columns:
                     valid_mask &= df[target_col].notna()
                 else:
-                    raise ValueError(f"目标列不存在: {target_col}")
+                    raise ValueError(f"Target column not found: {target_col}")
                 
-                # 检查SMILES列（仅当使用分子特征时）
+                # Check SMILES columns (for molecular features)
                 if self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
                     for col in self.config.data.smiles_columns:
                         if col in df.columns:
                             valid_mask &= df[col].notna()
                         else:
-                            print(f"   ⚠️ SMILES列不存在: {col}")
+                            print(f"   Warning: SMILES column not found: {col}")
                 elif self.config.feature.feature_type == 'tabular':
-                    # 对于表格数据，不需要SMILES列
+                    # Tabular data does not need SMILES columns
                     pass
                 
                 df_valid = df[valid_mask].copy()
                 n_dropped = len(df) - len(df_valid)
                 if n_dropped > 0:
-                    print(f"   {target_col} 的有效数据: {len(df_valid)} 行 (跳过了 {n_dropped} 行含缺失值的数据)")
+                    print(f"   Valid {target_col} rows: {len(df_valid)} (dropped {n_dropped} rows with missing values)")
                 else:
-                    print(f"   {target_col} 的有效数据: {len(df_valid)} 行")
+                    print(f"   Valid {target_col} rows: {len(df_valid)}")
                     
             else:
-                # 其他缺失值处理策略
+                # Other missing value strategies
                 df_valid = df.copy()
                 
-                # 处理目标列缺失值
+                # Handle missing target values
                 if target_col in df_valid.columns:
                     n_missing = df_valid[target_col].isna().sum()
                     if n_missing > 0:
                         if self.config.data.nan_handling == 'mean':
                             mean_val = df_valid[target_col].mean()
                             df_valid[target_col].fillna(mean_val, inplace=True)
-                            print(f"   ✅ 使用均值 {mean_val:.4f} 填充了 {n_missing} 个目标缺失值")
+                            print(f"   Filled {n_missing} target missing values with mean {mean_val:.4f}")
                         elif self.config.data.nan_handling == 'median':
                             median_val = df_valid[target_col].median()
                             df_valid[target_col].fillna(median_val, inplace=True)
-                            print(f"   ✅ 使用中位数 {median_val:.4f} 填充了 {n_missing} 个目标缺失值")
+                            print(f"   Filled {n_missing} target missing values with median {median_val:.4f}")
                         elif self.config.data.nan_handling == 'zero':
                             df_valid[target_col].fillna(0, inplace=True)
-                            print(f"   ✅ 使用0填充了 {n_missing} 个目标缺失值")
+                            print(f"   Filled {n_missing} target missing values with 0")
                         elif self.config.data.nan_handling == 'forward':
                             df_valid[target_col].fillna(method='ffill', inplace=True)
                             df_valid[target_col].fillna(method='bfill', inplace=True)
-                            print(f"   ✅ 使用前向填充处理了 {n_missing} 个目标缺失值")
+                            print(f"   Filled {n_missing} target missing values with forward/backward fill")
                         elif self.config.data.nan_handling == 'interpolate':
                             df_valid[target_col] = df_valid[target_col].interpolate()
                             df_valid[target_col].fillna(method='bfill', inplace=True)
                             df_valid[target_col].fillna(method='ffill', inplace=True)
-                            print(f"   ✅ 使用插值处理了 {n_missing} 个目标缺失值")
+                            print(f"   Filled {n_missing} target missing values with interpolation")
                 
-                # SMILES列缺失必须跳过
+                # Missing SMILES must be skipped
                 if self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
                     for col in self.config.data.smiles_columns:
                         if col in df_valid.columns:
@@ -263,33 +263,33 @@ class TrainingPipeline:
                             n_missing = (~mask).sum()
                             if n_missing > 0:
                                 df_valid = df_valid[mask]
-                                print(f"   ⚠️ 跳过了 {n_missing} 行SMILES缺失的数据 (列: {col})")
+                                print(f"   Skipped {n_missing} rows with missing SMILES (column: {col})")
                 
-                print(f"   {target_col} 的有效数据: {len(df_valid)} 行")
+                print(f"   Valid {target_col} rows: {len(df_valid)}")
             
             self.data = df_valid
             return df_valid
     
     def extract_features(self) -> np.ndarray:
-        """提取特征"""
+        """Extract features"""
         if self.data is None:
             self.load_data()
         
-        print(f"\n🔧 提取{self.config.feature.feature_type}特征...")
+        print(f"\nINFO Extracting {self.config.feature.feature_type} features...")
         
-        # 开始特征提取计时
+        # Start feature extraction timer
         with self.timing.measure('feature_extraction', {'type': self.config.feature.feature_type}):
             self._extract_features_internal()
         
-        # 计算吞吐量
+        # Compute throughput
         if self.features is not None:
             self.timing.calculate_throughput('feature_extraction', len(self.features))
             
         return self.features
     
     def _extract_features_internal(self) -> np.ndarray:
-        """内部特征提取实现"""
-        # 初始化特征提取器
+        """Internal feature extraction implementation"""
+        # Initialize feature extractor
         feature_extractor = FeatureExtractor(
             use_cache=self.config.feature.use_cache,
             cache_dir=self.config.feature.cache_dir,
@@ -298,11 +298,11 @@ class TrainingPipeline:
             descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
         )
         
-        # 检查是否为分子数据（有SMILES列）
+        # Check if molecular data (SMILES present)
         has_smiles = any(col in self.data.columns for col in self.config.data.smiles_columns)
         
         if has_smiles and self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
-            # 分子特征提取，优先使用文件级缓存并按子集索引切片
+            # Molecular feature extraction; prefer file-level cache and slice by subset indices
             features = None
             try:
                 file_cache = FileFeatureCache(cache_dir='file_feature_cache')
@@ -316,24 +316,24 @@ class TrainingPipeline:
                     descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
                 )
                 if X_full is not None:
-                    # 使用原始索引选择当前目标的数据子集
+                    # Use original index to select current target subset
                     subset_index = self.data.index.to_numpy()
                     features = X_full[subset_index]
-                    print("   ✅ 训练特征使用文件级缓存 (已切片至当前子集)")
+                    print("   Training features loaded from file-level cache (sliced to current subset)")
             except Exception:
                 features = None
 
             if features is None:
-                # 如果没有缓存，尝试一次性为整个训练文件计算并写入缓存
+                # If no cache, compute once for entire training file and write cache
                 try:
                     raw_df = getattr(self, 'raw_data', None)
                     if raw_df is None:
                         raw_df = pd.read_csv(self.config.data.data_path)
                         self.raw_data = raw_df
 
-                    print("   ⏳ 未命中文件级缓存，正在为整个训练文件提取一次特征...")
+                    print("   File-level cache miss; extracting features for entire training file...")
                     feats_full = []
-                    for _, row in tqdm(raw_df.iterrows(), total=len(raw_df), desc="提取分子特征(全文件)"):
+                    for _, row in tqdm(raw_df.iterrows(), total=len(raw_df), desc="Extract molecular features (full file)"):
                         smiles_list = []
                         for col in self.config.data.smiles_columns:
                             if col in row and pd.notna(row[col]):
@@ -348,7 +348,7 @@ class TrainingPipeline:
                         feats_full.append(f)
                     X_full = np.array(feats_full)
 
-                    # 写入缓存供后续目标/阶段复用
+                    # Write cache for reuse by subsequent targets/stages
                     try:
                         file_cache.save_features(
                             features=X_full,
@@ -362,17 +362,17 @@ class TrainingPipeline:
                             row_count=len(raw_df),
                             failed_indices=[]
                         )
-                        print("   💾 已缓存训练特征(全文件)")
+                        print("   Cached training features (full file)")
                     except Exception:
                         pass
 
-                    # 切片到当前子集
+                    # Slice to current subset
                     subset_index = self.data.index.to_numpy()
                     features = X_full[subset_index]
                 except Exception:
-                    # 回退到原逐行提取逻辑
+                    # Fallback to original row-wise extraction logic
                     features = []
-                    for _, row in tqdm(self.data.iterrows(), total=len(self.data), desc="提取分子特征"):
+                    for _, row in tqdm(self.data.iterrows(), total=len(self.data), desc="Extract molecular features"):
                         smiles_list = []
                         for col in self.config.data.smiles_columns:
                             if col in row and pd.notna(row[col]):
@@ -387,13 +387,13 @@ class TrainingPipeline:
                         features.append(feat)
                     features = np.array(features)
         else:
-            # 表格数据特征提取（新功能）
-            print("   检测到表格数据，使用通用特征提取...")
+            # Tabular feature extraction
+            print("   Detected tabular data; using generic feature extraction...")
             
-            # 获取目标列以排除
+            # Get target columns to exclude
             target_cols = self.config.data.target_columns if hasattr(self.config.data, 'target_columns') else []
             
-            # 使用新的DataFrame提取方法
+            # Use DataFrame extraction method
             if hasattr(feature_extractor, 'extract_from_dataframe'):
                 features = feature_extractor.extract_from_dataframe(
                     self.data,
@@ -402,74 +402,74 @@ class TrainingPipeline:
                     feature_type='tabular' if not has_smiles else 'auto'
                 )
             else:
-                # 后备方案：使用所有非目标列作为特征
+                # Fallback: use all non-target columns as features
                 feature_cols = [col for col in self.data.columns if col not in target_cols]
                 features = self.data[feature_cols].values
         
-        print(f"   特征维度: {features.shape}")
+        print(f"   Feature shape: {features.shape}")
         
-        # 处理NaN和Inf
+        # Handle NaN and Inf
         n_nan = np.isnan(features).sum()
         n_inf = np.isinf(features).sum()
         if n_nan > 0 or n_inf > 0:
-            print(f"   ⚠️ 发现 {n_nan} 个NaN值, {n_inf} 个Inf值，正在处理...")
+            print(f"   Found {n_nan} NaN and {n_inf} Inf; processing...")
         features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
         
         self.features = features
         return features
     
     def prepare_target(self, target_col: str) -> np.ndarray:
-        """准备目标变量"""
+        """Prepare target variable"""
         if self.data is None:
             self.load_data()
         
         y = self.data[target_col].values
         
-        # 单位转换
+        # Unit conversion
         if target_col == 'PLQY' and y.max() > 1.5:
-            print(f"   转换PLQY: 百分比 → 小数")
+            print(f"   Convert PLQY: percent -> decimal")
             y = y / 100
         
         return y
     
     def train_single_target(self, target_col: str) -> Dict:
         """
-        训练单个目标
+        Train a single target
         
         Args:
-            target_col: 目标列名
+            target_col: Target column name
         
         Returns:
-            训练结果
+            Training result
         """
         print(f"\n{'='*60}")
-        print(f"训练目标: {target_col}")
+        print(f"Training target: {target_col}")
         print(f"{'='*60}")
         
-        # 为该目标独立加载和过滤数据
+        # Load and filter data for this target
         self.load_data(target_col=target_col)
         
-        # 提取特征（每个目标独立提取）
-        self.features = None  # 重置特征
+        # Extract features (per-target)
+        self.features = None  # reset features
         self.extract_features()
         
         X = self.features
         y = self.prepare_target(target_col)
         
-        print(f"   样本数: {len(X)}")
-        print(f"   特征数: {X.shape[1]}")
-        print(f"   目标范围: [{y.min():.2f}, {y.max():.2f}]")
+        print(f"   Samples: {len(X)}")
+        print(f"   Features: {X.shape[1]}")
+        print(f"   Target range: [{y.min():.2f}, {y.max():.2f}]")
         
-        # 优化功能已被移除，直接使用默认参数训练
+        # Optimization features removed; use default parameters
         
-        # 创建训练器
+        # Create trainer
         trainer = ModelFactory.create_trainer(
             self.config.model.model_type,
             self.config.model.hyperparameters,
             self.config.training.n_folds
         )
         
-        # 初始化记录器
+        # Initialize logger
         if self.config.logging.auto_save:
             if self.logger is None:
                 self.logger = TrainingLogger(
@@ -479,7 +479,7 @@ class TrainingPipeline:
                     save_plots=self.config.logging.save_plots
                 )
             
-            # 开始实验
+            # Start experiment
             experiment_id = self.logger.start_experiment(
                 model_type=self.config.model.model_type,
                 target=target_col,
@@ -491,7 +491,7 @@ class TrainingPipeline:
                 config=self.config.to_dict()
             )
         
-        # 执行交叉验证
+        # Perform cross-validation
         kf = KFold(
             n_splits=self.config.training.n_folds,
             shuffle=True,
@@ -502,7 +502,7 @@ class TrainingPipeline:
         fold_models = []
         fold_metrics = []
         
-        # 初始化特征重要性记录器（如果启用）
+        # Initialize feature importance recorder (if enabled)
         feature_importance_recorder = None
         if self.config.training.save_feature_importance:
             from utils import FeatureImportanceRecorder
@@ -513,20 +513,20 @@ class TrainingPipeline:
             )
         
         for fold_idx, (train_idx, val_idx) in enumerate(kf.split(X), 1):
-            # 记录折开始
+            # Log fold start
             if self.logger:
                 self.logger.log_fold_start(fold_idx, train_idx.tolist(), val_idx.tolist())
             
-            # 分割数据
+            # Split data
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
             
-            # 创建并训练模型
+            # Create and train model
             from models import BaseModel
             model = BaseModel(self.config.model.model_type, self.config.model.hyperparameters)
             early_rounds = self.config.training.early_stopping_rounds if self.config.training.early_stopping else None
             
-            # 记录每折的训练时间
+            # Record per-fold training time
             with self.timing.measure(f'fold_{fold_idx}_training', {'fold': fold_idx, 'samples': len(train_idx)}):
                 model.fit(
                     X_train, y_train,
@@ -535,35 +535,35 @@ class TrainingPipeline:
                     early_stopping_rounds=early_rounds
                 )
             
-            # 预测
+            # Predict
             with self.timing.measure(f'fold_{fold_idx}_prediction', {'fold': fold_idx, 'samples': len(val_idx)}):
                 y_train_pred = model.predict(X_train)
                 y_val_pred = model.predict(X_val)
                 all_predictions[val_idx] = y_val_pred
             
-            # 评估
+            # Evaluate
             train_metrics = evaluate_model(y_train, y_train_pred)
             val_metrics = evaluate_model(y_val, y_val_pred)
             
             fold_metrics.append(val_metrics)
             fold_models.append(model)
             
-            # 提取并记录特征重要性（如果启用且模型支持）
+            # Extract and record feature importance (if enabled and supported)
             if feature_importance_recorder:
                 try:
-                    # 尝试从模型中提取特征重要性
+                    # Try extracting feature importance from model
                     importance = FeatureImportanceRecorder.extract_importance_from_model(model.model)
                     if importance is not None:
-                        # 生成特征名称（如果需要）
+                        # Generate feature names (if needed)
                         feature_names = [f"feature_{i}" for i in range(X.shape[1])]
                         feature_importance_recorder.add_fold_importance(
                             fold_idx, importance, feature_names
                         )
                 except Exception as e:
                     if self.config.training.verbose > 1:
-                        print(f"    ⚠️ 无法提取特征重要性: {e}")
+                        print(f"    Warning: unable to extract feature importance: {e}")
             
-            # 记录折结束
+            # Log fold end
             if self.logger:
                 self.logger.log_fold_end(
                     y_train=y_train,
@@ -573,16 +573,16 @@ class TrainingPipeline:
                     metrics={**val_metrics, 'train_rmse': train_metrics['rmse'], 'train_r2': train_metrics['r2']}
                 )
             
-            # 显示进度
+            # Show progress
             if self.config.training.verbose > 0:
-                print(f"\n  折 {fold_idx}/{self.config.training.n_folds}:")
-                print(f"    训练 - RMSE: {train_metrics['rmse']:.4f}, R²: {train_metrics['r2']:.4f}")
-                print(f"    验证 - RMSE: {val_metrics['rmse']:.4f}, R²: {val_metrics['r2']:.4f}")
+                print(f"\n  Fold {fold_idx}/{self.config.training.n_folds}:")
+                print(f"    Train - RMSE: {train_metrics['rmse']:.4f}, R^2: {train_metrics['r2']:.4f}")
+                print(f"    Val   - RMSE: {val_metrics['rmse']:.4f}, R^2: {val_metrics['r2']:.4f}")
         
-        # 计算总体指标
+        # Compute overall metrics
         final_metrics = evaluate_model(y, all_predictions)
         
-        # 计算平均指标
+        # Compute average metrics
         avg_metrics = {}
         for metric in self.config.training.metrics:
             values = [fold[metric] for fold in fold_metrics if metric in fold]
@@ -590,28 +590,28 @@ class TrainingPipeline:
                 avg_metrics[f"{metric}_mean"] = np.mean(values)
                 avg_metrics[f"{metric}_std"] = np.std(values)
         
-        print(f"\n📊 交叉验证结果:")
+        print(f"\nCross-validation results:")
         for metric in self.config.training.metrics:
             if f"{metric}_mean" in avg_metrics:
-                print(f"   {metric.upper()}: {avg_metrics[f'{metric}_mean']:.4f} ± {avg_metrics[f'{metric}_std']:.4f}")
+                print(f"   {metric.upper()}: {avg_metrics[f'{metric}_mean']:.4f} +/- {avg_metrics[f'{metric}_std']:.4f}")
         
-        # 保存特征重要性（如果启用）
+        # Save feature importance (if enabled)
         if feature_importance_recorder:
             try:
                 feature_importance_recorder.save_importance()
             except Exception as e:
                 if self.config.training.verbose > 0:
-                    print(f"   ⚠️ 保存特征重要性失败: {e}")
+                    print(f"   Warning: failed to save feature importance: {e}")
         
-        # 训练最终模型
+        # Train final model
         final_model = None
         if self.config.training.save_final_model:
-            print(f"\n🎯 训练最终模型（全部数据）...")
+            print(f"\nTraining final model (all data)...")
             final_model = BaseModel(self.config.model.model_type, self.config.model.hyperparameters)
             with self.timing.measure('final_model_training'):
                 final_model.fit(X, y, verbose=False)
             
-            # 保存模型
+            # Save model
             model_dir = Path(self.config.logging.base_dir) / self.config.logging.project_name / "models"
             model_dir.mkdir(parents=True, exist_ok=True)
             
@@ -622,15 +622,15 @@ class TrainingPipeline:
             )
             model_path = model_dir / model_filename
             final_model.save(model_path)
-            print(f"   💾 模型已保存: {model_path}")
+            print(f"   Model saved: {model_path}")
             
-            # 保存最终模型的特征重要性（如果启用）
+            # Save final model feature importance (if enabled)
             if self.config.training.save_feature_importance:
                 try:
                     from utils import FeatureImportanceRecorder
                     importance = FeatureImportanceRecorder.extract_importance_from_model(final_model.model)
                     if importance is not None:
-                        # 创建一个新的记录器用于最终模型
+                        # Create a new recorder for the final model
                         final_importance_recorder = FeatureImportanceRecorder(
                             save_dir=Path(self.config.logging.base_dir) / self.config.logging.project_name,
                             model_name=f"{self.config.model.model_type}_final",
@@ -641,24 +641,24 @@ class TrainingPipeline:
                         final_importance_recorder.save_importance()
                 except Exception as e:
                     if self.config.training.verbose > 1:
-                        print(f"   ⚠️ 保存最终模型特征重要性失败: {e}")
+                        print(f"   Warning: failed to save final model feature importance: {e}")
 
-        # 若提供测试集，进行测试评估（仅使用完整数据训练的最终模型）
+        # If test set provided, perform test evaluation (final model only)
         test_evaluation = None
         test_predictions = None
         if getattr(self.config.data, 'test_data_path', None):
             try:
                 test_path = Path(self.config.data.test_data_path)
                 print(f"\n" + "="*50)
-                print(f"🧪 测试集评估 (Test Evaluation)")
+                print("Test Evaluation")
                 print("="*50)
-                print(f"文件: {test_path.name}")
+                print(f"File: {test_path.name}")
                 if test_path.exists():
-                    print(f"状态: ✅ 文件存在")
-                    print(f"路径: {test_path.resolve()}")
+                    print("Status: file exists")
+                    print(f"Path: {test_path.resolve()}")
                     with self.timing.measure('data_load_test'):
                         df_test = pd.read_csv(test_path)
-                    # 准备测试特征：与训练相同的流程
+                    # Prepare test features: same as training flow
                     feature_extractor = FeatureExtractor(
                         use_cache=self.config.feature.use_cache,
                         cache_dir=self.config.feature.cache_dir,
@@ -668,7 +668,7 @@ class TrainingPipeline:
                     )
                     has_smiles = any(col in df_test.columns for col in self.config.data.smiles_columns)
                     if has_smiles and self.config.feature.feature_type in ['morgan', 'descriptors', 'combined']:
-                        # 优先尝试文件级缓存
+                        # Prefer file-level cache
                         X_test = None
                         try:
                             file_cache = FileFeatureCache(cache_dir='file_feature_cache')
@@ -682,16 +682,16 @@ class TrainingPipeline:
                                 descriptor_count=getattr(self.config.feature, 'descriptor_count', 85)
                             )
                             if X_test is not None:
-                                print("\n✅ 从文件级缓存加载测试特征，跳过提取")
-                                print(f"   形状: {X_test.shape}")
-                                print("   开始选择推理模型与预测")
+                                print("\nLoaded test features from file-level cache; skipping extraction")
+                                print(f"   Shape: {X_test.shape}")
+                                print("   Selecting model for inference and predicting")
                         except Exception as _e:
-                            # 缓存失败时静默回退到正常提取
+                            # On cache failure, silently fallback to normal extraction
                             X_test = None
 
                         if X_test is None:
                             feats = []
-                            for _, row in tqdm(df_test.iterrows(), total=len(df_test), desc="提取分子特征(测试)"):
+                            for _, row in tqdm(df_test.iterrows(), total=len(df_test), desc="Extract molecular features (test)"):
                                 smiles_list = []
                                 for col in self.config.data.smiles_columns:
                                     if col in row and pd.notna(row[col]):
@@ -707,7 +707,7 @@ class TrainingPipeline:
                                 feats.append(f)
                             X_test = np.array(feats)
 
-                            # 写入文件级缓存，供其它目标复用
+                            # Write file-level cache for reuse by other targets
                             try:
                                 file_cache.save_features(
                                     features=X_test,
@@ -721,7 +721,7 @@ class TrainingPipeline:
                                     row_count=len(df_test),
                                     failed_indices=[]
                                 )
-                                print("💾 已缓存测试特征，后续目标将复用")
+                                print("Cached test features; subsequent targets will reuse")
                             except Exception:
                                 pass
                     else:
@@ -735,41 +735,41 @@ class TrainingPipeline:
                             )
                     X_test = np.nan_to_num(X_test, nan=0.0, posinf=0.0, neginf=0.0)
 
-                    # 选择用于预测的模型（如果保存了最终模型则用最终模型，否则用简单平均折模型）
+                    # Choose inference model (final model if saved; otherwise fold ensemble)
                     model_for_inference = final_model
                     if model_for_inference is None and len(fold_models) > 0:
-                        print(f"   使用折模型集成预测, 数量: {len(fold_models)}")
+                        print(f"   Using ensemble of fold models, count: {len(fold_models)}")
                         with self.timing.measure('test_predict_oof_ensemble'):
                             preds_list = []
                             for j, m in enumerate(fold_models, 1):
-                                print(f"   折 {j}/{len(fold_models)} 预测开始")
+                                print(f"   Fold {j}/{len(fold_models)} prediction start")
                                 p = m.predict(X_test)
                                 preds_list.append(p)
-                                print(f"   折 {j} 预测完成")
+                                print(f"   Fold {j} prediction complete")
                         test_predictions = np.mean(np.vstack(preds_list), axis=0)
-                        print(f"   集成预测完成，输出形状: {np.array(test_predictions).shape}")
+                        print(f"   Ensemble prediction complete; output shape: {np.array(test_predictions).shape}")
                     else:
-                        print("   使用最终模型进行预测")
+                        print("   Using final model for prediction")
                         with self.timing.measure('test_predict_final_model'):
                             test_predictions = model_for_inference.predict(X_test)
-                        print(f"   最终模型预测完成，输出形状: {np.array(test_predictions).shape}")
+                        print(f"   Final model prediction complete; output shape: {np.array(test_predictions).shape}")
 
-                    # 若测试集中包含当前目标列，计算指标
+                    # If test set contains current target column, compute metrics
                     if target_col in df_test.columns:
                         y_test = df_test[target_col].values
                         if target_col == 'PLQY' and y_test.max() > 1.5:
                             y_test = y_test / 100
                         test_evaluation = evaluate_model(y_test, test_predictions)
                         
-                        # 详细的测试结果输出
-                        print(f"\n📊 测试结果 ({target_col}):")
-                        print(f"   样本数: {len(y_test)}")
-                        print(f"   ├─ RMSE: {test_evaluation['rmse']:.4f}")
-                        print(f"   ├─ MAE:  {test_evaluation['mae']:.4f}")
-                        print(f"   ├─ R²:   {test_evaluation['r2']:.4f}")
-                        print(f"   └─ MAPE: {test_evaluation.get('mape', 0):.2f}%")
+                        # Detailed test results output
+                        print(f"\nTest results ({target_col}):")
+                        print(f"   Samples: {len(y_test)}")
+                        print(f"   - RMSE: {test_evaluation['rmse']:.4f}")
+                        print(f"   - MAE:  {test_evaluation['mae']:.4f}")
+                        print(f"   - R^2:  {test_evaluation['r2']:.4f}")
+                        print(f"   - MAPE: {test_evaluation.get('mape', 0):.2f}%")
 
-                    # 保存测试预测
+                    # Save test predictions
                     if self.logger:
                         exp_dir = Path(self.config.logging.base_dir) / self.config.logging.project_name
                         exports_dir = exp_dir / 'exports'
@@ -779,39 +779,39 @@ class TrainingPipeline:
                         df_out['prediction'] = test_predictions
                         df_out.to_csv(out_csv, index=False)
                         
-                        # 保存测试指标（若有）
+                        # Save test metrics (if available)
                         if test_evaluation is not None:
                             out_json = exports_dir / f"test_metrics_{self.config.model.model_type}_{target_col}.json"
                             import json as _json
                             with open(out_json, 'w') as f:
-                                _json.dump(test_evaluation, f, indent=2)
+                                _json.dump(test_evaluation, f, indent=2, ensure_ascii=True)
                         
-                        # 输出保存信息
-                        print(f"\n💾 测试结果已保存:")
-                        print(f"   预测文件: {out_csv.name}")
+                        # Output save info
+                        print(f"\nTest results saved:")
+                        print(f"   Prediction file: {out_csv.name}")
                         if test_evaluation is not None:
-                            print(f"   指标文件: {out_json.name}")
-                        print(f"   保存目录: {exports_dir}")
+                            print(f"   Metrics file: {out_json.name}")
+                        print(f"   Output directory: {exports_dir}")
                         print("="*50)
                 else:
-                    print(f"   ⚠️ 测试集路径不存在: {test_path}")
-                    print(f"      当前工作目录: {Path.cwd()}")
-                    # 尝试其他可能的路径
+                    print(f"   Test dataset path does not exist: {test_path}")
+                    print(f"      Current working directory: {Path.cwd()}")
+                    # Try alternative paths
                     alternative_paths = [
-                        Path(test_path.name),  # 当前目录
-                        Path("../data") / test_path.name,  # ../data目录
-                        Path("data") / test_path.name,  # data目录
+                        Path(test_path.name),  # current directory
+                        Path("../data") / test_path.name,  # ../data directory
+                        Path("data") / test_path.name,  # data directory
                     ]
                     for alt_path in alternative_paths:
                         if alt_path.exists():
-                            print(f"      💡 文件可能在: {alt_path}")
+                            print(f"      File may be at: {alt_path}")
             except Exception as e:
-                print(f"   ⚠️ 测试集评估失败: {e}")
+                print(f"   Test evaluation failed: {e}")
                 import traceback
                 if self.config.training.verbose > 1:
                     traceback.print_exc()
         
-        # 结束实验
+        # End experiment
         if self.logger:
             self.logger.end_experiment(final_metrics)
             try:
@@ -821,39 +821,39 @@ class TrainingPipeline:
             except Exception:
                 pass
         
-        # 打印和保存时间统计
+        # Print and save timing statistics
         if self.config.training.verbose > 0:
             print("\n" + "="*50)
-            print("⏱️ 时间统计")
+            print("Timing Summary")
             print("="*50)
             self.timing.print_summary()
         
-        # 保存时间报告
+        # Save timing reports
         if self.logger:
             try:
                 exp_dir = Path(self.config.logging.base_dir) / self.config.logging.project_name
                 timing_dir = exp_dir / 'timing'
                 timing_dir.mkdir(parents=True, exist_ok=True)
                 
-                # 保存JSON格式
+                # Save JSON format
                 self.timing.save_report(
                     timing_dir / f"timing_{self.config.model.model_type}_{target_col}.json",
                     format='json'
                 )
                 
-                # 保存文本格式
+                # Save text format
                 self.timing.save_report(
                     timing_dir / f"timing_{self.config.model.model_type}_{target_col}.txt",
                     format='txt'
                 )
                 
                 if self.config.training.verbose > 0:
-                    print(f"\n💾 时间报告已保存到: {timing_dir}")
+                    print(f"\nTiming reports saved to: {timing_dir}")
             except Exception as e:
                 if self.config.training.verbose > 1:
-                    print(f"⚠️ 保存时间报告失败: {e}")
+                    print(f"Warning: failed to save timing reports: {e}")
             
-            # 导出论文数据
+            # Export paper data
             if self.config.logging.export_for_paper:
                 self.logger.export_for_paper(experiment_id)
         
@@ -869,109 +869,109 @@ class TrainingPipeline:
         }
     
     def train_all_targets(self) -> Dict:
-        """训练所有目标"""
+        """Train all targets"""
         results = {}
         
         for target in self.available_targets:
             try:
-                print(f"\n训练目标: {target}")
+                print(f"\nTraining target: {target}")
                 result = self.train_single_target(target)
                 results[target] = result
             except Exception as e:
-                print(f"训练 {target} 失败: {e}")
+                print(f"Training {target} failed: {e}")
                 results[target] = {'error': str(e)}
         
         return results
     
     def run(self, targets: Optional[List[str]] = None) -> Dict:
         """
-        运行训练管道
+        Run the training pipeline
         
         Args:
-            targets: 要训练的目标列表，None表示训练所有
+            targets: List of targets to train; None means all
         
         Returns:
-            训练结果字典
+            Training results dictionary
         """
-        print(f"\n🚀 开始训练: {self.config.name}")
+        print(f"\nINFO Start training: {self.config.name}")
         
-        # 初始加载数据以检查可用目标
+        # Initial data load to check available targets
         self.load_data()
         
-        # 确定目标
+        # Determine targets
         if targets:
             targets_to_train = [t for t in targets if t in self.available_targets]
         else:
             targets_to_train = self.available_targets
         
         if not targets_to_train:
-            raise ValueError("没有可训练的目标")
+            raise ValueError("No trainable targets")
         
-        print(f"\n将训练 {len(targets_to_train)} 个目标: {targets_to_train}")
+        print(f"\nWill train {len(targets_to_train)} targets: {targets_to_train}")
         
-        # 训练所有目标
+        # Train all targets
         results = {}
         for target in targets_to_train:
             try:
-                print(f"\n训练目标: {target}")
+                print(f"\nTraining target: {target}")
                 result = self.train_single_target(target)
                 results[target] = result
             except Exception as e:
-                print(f"训练 {target} 失败: {e}")
+                print(f"Training {target} failed: {e}")
                 results[target] = {'error': str(e)}
         
-        # 打印汇总
+        # Print summary
         self.print_summary(results)
         
         return results
     
     def print_summary(self, results: Dict):
-        """打印训练汇总"""
+        """Print training summary"""
         print("\n" + "="*60)
-        print("训练汇总")
+        print("Training Summary")
         print("="*60)
         
         for target, result in results.items():
             if 'error' in result:
-                print(f"\n❌ {target}: 失败 - {result['error']}")
+                print(f"\nERROR {target}: failed - {result['error']}")
             else:
-                print(f"\n✅ {target}:")
+                print(f"\nOK {target}:")
                 if 'final_metrics' in result:
                     metrics = result['final_metrics']
                     print(f"   RMSE: {metrics.get('rmse', 'N/A'):.4f}" if isinstance(metrics.get('rmse'), (int, float)) else f"   RMSE: N/A")
                     print(f"   MAE:  {metrics.get('mae', 'N/A'):.4f}" if isinstance(metrics.get('mae'), (int, float)) else f"   MAE: N/A")
-                    print(f"   R²:   {metrics.get('r2', 'N/A'):.4f}" if isinstance(metrics.get('r2'), (int, float)) else f"   R²: N/A")
+                    print(f"   R^2:  {metrics.get('r2', 'N/A'):.4f}" if isinstance(metrics.get('r2'), (int, float)) else f"   R^2: N/A")
                 if 'avg_metrics' in result:
                     avg = result['avg_metrics']
-                    print(f"   CV平均: RMSE={avg.get('rmse', 'N/A'):.4f}" if isinstance(avg.get('rmse'), (int, float)) else f"   CV平均: N/A")
+                    print(f"   CV average: RMSE={avg.get('rmse', 'N/A'):.4f}" if isinstance(avg.get('rmse'), (int, float)) else f"   CV average: N/A")
 
 
 # ========================================
-#           批量训练管道
+#           Batch Training Pipeline
 # ========================================
 
 class BatchTrainingPipeline:
-    """批量训练管道"""
+    """Batch training pipeline"""
     
     def __init__(self, batch_config: BatchExperimentConfig):
         """
-        初始化批量训练管道
+        Initialize batch training pipeline
         
         Args:
-            batch_config: 批量实验配置
+            batch_config: Batch experiment configuration
         """
         self.batch_config = batch_config
         self.results = {}
     
     def run(self) -> Dict:
-        """运行批量训练"""
+        """Run batch training"""
         configs = self.batch_config.generate_configs()
         
-        print(f"\n🚀 批量训练: {len(configs)} 个实验")
+        print(f"\nINFO Batch training: {len(configs)} experiments")
         print("="*60)
         
         for i, config in enumerate(configs, 1):
-            print(f"\n[{i}/{len(configs)}] 实验: {config.name}")
+            print(f"\n[{i}/{len(configs)}] Experiment: {config.name}")
             
             try:
                 pipeline = TrainingPipeline(config)
@@ -982,28 +982,28 @@ class BatchTrainingPipeline:
                     'status': 'success'
                 }
             except Exception as e:
-                print(f"❌ 实验失败: {e}")
+                print(f"ERROR Experiment failed: {e}")
                 self.results[config.name] = {
                     'config': config,
                     'error': str(e),
                     'status': 'failed'
                 }
         
-        # 汇总结果
+        # Aggregate results
         self.print_summary()
         
         return self.results
     
     def print_summary(self):
-        """打印批量训练汇总"""
+        """Print batch training summary"""
         print("\n" + "="*60)
-        print("批量训练汇总")
+        print("Batch Training Summary")
         print("="*60)
         
         success_count = sum(1 for r in self.results.values() if r['status'] == 'success')
-        print(f"\n成功: {success_count}/{len(self.results)}")
+        print(f"\nSuccess: {success_count}/{len(self.results)}")
         
-        # 找出最佳模型
+        # Find best models
         best_models = {}
         for name, result in self.results.items():
             if result['status'] == 'success':
@@ -1018,77 +1018,77 @@ class BatchTrainingPipeline:
                             }
         
         if best_models:
-            print("\n🏆 最佳模型:")
+            print("\nBest models:")
             for key, info in best_models.items():
                 target = key.replace('_rmse', '')
                 print(f"   {target}: {info['experiment']} (RMSE: {info['value']:.4f})")
 
 
 # ========================================
-#           命令行接口
+#           Command-Line Interface
 # ========================================
 
 def main():
-    """主函数"""
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description='基于配置的机器学习训练管道',
+        description='Config-driven machine learning training pipeline',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    # 配置相关参数
-    parser.add_argument('config', nargs='?', help='配置文件路径或模板名称')
-    parser.add_argument('--template', '-t', help='使用预定义模板')
-    parser.add_argument('--list-templates', action='store_true', help='列出所有可用模板')
-    parser.add_argument('--wizard', action='store_true', help='使用配置向导')
-    parser.add_argument('--save-config', help='保存配置到文件')
+    # Config-related arguments
+    parser.add_argument('config', nargs='?', help='Config file path or template name')
+    parser.add_argument('--template', '-t', help='Use predefined template')
+    parser.add_argument('--list-templates', action='store_true', help='List available templates')
+    parser.add_argument('--wizard', action='store_true', help='Use interactive config wizard')
+    parser.add_argument('--save-config', help='Save config to file')
     
-    # 训练相关参数
-    parser.add_argument('--target', help='指定训练目标（逗号分隔）')
-    parser.add_argument('--dry-run', action='store_true', help='只验证配置，不执行训练')
-    parser.add_argument('--test-data', dest='test_data', help='可选：指定测试集CSV路径，用于完整训练后评估')
+    # Training-related arguments
+    parser.add_argument('--target', help='Targets to train (comma-separated)')
+    parser.add_argument('--dry-run', action='store_true', help='Validate config only; do not run training')
+    parser.add_argument('--test-data', dest='test_data', help='Optional: CSV path for test set to evaluate after full training')
     
-    # 覆盖配置参数
-    parser.add_argument('--model', help='模型类型')
-    parser.add_argument('--feature', help='特征类型')
-    parser.add_argument('--folds', type=int, help='交叉验证折数')
-    parser.add_argument('--project', help='项目名称')
+    # Overrides
+    parser.add_argument('--model', help='Model type')
+    parser.add_argument('--feature', help='Feature type')
+    parser.add_argument('--folds', type=int, help='Number of CV folds')
+    parser.add_argument('--project', help='Project name')
     
     args = parser.parse_args()
     
-    # 配置管理器
+    # Config manager
     manager = ConfigManager()
     
-    # 列出模板
+    # List templates
     if args.list_templates:
-        print("\n可用模板:")
+        print("\nAvailable templates:")
         for template in manager.list_templates():
             desc = manager.templates[template].description
             print(f"  - {template}: {desc}")
         return
     
-    # 配置向导
+    # Config wizard
     if args.wizard:
         config = manager.create_from_wizard()
     
-    # 加载配置
+    # Load config
     elif args.config:
-        # 尝试作为模板
+        # Try as template
         if args.config in manager.list_templates():
             config = manager.get_template(args.config)
-        # 作为文件路径
+        # As file path
         else:
             config = load_config(args.config)
     
-    # 使用模板
+    # Use template
     elif args.template:
         config = manager.get_template(args.template)
     
-    # 默认配置
+    # Default config
     else:
-        print("使用默认配置 (xgboost_quick)")
+        print("Using default config (xgboost_quick)")
         config = manager.get_template('xgboost_quick')
     
-    # 覆盖配置
+    # Overrides
     if args.model:
         config.model.model_type = args.model
     if args.feature:
@@ -1097,42 +1097,42 @@ def main():
         config.training.n_folds = args.folds
     if args.project:
         config.logging.project_name = args.project
-    # 测试集参数
+    # Test set argument
     if args.test_data:
         config.data.test_data_path = args.test_data
     
-    # 保存配置
+    # Save config
     if args.save_config:
         path = manager.save_config(config, args.save_config, 'yaml')
-        print(f"配置已保存: {path}")
+        print(f"Config saved: {path}")
     
-    # 验证配置
+    # Validate config
     if not ConfigValidator.validate_all(config):
-        print("配置验证失败")
+        print("Configuration validation failed")
         return
     
-    # 干运行
+    # Dry run
     if args.dry_run:
-        print("\n配置信息:")
+        print("\nConfig:")
         print(config.to_yaml())
-        print("\n✅ 配置验证通过（干运行模式）")
+        print("\nOK Configuration valid (dry-run mode)")
         return
     
-    # 运行训练
+    # Run training
     try:
         pipeline = TrainingPipeline(config)
         
-        # 确定目标
+        # Determine targets
         targets = None
         if args.target:
             targets = [t.strip() for t in args.target.split(',')]
         
-        # 执行训练
+        # Execute training
         results = pipeline.run(targets)
         
-        print("\n✨ 训练完成!")
+        print("\nTraining complete!")
         
-        # 保存最终配置
+        # Save final config
         if config.logging.auto_save:
             final_config_path = (
                 Path(config.logging.base_dir) / 
@@ -1140,10 +1140,10 @@ def main():
                 "experiment_config.yaml"
             )
             config.to_yaml(str(final_config_path))
-            print(f"实验配置已保存: {final_config_path}")
+            print(f"Experiment config saved: {final_config_path}")
         
     except Exception as e:
-        print(f"\n❌ 训练失败: {e}")
+        print(f"\nERROR Training failed: {e}")
         traceback.print_exc()
         return 1
     

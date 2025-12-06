@@ -388,7 +388,7 @@ for pattern, desc in files_to_check:
 
 # Save report
 with open(output_dir / 'final_report.json', 'w') as f:
-    json.dump(report, f, indent=2, ensure_ascii=False)
+    json.dump(report, f, indent=2, ensure_ascii=True)
 
 print(f'Final report generated: {output_dir}/final_report.json')
 

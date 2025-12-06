@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-项目管理器
-用于管理AutoML项目的完整生命周期
+Project Manager
+Manage the full lifecycle of AutoML projects
 """
 
 import json
@@ -16,30 +16,30 @@ import pandas as pd
 from .comparison_table import ComparisonTableGenerator
 
 class ProjectManager:
-    """项目管理器"""
+    """Project Manager"""
     
     def __init__(self, base_dir: str = "."):
         """
-        初始化项目管理器
+        Initialize project manager
         
         Args:
-            base_dir: 基础目录
+            base_dir: Base directory
         """
         self.base_dir = Path(base_dir)
     
     def create_project_metadata(self, project_dir: str) -> Dict:
         """
-        创建项目元数据
+        Create project metadata
         
         Args:
-            project_dir: 项目目录
+            project_dir: Project directory
         
         Returns:
-            元数据字典
+            Metadata dict
         """
         project_path = Path(project_dir)
         if not project_path.exists():
-            raise ValueError(f"项目目录不存在: {project_dir}")
+            raise ValueError(f"Project directory does not exist: {project_dir}")
         
         metadata = {
             'project_name': project_path.name,
@@ -53,23 +53,23 @@ class ProjectManager:
             'training_runs': []
         }
         
-        # 扫描训练运行
+        # Scan training runs
         for run_dir in project_path.iterdir():
             if run_dir.is_dir() and not run_dir.name.startswith('.'):
                 run_info = self._analyze_run(run_dir)
                 if run_info:
                     metadata['training_runs'].append(run_info)
                     
-                    # 收集模型类型
+                    # Collect model types
                     if run_info['model'] not in metadata['models_trained']:
                         metadata['models_trained'].append(run_info['model'])
                     
-                    # 收集目标
+                    # Collect targets
                     for target in run_info.get('targets', []):
                         if target not in metadata['targets']:
                             metadata['targets'].append(target)
                     
-                    # 更新最佳模型
+                    # Update best models
                     for target, perf in run_info.get('performance', {}).items():
                         if target not in metadata['best_models'] or \
                            perf.get('r2', 0) > metadata['best_models'][target].get('r2', 0):
@@ -81,21 +81,21 @@ class ProjectManager:
                                 'path': str(run_dir / 'models')
                             }
         
-        # 查找对比表格
+        # Find comparison tables
         for table_file in project_path.glob('comparison_table_*'):
             metadata['comparison_tables'].append(table_file.name)
         
-        # 保存元数据
+        # Save metadata
         metadata_file = project_path / 'project_metadata.json'
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
         
-        print(f"✅ 项目元数据已创建: {metadata_file}")
+        print(f"Project metadata created: {metadata_file}")
         
         return metadata
     
     def _analyze_run(self, run_dir: Path) -> Optional[Dict]:
-        """分析单个训练运行"""
+        """Analyze a single training run"""
         run_info = {
             'name': run_dir.name,
             'path': str(run_dir),
@@ -104,7 +104,7 @@ class ProjectManager:
             'performance': {}
         }
         
-        # 读取配置
+        # Read config
         config_file = run_dir / 'config.yaml'
         if config_file.exists():
             with open(config_file, 'r') as f:
@@ -112,7 +112,7 @@ class ProjectManager:
                 run_info['model'] = config.get('model', {}).get('model_type')
                 run_info['targets'] = config.get('data', {}).get('target_columns', [])
         
-        # 读取运行信息
+        # Read run info
         run_info_file = run_dir / 'run_info.json'
         if run_info_file.exists():
             with open(run_info_file, 'r') as f:
@@ -120,7 +120,7 @@ class ProjectManager:
                 run_info['timestamp'] = info.get('timestamp')
                 run_info['command'] = info.get('command')
         
-        # 收集性能指标
+        # Collect performance metrics
         for summary_file in (run_dir / 'exports').glob('*_summary.json'):
             with open(summary_file, 'r') as f:
                 summary = json.load(f)
@@ -138,25 +138,25 @@ class ProjectManager:
                                   formats: Optional[List[str]] = None,
                                   decimal_places: Optional[Dict[str, int]] = None) -> Dict[str, str]:
         """
-        为项目生成模型性能对比表格（自动扫描项目目录中的 *_summary.json）
+        Generate model performance comparison tables (scan *_summary.json)
         
         Args:
-            project_name: 项目名称或路径
-            output_dir: 输出目录（默认写入项目根目录）
-            formats: 输出格式列表（markdown, html, latex, csv）
-            decimal_places: 小数位控制，如 {'r2': 4, 'rmse': 4, 'mae': 4}
+            project_name: Project name or path
+            output_dir: Output directory (default: project root)
+            formats: Output formats (markdown, html, latex, csv)
+            decimal_places: Decimal places dict, e.g., {'r2': 4, 'rmse': 4, 'mae': 4}
         
         Returns:
-            各格式文件的输出路径字典
+            Dict of output paths per format
         """
-        # 解析项目路径
+        # Resolve project path
         project_path = Path(project_name)
         if not project_path.exists():
             project_path = self.base_dir / project_name
         if not project_path.exists():
-            raise ValueError(f"项目不存在: {project_name}")
+            raise ValueError(f"Project not found: {project_name}")
 
-        # 创建生成器并导出
+        # Create generator and export
         generator = ComparisonTableGenerator(results_dir=str(project_path))
         exported_files = generator.export_all_formats(
             output_dir=output_dir if output_dir else str(project_path),
@@ -164,7 +164,7 @@ class ProjectManager:
             decimal_places=decimal_places
         )
 
-        # 更新/写入项目元数据中的 comparison_tables 列表
+        # Update/write comparison_tables list in project metadata
         metadata_file = project_path / 'project_metadata.json'
         metadata = None
         if metadata_file.exists():
@@ -176,7 +176,7 @@ class ProjectManager:
         if not metadata:
             metadata = self.create_project_metadata(str(project_path))
 
-        # 合并新表格文件名（仅保存文件名，避免绝对路径差异）
+        # Merge new table file names (store file names only to avoid absolute path differences)
         new_names = [Path(p).name for p in exported_files.values()]
         existing = set(metadata.get('comparison_tables', []))
         for name in new_names:
@@ -185,9 +185,9 @@ class ProjectManager:
                 existing.add(name)
 
         with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
+            json.dump(metadata, f, indent=2, ensure_ascii=True)
 
-        print(f"✅ 对比表已生成，文件数: {len(exported_files)}")
+        print(f"INFO: Comparison tables generated, count: {len(exported_files)}")
         for k, v in exported_files.items():
             print(f"   - {k}: {v}")
 
@@ -195,14 +195,14 @@ class ProjectManager:
 
     def list_projects(self) -> List[Dict]:
         """
-        列出所有项目
+        List all projects
         
         Returns:
-            项目列表
+            List of projects
         """
         projects = []
         
-        # 查找所有包含project_metadata.json的目录
+        # Find all directories containing project_metadata.json
         for metadata_file in self.base_dir.rglob('project_metadata.json'):
             try:
                 with open(metadata_file, 'r') as f:
@@ -217,14 +217,14 @@ class ProjectManager:
             except Exception as e:
                 continue
         
-        # 也查找没有元数据但有模型的目录
+        # Also find directories without metadata but with models
         for model_file in self.base_dir.rglob('*.joblib'):
             project_dir = model_file.parent
             while project_dir != self.base_dir and project_dir.parent != self.base_dir:
                 project_dir = project_dir.parent
             
             if not (project_dir / 'project_metadata.json').exists():
-                # 检查是否已经添加
+                # Check if already added
                 if not any(p['path'] == project_dir for p in projects):
                     projects.append({
                         'name': project_dir.name,
@@ -238,61 +238,61 @@ class ProjectManager:
     
     def get_project_info(self, project_name: str) -> Dict:
         """
-        获取项目详细信息
+        Get project details
         
         Args:
-            project_name: 项目名称或路径
+            project_name: Project name or path
         
         Returns:
-            项目信息字典
+            Project info dict
         """
-        # 查找项目
+        # Find project
         project_path = Path(project_name)
         if not project_path.exists():
-            # 尝试在base_dir中查找
+            # Try to find in base_dir
             project_path = self.base_dir / project_name
         
         if not project_path.exists():
-            raise ValueError(f"项目不存在: {project_name}")
+            raise ValueError(f"Project not found: {project_name}")
         
-        # 检查元数据
+        # Check metadata
         metadata_file = project_path / 'project_metadata.json'
         if metadata_file.exists():
             with open(metadata_file, 'r') as f:
                 return json.load(f)
         else:
-            # 动态生成元数据
+            # Dynamically generate metadata
             return self.create_project_metadata(str(project_path))
     
     def export_project(self, project_name: str, output_path: str = None,
                       format: str = 'zip') -> str:
         """
-        导出项目
+        Export project
         
         Args:
-            project_name: 项目名称或路径
-            output_path: 输出路径
-            format: 导出格式 ('zip', 'tar')
+            project_name: Project name or path
+            output_path: Output path
+            format: Export format ('zip', 'tar')
         
         Returns:
-            导出文件路径
+            Exported file path
         """
-        # 查找项目
+        # Find project
         project_path = Path(project_name)
         if not project_path.exists():
             project_path = self.base_dir / project_name
         
         if not project_path.exists():
-            raise ValueError(f"项目不存在: {project_name}")
+            raise ValueError(f"Project not found: {project_name}")
         
-        # 确保有元数据
+        # Ensure metadata exists
         self.create_project_metadata(str(project_path))
         
-        # 设置输出路径
+        # Set output path
         if output_path is None:
             output_path = f"{project_path.name}.{format}"
         
-        # 导出
+        # Export
         if format == 'zip':
             with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for file in project_path.rglob('*'):
@@ -304,30 +304,30 @@ class ProjectManager:
             with tarfile.open(output_path, 'w:gz') as tar:
                 tar.add(project_path, arcname=project_path.name)
         else:
-            raise ValueError(f"不支持的格式: {format}")
+            raise ValueError(f"Unsupported format: {format}")
         
-        print(f"✅ 项目已导出: {output_path}")
+        print(f"INFO: Project exported: {output_path}")
         return output_path
     
     def clean_project(self, project_name: str, keep_models: bool = True,
                      keep_results: bool = True) -> None:
         """
-        清理项目（删除中间文件）
+        Clean project (delete intermediate files)
         
         Args:
-            project_name: 项目名称或路径
-            keep_models: 是否保留模型文件
-            keep_results: 是否保留结果文件
+            project_name: Project name or path
+            keep_models: Keep model files
+            keep_results: Keep result files
         """
-        # 查找项目
+        # Locate project
         project_path = Path(project_name)
         if not project_path.exists():
             project_path = self.base_dir / project_name
         
         if not project_path.exists():
-            raise ValueError(f"项目不存在: {project_name}")
+            raise ValueError(f"Project not found: {project_name}")
         
-        # 清理规则
+        # Cleanup rules
         patterns_to_delete = [
             '**/checkpoints/*',
             '**/predictions/*',
@@ -335,7 +335,7 @@ class ProjectManager:
             '**/plots/*' if not keep_results else None,
             '**/models/*' if not keep_models else None,
         ]
-        
+    
         deleted_count = 0
         for pattern in patterns_to_delete:
             if pattern:
@@ -344,46 +344,46 @@ class ProjectManager:
                         file.unlink()
                         deleted_count += 1
         
-        print(f"✅ 清理完成，删除了 {deleted_count} 个文件")
+        print(f"INFO: Cleanup completed, deleted {deleted_count} files")
     
     def generate_project_report(self, project_name: str, output_path: str = None) -> str:
         """
-        生成项目报告
+        Generate project report
         
         Args:
-            project_name: 项目名称或路径
-            output_path: 输出路径
+            project_name: Project name or path
+            output_path: Output path
         
         Returns:
-            报告文件路径
+            Report file path
         """
-        # 获取项目信息
+        # Get project info
         info = self.get_project_info(project_name)
         
-        # 生成Markdown报告
-        report = f"# 项目报告: {info['project_name']}\n\n"
-        report += f"**创建时间**: {info.get('created_at', 'Unknown')}\n\n"
+        # Generate Markdown report
+        report = f"# Project Report: {info['project_name']}\n\n"
+        report += f"**Created at**: {info.get('created_at', 'Unknown')}\n\n"
         
-        # 模型信息
-        report += "## 训练的模型\n\n"
+        # Model information
+        report += "## Trained Models\n\n"
         if info.get('models_trained'):
             for model in info['models_trained']:
                 report += f"- {model}\n"
         else:
-            report += "无模型信息\n"
+            report += "No model information\n"
         
-        report += "\n## 预测目标\n\n"
+        report += "\n## Prediction Targets\n\n"
         if info.get('targets'):
             for target in info['targets']:
                 report += f"- {target}\n"
                 if target in info.get('best_models', {}):
                     best = info['best_models'][target]
-                    report += f"  - 最佳模型: {best['model']} (R²={best.get('r2', 'N/A'):.4f})\n"
+                    report += f"  - Best model: {best['model']} (R^2={best.get('r2', 'N/A'):.4f})\n"
         
-        report += "\n## 训练运行\n\n"
+        report += "\n## Training Runs\n\n"
         if info.get('training_runs'):
-            report += "| 运行 | 模型 | 目标数 | 平均R² |\n"
-            report += "|------|------|--------|--------|\n"
+            report += "| Run | Model | Targets | Avg R^2 |\n"
+            report += "|-----|-------|---------|---------|\n"
             for run in info['training_runs']:
                 avg_r2 = 0
                 if run.get('performance'):
@@ -392,7 +392,7 @@ class ProjectManager:
                 report += f"| {run['name']} | {run.get('model', 'Unknown')} | "
                 report += f"{len(run.get('targets', []))} | {avg_r2:.4f} |\n"
         
-        # 保存报告
+        # Save report
         if output_path is None:
             project_path = Path(info['path'])
             output_path = project_path / f"project_report_{datetime.now().strftime('%Y%m%d')}.md"
@@ -400,47 +400,47 @@ class ProjectManager:
         with open(output_path, 'w') as f:
             f.write(report)
         
-        print(f"✅ 项目报告已生成: {output_path}")
+        print(f"INFO: Project report generated: {output_path}")
         return str(output_path)
 
 
 def main():
-    """主函数，用于测试"""
+    """Main function for testing"""
     import argparse
     
-    parser = argparse.ArgumentParser(description='项目管理器')
-    subparsers = parser.add_subparsers(dest='command', help='命令')
+    parser = argparse.ArgumentParser(description='Project Manager')
+    subparsers = parser.add_subparsers(dest='command', help='command')
     
-    # list命令
-    list_parser = subparsers.add_parser('list', help='列出所有项目')
+    # list command
+    list_parser = subparsers.add_parser('list', help='List all projects')
     
-    # info命令
-    info_parser = subparsers.add_parser('info', help='获取项目信息')
-    info_parser.add_argument('project', help='项目名称或路径')
+    # info command
+    info_parser = subparsers.add_parser('info', help='Get project info')
+    info_parser.add_argument('project', help='Project name or path')
     
-    # export命令
-    export_parser = subparsers.add_parser('export', help='导出项目')
-    export_parser.add_argument('project', help='项目名称或路径')
-    export_parser.add_argument('--output', help='输出路径')
+    # export command
+    export_parser = subparsers.add_parser('export', help='Export project')
+    export_parser.add_argument('project', help='Project name or path')
+    export_parser.add_argument('--output', help='Output path')
     export_parser.add_argument('--format', default='zip', choices=['zip', 'tar'])
     
-    # clean命令
-    clean_parser = subparsers.add_parser('clean', help='清理项目')
-    clean_parser.add_argument('project', help='项目名称或路径')
+    # clean command
+    clean_parser = subparsers.add_parser('clean', help='Clean project')
+    clean_parser.add_argument('project', help='Project name or path')
     clean_parser.add_argument('--keep-models', action='store_true')
     clean_parser.add_argument('--keep-results', action='store_true')
     
-    # report命令
-    report_parser = subparsers.add_parser('report', help='生成项目报告')
-    report_parser.add_argument('project', help='项目名称或路径')
-    report_parser.add_argument('--output', help='输出路径')
+    # report command
+    report_parser = subparsers.add_parser('report', help='Generate project report')
+    report_parser.add_argument('project', help='Project name or path')
+    report_parser.add_argument('--output', help='Output path')
 
-    # table命令
-    table_parser = subparsers.add_parser('table', help='生成模型对比表')
-    table_parser.add_argument('project', help='项目名称或路径')
-    table_parser.add_argument('--output', help='输出目录（默认项目根目录）')
+    # table command
+    table_parser = subparsers.add_parser('table', help='Generate model comparison table')
+    table_parser.add_argument('project', help='Project name or path')
+    table_parser.add_argument('--output', help='Output directory (default: project root)')
     table_parser.add_argument('--formats', nargs='+', default=['markdown','html','latex','csv'],
-                              help='输出格式列表')
+                              help='Output formats')
     
     args = parser.parse_args()
     
@@ -449,13 +449,13 @@ def main():
     if args.command == 'list':
         projects = manager.list_projects()
         if projects:
-            print("\n📁 项目列表:")
+            print("\nProject list:")
             for p in projects:
                 print(f"  - {p['name']} ({p['path']})")
-                print(f"    创建: {p['created']}")
-                print(f"    模型: {p['models']}, 运行: {p['runs']}")
+                print(f"    Created: {p['created']}")
+                print(f"    Models: {p['models']}, Runs: {p['runs']}")
         else:
-            print("没有找到项目")
+            print("No projects found")
     
     elif args.command == 'info':
         info = manager.get_project_info(args.project)

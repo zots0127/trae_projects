@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-SHAP可解释性分析工具 - 后处理脚本
-用于分析已训练好的模型，不会破坏原有项目
+SHAP interpretability analysis tool - post-processing script
+Analyzes trained models without modifying the project
 
-使用方法:
+Usage:
     python analyze_shap.py Paper_0930_222051
     python analyze_shap.py Paper_0930_222051 --models xgboost lightgbm
     python analyze_shap.py Paper_0930_222051 --sample-size 200
@@ -24,15 +24,15 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# 添加路径（用于导入RDKit相关）
+# Add path (for RDKit imports)
 sys.path.insert(0, str(Path(__file__).parent.parent / 'ir2025'))
 
-# SHAP库直接使用，不依赖项目内部模块
-print("✅ SHAP分析工具已加载")
+# Use SHAP library directly, independent of internal modules
+print("INFO: SHAP analysis tool loaded")
 
 
 class ModelShapAnalyzer:
-    """已训练模型的SHAP分析器"""
+    """SHAP analyzer for trained models"""
 
     def __init__(self, paper_dir):
         self.paper_dir = Path(paper_dir)
@@ -40,21 +40,21 @@ class ModelShapAnalyzer:
         self.output_dir = self.paper_dir / 'shap_analysis'
         self.output_dir.mkdir(exist_ok=True)
 
-        # KernelExplainer 加速参数（可在 main 中覆盖）
-        self.kernel_k = 20           # 背景聚类数
-        self.kernel_nsamples = 200   # 每个解释的采样上限
-        self.kernel_max_samples = 40 # kernel类型的最大样本数
+        # KernelExplainer acceleration parameters (can be overridden in main)
+        self.kernel_k = 20           # Background cluster count
+        self.kernel_nsamples = 200   # Max samples per explanation
+        self.kernel_max_samples = 40 # Max sample size for kernel type
 
-        # 读取数据
+        # Load data
         self.load_data()
 
     def load_data(self):
-        """加载训练数据用于SHAP背景"""
-        print("\n📂 加载数据...")
+        """Load training data for SHAP background"""
+        print("\nLoading data...")
 
-        # 尝试从多个位置加载数据
+        # Try loading data from multiple locations
         data_paths = [
-            # 与论文目录同级/内部的data路径
+            # Data path within/sibling to the paper directory
             self.paper_dir / 'data' / 'Database_normalized.csv',
             Path('/Users/kanshan/IR/ir2025/data/Database_normalized.csv'),
             Path('../ir2025/data/Database_normalized.csv'),
@@ -64,15 +64,15 @@ class ModelShapAnalyzer:
         for data_path in data_paths:
             if data_path.exists():
                 self.df = pd.read_csv(data_path)
-                print(f"  ✅ 数据加载成功: {data_path}")
-                print(f"  📊 数据维度: {self.df.shape}")
+                print(f"INFO: Data loaded: {data_path}")
+                print(f"INFO: Data shape: {self.df.shape}")
                 return
 
-        raise FileNotFoundError("❌ 未找到训练数据文件")
+        raise FileNotFoundError("ERROR: Training data file not found")
 
     def extract_features(self, smiles_list):
-        """提取分子特征"""
-        # 与训练管线保持一致（1024-bit Morgan + 85个描述符）
+        """Extract molecular features"""
+        # Match training pipeline (1024-bit Morgan + 85 descriptors)
         from core.feature_extractor import FeatureExtractor
         extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2, descriptor_count=85)
 
@@ -95,33 +95,33 @@ class ModelShapAnalyzer:
         return fp_names + desc_names
 
     def find_models(self, model_filter=None):
-        """查找所有训练好的模型"""
-        print("\n🔍 搜索已训练模型...")
+        """Find all trained models"""
+        print("\nSearching for trained models...")
 
         models_info = []
 
         if not self.models_dir.exists():
-            print(f"  ❌ 模型目录不存在: {self.models_dir}")
+            print(f"ERROR: Model directory not found: {self.models_dir}")
             return models_info
 
-        # 遍历所有模型目录
+        # Iterate all model directories
         for model_dir in self.models_dir.iterdir():
             if not model_dir.is_dir():
                 continue
 
             model_name = model_dir.name
 
-            # 过滤模型
+            # Filter models
             if model_filter and model_name not in model_filter:
                 continue
 
-            # 查找模型文件
+            # Find model files
             model_files_dir = model_dir / 'models'
             if not model_files_dir.exists():
                 continue
 
             for model_file in model_files_dir.glob('*.joblib'):
-                # 解析目标名称
+                # Parse target name
                 filename = model_file.stem
                 if 'Max_wavelength' in filename:
                     target = 'Max_wavelength(nm)'
@@ -139,28 +139,28 @@ class ModelShapAnalyzer:
                     'target_clean': target_clean
                 })
 
-        print(f"  ✅ 找到 {len(models_info)} 个模型")
+        print(f"INFO: Found {len(models_info)} models")
         for info in models_info:
             print(f"     - {info['model_name']:20s} | {info['target_clean']}")
 
         return models_info
 
     def _resolve_predictor(self, loaded_model):
-        """解析模型对象，返回可用于SHAP的预测函数与底层模型对象"""
+        """Parse model object, return prediction function and underlying model for SHAP"""
         # 直接使用可预测的模型
         if hasattr(loaded_model, 'predict'):
             return loaded_model.predict, loaded_model
 
-        # 字典封装（包含scaler/target_scaler等）
+        # Dictionary wrapper (includes scaler/target_scaler)
         if isinstance(loaded_model, dict):
             inner = loaded_model.get('model', None)
             scaler = loaded_model.get('scaler', None)
             target_scaler = loaded_model.get('target_scaler', None)
 
             if inner is None:
-                raise ValueError('字典模型缺少 "model" 键')
+                raise ValueError('Dictionary model missing "model" key')
 
-            # 组装带预处理的预测函数
+            # Assemble prediction function with preprocessing
             def predict_fn(X):
                 X_in = X
                 if scaler is not None:
@@ -172,58 +172,58 @@ class ModelShapAnalyzer:
 
             return predict_fn, inner
 
-        # 其他包装类型（如pipeline）
+        # Other wrapper types (e.g., pipeline)
         try:
             predict = getattr(loaded_model, 'predict')
             return predict, loaded_model
         except Exception:
-            raise AttributeError('无法解析预测函数，模型对象不支持 predict')
+            raise AttributeError('Cannot resolve predict function: model object does not support predict')
 
     def analyze_model(self, model_info, sample_size=100):
-        """分析单个模型"""
+        """Analyze a single model"""
         model_name = model_info['model_name']
         target = model_info['target']
         target_clean = model_info['target_clean']
 
         print(f"\n{'='*70}")
-        print(f"🔬 分析模型: {model_name} - {target_clean}")
+        print(f"Analyzing model: {model_name} - {target_clean}")
         print(f"{'='*70}")
 
-        # 加载模型
+        # Load model
         try:
             model = joblib.load(model_info['model_path'])
-            print(f"  ✅ 模型加载成功")
+            print(f"INFO: Model loaded")
         except Exception as e:
-            print(f"  ❌ 模型加载失败: {e}")
+            print(f"ERROR: Failed to load model: {e}")
             return None
 
-        # 准备数据
-        print(f"  📊 准备特征数据...")
+        # Prepare data
+        print(f"INFO: Preparing feature data...")
         valid_df = self.df.dropna(subset=[target])
         smiles_cols = ['L1', 'L2', 'L3']
-        print(f"     正在提取分子特征...")
+        print(f"     Extracting molecular features...")
         from core.feature_extractor import FeatureExtractor
         extractor = FeatureExtractor(feature_type="combined", morgan_bits=1024, morgan_radius=2, descriptor_count=85)
         X = extractor.extract_from_dataframe(valid_df, smiles_columns=smiles_cols, feature_type="combined")
 
         if len(X) == 0:
-            print(f"  ❌ 特征提取失败")
+            print(f"ERROR: Feature extraction failed")
             return None
 
-        print(f"     ✅ 特征维度: {X.shape}")
+        print(f"     INFO: Feature shape: {X.shape}")
 
-        # 采样（SHAP计算较慢）
+        # Sampling (SHAP is slow)
         if len(X) > sample_size:
-            print(f"  ⚡ 采样 {sample_size} 个样本进行SHAP分析")
+            print(f"INFO: Sampling {sample_size} examples for SHAP")
             sample_idx = np.random.choice(len(X), sample_size, replace=False)
             X_sample = X[sample_idx]
         else:
             X_sample = X
 
         # 创建SHAP分析器
-        print(f"  🧮 计算SHAP值...")
+        print(f"INFO: Computing SHAP values...")
         try:
-            # 确定模型类型
+            # Determine model type
             model_type_map = {
                 'xgboost': 'tree',
                 'lightgbm': 'tree',
@@ -239,76 +239,75 @@ class ModelShapAnalyzer:
 
             shap_model_type = model_type_map.get(model_name, 'kernel')
 
-            # 创建explainer
+            # Create explainer
             if shap_model_type == 'tree':
                 explainer = shap.TreeExplainer(model)
             elif shap_model_type == 'linear':
                 explainer = shap.LinearExplainer(model, X_sample)
             else:
-                # Kernel类型：强制快速模式（KMeans背景 + 限制样本数 + 限制nsamples）
-                print(f"     ⚡ Kernel快速模式：kmeans={self.kernel_k}, nsamples={self.kernel_nsamples}")
+                print(f"INFO: Kernel fast mode: kmeans={self.kernel_k}, nsamples={self.kernel_nsamples}")
                 predict_fn, _ = self._resolve_predictor(model)
-                # 限制样本量
+                # Limit sample size
                 if len(X_sample) > self.kernel_max_samples:
                     sample_idx = np.random.choice(len(X_sample), self.kernel_max_samples, replace=False)
                     X_sample = X_sample[sample_idx]
-                    print(f"     ⚠️ 已将样本数限制为 {len(X_sample)} 用于Kernel解释")
-                # 使用kmeans摘要作为背景
+                    print(f"WARNING: Limited sample size to {len(X_sample)} for Kernel explainer")
+                # Use kmeans summary as background
                 try:
                     background = shap.kmeans(X_sample, self.kernel_k)
                 except Exception:
-                    # 回退到随机采样
+                    # Fall back to random sampling
                     k = min(self.kernel_k, len(X_sample))
                     background = shap.sample(X_sample, k)
                 explainer = shap.KernelExplainer(predict_fn, background)
 
-            # 计算SHAP值
-            # Kernel分支已在上方进入，直接限制nsamples提速；其它解释器正常计算
+            # Compute SHAP values
+            # For kernel branch, limit nsamples for speed; other explainers compute normally
             if shap_model_type == 'kernel':
                 shap_values = explainer.shap_values(X_sample, nsamples=self.kernel_nsamples)
             else:
                 shap_values = explainer.shap_values(X_sample)
 
-            print(f"     ✅ SHAP值计算完成")
+            print(f"INFO: SHAP values computed")
 
         except Exception as e:
-            print(f"  ❌ SHAP分析失败: {e}")
+            print(f"ERROR: SHAP analysis failed: {e}")
             import traceback
             traceback.print_exc()
             return None
 
-        # 分析特征重要性
+        # Analyze feature importance
         feature_names = self.get_feature_names()
 
-        # 确保特征维度匹配
+        # Ensure feature dimension matches
         if len(feature_names) > X_sample.shape[1]:
             feature_names = feature_names[:X_sample.shape[1]]
         elif len(feature_names) < X_sample.shape[1]:
             feature_names = feature_names + [f'Feature_{i}' for i in range(len(feature_names), X_sample.shape[1])]
 
-        # 计算特征重要性
+        # Compute feature importance
         importance = np.abs(shap_values).mean(axis=0)
         importance_df = pd.DataFrame({
             'feature': feature_names,
             'importance': importance
         }).sort_values('importance', ascending=False)
 
-        # 保存结果
+        # Save results
         output_subdir = self.output_dir / model_name / target_clean
         output_subdir.mkdir(parents=True, exist_ok=True)
 
-        # 保存特征重要性CSV
+        # Save feature importance CSV
         csv_path = output_subdir / 'shap_feature_importance.csv'
         importance_df.to_csv(csv_path, index=False)
-        print(f"  💾 特征重要性已保存: {csv_path}")
+        print(f"INFO: Feature importance saved: {csv_path}")
 
-        # 保存Top 30特征
+        # Save Top 30 features
         top30 = importance_df.head(30)
 
-        # 创建可视化
-        print(f"  📊 生成可视化...")
+        # Create visualizations
+        print(f"INFO: Generating visualizations...")
 
-        # 1. 特征重要性条形图
+        # 1. Feature importance bar chart
         plt.figure(figsize=(12, 8))
         plt.barh(range(len(top30)), top30['importance'].values)
         plt.yticks(range(len(top30)), top30['feature'].values)
@@ -320,7 +319,7 @@ class ModelShapAnalyzer:
         fig_path = output_subdir / 'feature_importance_bar.png'
         plt.savefig(fig_path, dpi=150, bbox_inches='tight')
         plt.close()
-        print(f"     ✅ 条形图: {fig_path.name}")
+        print(f"INFO: Bar chart: {fig_path.name}")
 
         # 2. SHAP summary plot
         try:
@@ -335,9 +334,9 @@ class ModelShapAnalyzer:
             summary_path = output_subdir / 'shap_summary_plot.png'
             plt.savefig(summary_path, dpi=150, bbox_inches='tight')
             plt.close()
-            print(f"     ✅ Summary图: {summary_path.name}")
+            print(f"INFO: Summary plot: {summary_path.name}")
         except Exception as e:
-            print(f"     ⚠️ Summary图生成失败: {e}")
+            print(f"WARNING: Failed to generate summary plot: {e}")
 
         # 保存元数据
         metadata = {
@@ -351,9 +350,9 @@ class ModelShapAnalyzer:
 
         json_path = output_subdir / 'shap_metadata.json'
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
+            json.dump(metadata, f, indent=2, ensure_ascii=True)
 
-        print(f"  ✅ 分析完成")
+        print(f"INFO: Analysis completed")
 
         return {
             'model': model_name,
@@ -362,9 +361,9 @@ class ModelShapAnalyzer:
         }
 
     def generate_summary_report(self, results):
-        """生成汇总报告"""
+        """Generate summary report"""
         print(f"\n{'='*70}")
-        print(f"📝 生成汇总报告")
+        print(f"Generate summary report")
         print(f"{'='*70}")
 
         html = f"""
@@ -372,7 +371,7 @@ class ModelShapAnalyzer:
 <html>
 <head>
     <meta charset="utf-8">
-    <title>SHAP可解释性分析报告</title>
+    <title>SHAP Interpretability Analysis Report</title>
     <style>
         body {{
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -458,16 +457,16 @@ class ModelShapAnalyzer:
 </head>
 <body>
     <div class="container">
-        <h1>🎯 SHAP可解释性分析报告</h1>
+        <h1>SHAP Interpretability Analysis Report</h1>
 
         <div class="summary-box">
-            <p><strong>📅 分析时间:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            <p><strong>📂 项目目录:</strong> {self.paper_dir.name}</p>
-            <p><strong>🔬 分析模型数:</strong> {len(results)}</p>
-            <p><strong>💡 说明:</strong> SHAP值表示每个特征对模型预测的贡献度。值越大表示该特征对预测结果影响越大。</p>
+            <p><strong>Analysis time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <p><strong>Project directory:</strong> {self.paper_dir.name}</p>
+            <p><strong>Models analyzed:</strong> {len(results)}</p>
+            <p><strong>Note:</strong> SHAP values indicate each feature's contribution to the model prediction. Larger values mean stronger influence on the prediction.</p>
         </div>
 
-        <h2>📊 分析结果</h2>
+        <h2>Analysis Results</h2>
 """
 
         for result in results:
@@ -480,15 +479,15 @@ class ModelShapAnalyzer:
 
             html += f"""
         <div class="model-section">
-            <div class="model-title">🔹 {model} - {target}</div>
+            <div class="model-title">{model} - {target}</div>
 
-            <h3>Top 10 重要特征</h3>
+            <h3>Top 10 Important Features</h3>
             <table class="feature-table">
                 <thead>
                     <tr>
-                        <th>排名</th>
-                        <th>特征名称</th>
-                        <th>重要性 (Mean |SHAP|)</th>
+                        <th>Rank</th>
+                        <th>Feature</th>
+                        <th>Importance (Mean |SHAP|)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -509,15 +508,15 @@ class ModelShapAnalyzer:
                 </tbody>
             </table>
 
-            <h3>可视化结果</h3>
+            <h3>Visualizations</h3>
             <div class="images">
 """
 
-            # 添加图片链接
+            # Add image links
             img_dir = f"{model}/{target}"
             html += f"""
                 <div>
-                    <p><strong>特征重要性条形图</strong></p>
+                    <p><strong>Feature Importance Bar Chart</strong></p>
                     <a href="{img_dir}/feature_importance_bar.png" target="_blank">
                         <img src="{img_dir}/feature_importance_bar.png" alt="Feature Importance">
                     </a>
@@ -534,20 +533,20 @@ class ModelShapAnalyzer:
             </div>
 
             <p style="margin-top: 15px;">
-                📄 <a class="file-link" href="{}/{}/shap_feature_importance.csv">下载完整特征重要性数据 (CSV)</a> |
-                📄 <a class="file-link" href="{}/{}/shap_metadata.json">元数据 (JSON)</a>
+                <a class="file-link" href="{}/{}/shap_feature_importance.csv">Download full feature importance (CSV)</a> |
+                <a class="file-link" href="{}/{}/shap_metadata.json">Metadata (JSON)</a>
             </p>
         </div>
 """.format(model, target, model, target)
 
         html += """
         <div class="summary-box" style="margin-top: 40px;">
-            <h3>📖 如何使用这些结果</h3>
+            <h3>How to use these results</h3>
             <ol>
-                <li><strong>识别关键特征:</strong> Top特征表明哪些分子性质对预测最重要</li>
-                <li><strong>指导分子设计:</strong> 关注重要特征来优化分子结构</li>
-                <li><strong>模型诊断:</strong> 检查模型是否关注合理的化学特征</li>
-                <li><strong>论文写作:</strong> 在讨论部分解释模型的预测依据</li>
+                <li><strong>Identify key features:</strong> Top features reveal which molecular properties matter most</li>
+                <li><strong>Guide molecular design:</strong> Focus on important features to optimize structures</li>
+                <li><strong>Model diagnostics:</strong> Check whether the model focuses on reasonable chemical features</li>
+                <li><strong>Manuscript preparation:</strong> Explain the model's predictive basis in the discussion</li>
             </ol>
         </div>
     </div>
@@ -559,68 +558,68 @@ class ModelShapAnalyzer:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(html)
 
-        print(f"  ✅ 报告已生成: {report_path}")
-        print(f"  🌐 用浏览器打开查看: file://{report_path.absolute()}")
+        print(f"INFO: Report generated: {report_path}")
+        print(f"Open in browser: file://{report_path.absolute()}")
 
         return report_path
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='SHAP可解释性分析工具 - 分析已训练的模型',
+        description='SHAP interpretability analysis tool - analyze trained models',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-    # 分析所有模型
+Examples:
+    # Analyze all models
     python analyze_shap.py Paper_0930_222051
 
-    # 只分析XGBoost和LightGBM
+    # Analyze XGBoost and LightGBM
     python analyze_shap.py Paper_0930_222051 --models xgboost lightgbm
 
-    # 使用更大的样本量
+    # Use a larger sample size
     python analyze_shap.py Paper_0930_222051 --sample-size 200
         """
     )
 
-    parser.add_argument('paper_dir', help='论文输出目录 (如: Paper_0930_222051)')
-    parser.add_argument('--models', nargs='+', help='指定要分析的模型 (如: xgboost lightgbm)')
-    parser.add_argument('--sample-size', type=int, default=100, help='SHAP分析的样本数量 (默认: 100)')
-    parser.add_argument('--kernel-k', type=int, default=20, help='KernelExplainer的背景kmeans聚类数 (默认: 20)')
-    parser.add_argument('--kernel-nsamples', type=int, default=200, help='KernelExplainer每次解释的采样次数上限 (默认: 200)')
-    parser.add_argument('--kernel-max-samples', type=int, default=40, help='Kernel模型参与解释的最大样本数 (默认: 40)')
+    parser.add_argument('paper_dir', help='Project output directory (e.g., Paper_0930_222051)')
+    parser.add_argument('--models', nargs='+', help='Models to analyze (e.g., xgboost lightgbm)')
+    parser.add_argument('--sample-size', type=int, default=100, help='Sample size for SHAP analysis (default: 100)')
+    parser.add_argument('--kernel-k', type=int, default=20, help='Background k-means clusters for KernelExplainer (default: 20)')
+    parser.add_argument('--kernel-nsamples', type=int, default=200, help='Maximum nsamples per explanation for KernelExplainer (default: 200)')
+    parser.add_argument('--kernel-max-samples', type=int, default=40, help='Maximum sample count used by Kernel explainer (default: 40)')
 
     args = parser.parse_args()
 
     print("="*70)
-    print("🎯 SHAP可解释性分析工具")
+    print("SHAP Interpretability Analysis Tool")
     print("="*70)
 
-    # 创建分析器
+    # Create analyzer
     analyzer = ModelShapAnalyzer(args.paper_dir)
-    # 覆盖Kernel快速参数
+    # Override Kernel fast parameters
     analyzer.kernel_k = max(5, int(args.kernel_k))
     analyzer.kernel_nsamples = max(50, int(args.kernel_nsamples))
     analyzer.kernel_max_samples = max(10, int(args.kernel_max_samples))
 
-    # 查找模型
+    # Find models
     models = analyzer.find_models(model_filter=args.models)
 
     if not models:
-        print("\n❌ 未找到任何模型文件")
+        print("\nERROR: No model files found")
         return 1
 
-    # 分析每个模型
+    # Analyze each model
     results = []
     for model_info in models:
         result = analyzer.analyze_model(model_info, sample_size=args.sample_size)
         results.append(result)
 
-    # 生成汇总报告
+    # Generate summary report
     analyzer.generate_summary_report(results)
 
     print("\n" + "="*70)
-    print("✅ 所有分析完成!")
-    print(f"📁 结果保存在: {analyzer.output_dir}")
+    print("INFO: All analyses completed!")
+    print(f"Results saved to: {analyzer.output_dir}")
     print("="*70)
 
     return 0

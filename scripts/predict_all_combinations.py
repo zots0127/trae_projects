@@ -628,10 +628,12 @@ def main():
     
     # Summary
     total_time = time.time() - total_start
+    processed_samples = len(df_predicted) if df_predicted is not None else len(df)
+    speed = processed_samples / total_time if total_time > 0 else 0.0
     print("\n" + "="*80)
     print("Prediction completed!")
     print(f"  - Total time: {total_time:.3f} s ({total_time/60:.3f} min)")
-    print(f"  - Processing speed: {len(df)/total_time:.0f} samples/s")
+    print(f"  - Processing speed: {speed:.2f} samples/s")
     print(f"  - End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*80)
 

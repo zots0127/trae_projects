@@ -83,7 +83,7 @@ class BatchPredictor:
             morgan_radius = getattr(feature_extractor, 'morgan_radius', 2)
             
             # Try to load from cache
-            print("🔍 Checking file-level cache...")
+            print("Checking file-level cache...")
             cached_features = self.file_cache.load_features(
                 file_path=input_file,
                 feature_type=feature_type,
@@ -95,14 +95,14 @@ class BatchPredictor:
             )
             
             if cached_features is not None:
-                print(f"✅ Loaded features from cache (shape: {cached_features.shape})")
+                print(f"Loaded features from cache (shape: {cached_features.shape})")
                 # Directly predict using cached features
                 try:
                     predictions = model.predict(cached_features)
                     print(f"   Predictions complete using cached features")
                     return predictions, []
                 except Exception as e:
-                    print(f"⚠️  Prediction failed with cached features: {e}")
+                    print(f"Warning: Prediction failed with cached features: {e}")
                     print("   Falling back to feature extraction...")
         
         # If no cache or cache failed, extract features
@@ -206,7 +206,7 @@ class BatchPredictor:
             if len(batch_features) > 0:  # If we have features from last batch
                 # Note: This is a simplified approach
                 # In production, we'd collect all features during extraction
-                print("💾 Saving features to cache for next time...")
+                print("Saving features to cache for next time...")
                 # TODO: Properly collect and save all features
         
         return predictions, failed_indices
@@ -224,7 +224,7 @@ class BatchPredictor:
                 for error in self.error_log:
                     smiles_str = ','.join([s if s else 'None' for s in error['smiles']])
                     f.write(f"{error['index']}\t{smiles_str}\t{error['error']}\n")
-            print(f"❗ Error log saved to {filepath} ({len(self.error_log)} errors)")
+            print(f"Error log saved to {filepath} ({len(self.error_log)} errors)")
     
     def get_statistics(self, predictions: np.ndarray) -> Dict[str, float]:
         """
@@ -289,14 +289,14 @@ def batch_predict_csv(input_file: str,
         DataFrame with predictions
     """
     # Load data
-    print(f"📊 Loading data from {input_file}")
+    print(f"Loading data from {input_file}")
     df = pd.read_csv(input_file)
     print(f"   Loaded {len(df)} rows with {len(df.columns)} columns")
     
     # Check if SMILES columns exist
     missing_cols = [col for col in smiles_columns if col not in df.columns]
     if missing_cols:
-        print(f"⚠️  Warning: Missing columns {missing_cols}, will use None for these")
+        print(f"Warning: Missing columns {missing_cols}, will use None for these")
     
     # Initialize predictor with file caching
     predictor = BatchPredictor(
@@ -308,7 +308,7 @@ def batch_predict_csv(input_file: str,
     )
     
     # Perform prediction with file caching
-    print(f"\n🎯 Performing batch prediction...")
+    print(f"\nPerforming batch prediction...")
     predictions, failed_indices = predictor.predict_batch(
         df=df,
         model=model,
@@ -324,11 +324,11 @@ def batch_predict_csv(input_file: str,
     
     # Save results
     df.to_csv(output_file, index=False)
-    print(f"\n💾 Results saved to {output_file}")
+    print(f"\nResults saved to {output_file}")
     
     # Print statistics
     stats = predictor.get_statistics(predictions)
-    print(f"\n📊 Prediction Statistics:")
+    print(f"\nPrediction Statistics:")
     print(f"   Successful: {stats['count']} / {len(df)} ({stats['success_rate']:.1f}%)")
     if stats['count'] > 0:
         print(f"   Mean: {stats['mean']:.4f}")

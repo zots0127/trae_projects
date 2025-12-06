@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-AutoML管理界面快速启动脚本
+AutoML management interface quick start script
 """
 
 import sys
 from interactive_cli import InteractiveCLI
 
 def main():
-    """主函数"""
+    """Main function"""
     print("🚀 Starting AutoML Interactive Manager...")
     cli = InteractiveCLI()
     

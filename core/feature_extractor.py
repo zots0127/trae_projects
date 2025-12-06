@@ -400,13 +400,13 @@ class FeatureExtractor:
         if not cache_file.exists():
             return None
 
-        # 尝试多次读取，缓解并发写入时的瞬时空读
+        # Try multiple reads to mitigate transient empty reads during concurrent writes
         import time
         last_err = None
         for _ in range(3):
             try:
                 if cache_file.stat().st_size == 0:
-                    # 空文件（可能是并发创建但尚未写入完成），等待重试
+                    # Empty file (possibly concurrently created but not fully written), wait and retry
                     time.sleep(0.02)
                     continue
                 with open(cache_file, 'rb') as f:
@@ -414,7 +414,7 @@ class FeatureExtractor:
             except Exception as e:
                 last_err = e
                 time.sleep(0.02)
-        # 多次失败后，视为缓存不可用
+        # After multiple failures, treat cache as unavailable
         return None
     
     def _save_to_cache(self, cache_key: str, data: np.ndarray):
@@ -428,10 +428,10 @@ class FeatureExtractor:
         try:
             with open(tmp_file, 'wb') as f:
                 pickle.dump(data, f)
-            # 原子替换：rename 在同一文件系统内通常是原子的
+            # Atomic replace: rename is typically atomic on the same filesystem
             tmp_file.replace(cache_file)
         except Exception:
-            # 写入失败时尽量清理临时文件，避免污染
+            # On write failure, try to clean temp file to avoid pollution
             try:
                 if tmp_file.exists():
                     tmp_file.unlink()
@@ -542,4 +542,4 @@ if __name__ == "__main__":
     data_type = extractor.detect_data_type(df_mixed)
     print(f"   Detected type: {data_type}")
     
-    print("\n✅ Feature extractor ready!")
+    print("\nFeature extractor ready!")

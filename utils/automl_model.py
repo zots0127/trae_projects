@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AutoML Model - YOLO风格的简洁API（编程式接口）
+AutoML Model - YOLO-style simple API (programmatic interface)
 """
 
 import os
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Union, List, Dict, Optional, Any, Tuple
 from datetime import datetime
 
-# 将项目根目录加入路径
+# Add project root directory to import path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.feature_extractor import FeatureExtractor
@@ -24,7 +24,7 @@ warnings.filterwarnings('ignore')
 
 
 class AutoML:
-    """轻量 AutoML 编程式接口（train/predict/optimize）。"""
+    """Lightweight AutoML programmatic interface (train/predict/optimize)."""
 
     def __init__(self, model: str = 'xgboost', device: str = 'cpu', verbose: bool = True):
         self.model_type = model
@@ -37,7 +37,7 @@ class AutoML:
         self.target_columns = None
         self.trained_models: Dict[str, Any] = {}
         if self.verbose:
-            print(f"✅ AutoML初始化: {model}")
+            print(f"Initialized AutoML: {model}")
 
     def train(self,
               data: Union[str, pd.DataFrame],
@@ -47,17 +47,17 @@ class AutoML:
               optimize: bool = False,
               **kwargs) -> Dict[str, Dict[str, float]]:
         if self.verbose:
-            print(f"\n{'='*60}\n开始训练 {self.model_type}\n{'='*60}")
+            print(f"\n{'='*60}\nStarting training {self.model_type}\n{'='*60}")
         df = pd.read_csv(data) if isinstance(data, str) else data
         possible_targets = ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)']
         self.target_columns = [c for c in possible_targets if c in df.columns]
         if not self.target_columns:
-            raise ValueError(f"未找到目标列，需要: {possible_targets}")
+            raise ValueError(f"Target columns not found; required: {possible_targets}")
         X, _ = self._prepare_features(df)
         results: Dict[str, Dict[str, float]] = {}
         for target in self.target_columns:
             if self.verbose:
-                print(f"\n🎯 训练目标: {target}")
+                print(f"\nTraining target: {target}")
             y = df[target].values
             valid = ~np.isnan(y)
             X_t, y_t = X[valid], y[valid]
@@ -76,17 +76,17 @@ class AutoML:
             metrics = evaluate_model(y_t, y_pred)
             results[target] = metrics
             if self.verbose:
-                print(f"   RMSE: {metrics['rmse']:.4f} | MAE: {metrics['mae']:.4f} | R²: {metrics['r2']:.4f}")
+                print(f"   RMSE: {metrics['rmse']:.4f} | MAE: {metrics['mae']:.4f} | R^2: {metrics['r2']:.4f}")
         self.is_trained = True
         if save_dir:
             self.save(save_dir)
         if self.verbose:
-            print("\n✅ 训练完成!")
+            print("\nTraining complete!")
         return results
 
     def predict(self, inputs: Union[List[str], pd.DataFrame, np.ndarray], target: Optional[str] = None) -> Dict[str, np.ndarray]:
         if not self.is_trained:
-            raise RuntimeError("模型未训练")
+            raise RuntimeError("Model not trained")
         if isinstance(inputs, list):
             X = self._extract_features_from_smiles(inputs)
         elif isinstance(inputs, pd.DataFrame):
@@ -104,7 +104,7 @@ class AutoML:
         return outputs
 
     def optimize(self, data: Union[str, pd.DataFrame], n_trials: int = 50, target: Optional[str] = None, **kwargs) -> Dict[str, Dict]:
-        """优化功能已移除 - 返回默认参数"""
+        """Optimization removed - return default parameters"""
         # Optimization functionality has been removed
         # Return default parameters instead
         from models.base import MODEL_PARAMS
@@ -129,12 +129,12 @@ class AutoML:
             'timestamp': datetime.now().isoformat()
         }, model_file)
         if self.verbose:
-            print(f"💾 模型已保存: {model_file}")
+            print(f"Model saved: {model_file}")
         return str(model_file)
 
     def load(self, path: str):
         if not os.path.exists(path):
-            raise FileNotFoundError(f"模型文件不存在: {path}")
+            raise FileNotFoundError(f"Model file not found: {path}")
         data = joblib.load(path)
         self.model_type = data['model_type']
         self.trained_models = data['trained_models']
@@ -142,14 +142,14 @@ class AutoML:
         self.feature_type = data['feature_type']
         self.is_trained = data['is_trained']
         if self.verbose:
-            print(f"✅ 模型已加载: {path}")
+            print(f"Model loaded: {path}")
         return self
 
     def _prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, List]:
         smiles_cols = ['L1', 'L2', 'L3']
         available = [c for c in smiles_cols if c in df.columns]
         if not available:
-            raise ValueError("未找到SMILES列 (L1, L2, L3)")
+            raise ValueError("SMILES columns not found (L1, L2, L3)")
         feats, smiles_list = [], []
         for _, row in df.iterrows():
             smiles = [row[c] for c in available if pd.notna(row[c])]
@@ -180,5 +180,3 @@ def load_model(path: str) -> AutoML:
     m = AutoML(verbose=False)
     m.load(path)
     return m
-
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-结果发布器
-将训练与打包好的论文资料包发布到后端（如 results.auto.ml）
+Results publisher
+Upload trained and packaged paper materials to a backend (e.g., results.auto.ml)
 """
 
 from pathlib import Path
@@ -18,7 +18,7 @@ except Exception:
 
 
 class ResultsPublisher:
-    """将结果上传到远端的发布器"""
+    """Publisher that uploads results to a remote backend"""
 
     def __init__(self,
                  api_base: Optional[str] = None,
@@ -41,22 +41,22 @@ class ResultsPublisher:
                         metadata: Optional[Dict] = None,
                         endpoint: str = '/api/v1/results/upload') -> Optional[Dict]:
         """
-        上传整个资料包（zip）与元数据
-        Returns 响应JSON或None
+        Upload zipped package with metadata
+        Returns response JSON or None
         """
         if not self.is_configured():
-            print("⚠️ ResultsPublisher 未配置或缺少 requests，跳过发布")
+            print("WARNING: ResultsPublisher not configured or requests missing; skipping publish")
             return None
 
         package_dir = Path(package_dir)
         if not package_dir.exists():
-            print(f"❌ 资料包目录不存在: {package_dir}")
+            print(f"ERROR: Package directory not found: {package_dir}")
             return None
 
         try:
             zip_path = self._zip_dir(package_dir)
         except Exception as e:
-            print(f"❌ 打包失败: {e}")
+            print(f"ERROR: Packaging failed: {e}")
             return None
 
         url = self.api_base.rstrip('/') + endpoint
@@ -68,7 +68,7 @@ class ResultsPublisher:
             'package': (zip_path.name, open(zip_path, 'rb'), 'application/zip')
         }
         data = {
-            'metadata': json.dumps(metadata or {}, ensure_ascii=False)
+            'metadata': json.dumps(metadata or {}, ensure_ascii=True)
         }
 
         try:
@@ -79,10 +79,8 @@ class ResultsPublisher:
                 except Exception:
                     return {'status': 'ok', 'text': resp.text}
             else:
-                print(f"❌ 发布失败: HTTP {resp.status_code} - {resp.text[:200]}")
+                print(f"ERROR: Publish failed: HTTP {resp.status_code} - {resp.text[:200]}")
                 return None
         except Exception as e:
-            print(f"❌ 发布异常: {e}")
+            print(f"ERROR: Publish exception: {e}")
             return None
-
-

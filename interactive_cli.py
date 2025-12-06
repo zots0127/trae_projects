@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-交互式CLI管理界面
-提供用户友好的项目管理和批量预测界面
+Interactive CLI management interface
+Provides a user-friendly project management and batch prediction interface
 """
 
 import os
@@ -14,10 +14,10 @@ from datetime import datetime
 import subprocess
 import shlex
 
-# 添加当前目录到路径
+# Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 尝试导入rich，如果没有则使用基础版本
+# Try importing rich; fall back to basic interface if unavailable
 try:
     from rich.console import Console
     from rich.table import Table
@@ -32,7 +32,7 @@ try:
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
-    print("⚠️ Rich library not installed. Using basic interface.")
+    print("Warning: Rich library not installed. Using basic interface.")
     print("Install with: pip install rich")
 
 from utils.project_manager import ProjectManager
@@ -40,21 +40,21 @@ from utils.project_predictor import ProjectPredictor
 
 
 class InteractiveCLI:
-    """交互式CLI管理界面"""
+    """Interactive CLI management interface"""
     
     def __init__(self):
-        """初始化CLI"""
+        """Initialize CLI"""
         self.console = Console() if RICH_AVAILABLE else None
         self.manager = ProjectManager()
         self.current_project = None
         self.current_predictor = None
         
     def clear_screen(self):
-        """清屏"""
+        """Clear screen"""
         os.system('cls' if os.name == 'nt' else 'clear')
     
     def print_header(self):
-        """打印标题"""
+        """Print header"""
         self.clear_screen()
         if RICH_AVAILABLE:
             header = Panel.fit(
@@ -70,27 +70,27 @@ class InteractiveCLI:
             print("=" * 60)
     
     def main_menu(self) -> str:
-        """主菜单"""
+        """Main menu"""
         self.print_header()
         
         if self.current_project:
             if RICH_AVAILABLE:
-                self.console.print(f"\n📦 Current Project: [bold green]{self.current_project}[/bold green]\n")
+                self.console.print(f"\nCurrent Project: [bold green]{self.current_project}[/bold green]\n")
             else:
-                print(f"\n📦 Current Project: {self.current_project}\n")
+                print(f"\nCurrent Project: {self.current_project}\n")
         
         menu_items = [
-            "1. 📋 List Projects",
-            "2. 📂 Select Project",
-            "3. 📊 Project Information",
-            "4. 🚀 Batch Prediction",
-            "5. 🎯 Train New Models",
-            "6. 📈 View Comparison Table",
-            "7. 💾 Export Project",
-            "8. 📊 Generate Comparison Table",
-            "9. 📝 Generate Report",
-            "10. 🧹 Clean Project",
-            "0. 🚪 Exit"
+            "1. List Projects",
+            "2. Select Project",
+            "3. Project Information",
+            "4. Batch Prediction",
+            "5. Train New Models",
+            "6. View Comparison Table",
+            "7. Export Project",
+            "8. Generate Comparison Table",
+            "9. Generate Report",
+            "10. Clean Project",
+            "0. Exit"
         ]
         
         if RICH_AVAILABLE:
@@ -106,7 +106,7 @@ class InteractiveCLI:
         return choice
     
     def list_projects(self):
-        """列出所有项目"""
+        """List all projects"""
         self.print_header()
         projects = self.manager.list_projects()
         
@@ -146,7 +146,7 @@ class InteractiveCLI:
                 print()
     
     def select_project(self):
-        """选择项目"""
+        """Select project"""
         self.print_header()
         projects = self.manager.list_projects()
         
@@ -157,7 +157,7 @@ class InteractiveCLI:
                 print("No projects found.")
             return
         
-        # 显示项目列表
+        # Show project list
         if RICH_AVAILABLE:
             self.console.print("[bold]Available Projects:[/bold]\n")
             for i, p in enumerate(projects, 1):
@@ -179,9 +179,9 @@ class InteractiveCLI:
             self.current_predictor = None  # Reset predictor
             
             if RICH_AVAILABLE:
-                self.console.print(f"\n✅ Selected project: [bold green]{self.current_project}[/bold green]")
+                self.console.print(f"\nSelected project: [bold green]{self.current_project}[/bold green]")
             else:
-                print(f"\n✅ Selected project: {self.current_project}")
+                print(f"\nSelected project: {self.current_project}")
         else:
             if RICH_AVAILABLE:
                 self.console.print("[red]Invalid selection.[/red]")
@@ -189,7 +189,7 @@ class InteractiveCLI:
                 print("Invalid selection.")
     
     def show_project_info(self):
-        """显示项目信息"""
+        """Show project information"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -200,15 +200,15 @@ class InteractiveCLI:
         self.print_header()
         
         try:
-            # 获取项目信息
+            # Get project info
             info = self.manager.get_project_info(self.current_project)
             
-            # 加载预测器获取模型详情
+            # Load predictor to get model details
             if not self.current_predictor:
                 self.current_predictor = ProjectPredictor(self.current_project, verbose=False)
             
             if RICH_AVAILABLE:
-                # 基本信息
+                # Basic info
                 info_panel = Panel(
                     f"[bold]Name:[/bold] {info['project_name']}\n"
                     f"[bold]Created:[/bold] {info.get('created_at', 'Unknown')[:19]}\n"
@@ -225,40 +225,40 @@ class InteractiveCLI:
                     table = Table(title="Trained Models", show_header=True, header_style="bold cyan")
                     table.add_column("Model", style="cyan")
                     table.add_column("Target", style="green")
-                    table.add_column("R² (mean±std)", justify="right", style="yellow")
-                    table.add_column("RMSE (mean±std)", justify="right", style="yellow")
-                    table.add_column("MAE (mean±std)", justify="right", style="yellow")
+                    table.add_column("R^2 (mean+/-std)", justify="right", style="yellow")
+                    table.add_column("RMSE (mean+/-std)", justify="right", style="yellow")
+                    table.add_column("MAE (mean+/-std)", justify="right", style="yellow")
                     
                     for key, info in self.current_predictor.models.items():
                         perf = info.get('performance', {})
                         
-                        # 格式化 R² with std
+                        # Format R^2 with std
                         r2_str = 'N/A'
                         if isinstance(perf.get('r2'), float):
-                            r2_mean = perf.get('r2')
-                            r2_std = perf.get('r2_std', 0)
-                            if r2_std > 0:
-                                r2_str = f"{r2_mean:.4f}±{r2_std:.4f}"
-                            else:
-                                r2_str = f"{r2_mean:.4f}"
+                        r2_mean = perf.get('r2')
+                        r2_std = perf.get('r2_std', 0)
+                        if r2_std > 0:
+                            r2_str = f"{r2_mean:.4f}+/-{r2_std:.4f}"
+                        else:
+                            r2_str = f"{r2_mean:.4f}"
                         
-                        # 格式化 RMSE with std
+                        # Format RMSE with std
                         rmse_str = 'N/A'
                         if isinstance(perf.get('rmse'), float):
                             rmse_mean = perf.get('rmse')
                             rmse_std = perf.get('rmse_std', 0)
                             if rmse_std > 0:
-                                rmse_str = f"{rmse_mean:.2f}±{rmse_std:.2f}"
+                                rmse_str = f"{rmse_mean:.2f}+/-{rmse_std:.2f}"
                             else:
                                 rmse_str = f"{rmse_mean:.2f}"
                         
-                        # 格式化 MAE with std
+                        # Format MAE with std
                         mae_str = 'N/A'
                         if isinstance(perf.get('mae'), float):
                             mae_mean = perf.get('mae')
                             mae_std = perf.get('mae_std', 0)
                             if mae_std > 0:
-                                mae_str = f"{mae_mean:.2f}±{mae_std:.2f}"
+                                mae_str = f"{mae_mean:.2f}+/-{mae_std:.2f}"
                             else:
                                 mae_str = f"{mae_mean:.2f}"
                         
@@ -272,11 +272,11 @@ class InteractiveCLI:
                     
                     self.console.print(table)
                 
-                # 最佳模型
+                # Best models
                 if info.get('best_models'):
                     best_panel = Panel(
                         "\n".join([
-                            f"[bold]{target}:[/bold] {best['model']} (R²={best['r2']:.4f})"
+                            f"[bold]{target}:[/bold] {best['model']} (R^2={best['r2']:.4f})"
                             for target, best in info['best_models'].items()
                         ]),
                         title="Best Models",
@@ -284,7 +284,7 @@ class InteractiveCLI:
                     )
                     self.console.print(best_panel)
             else:
-                # 基础文本输出
+                # Basic text output
                 print("\nProject Information:")
                 print("-" * 60)
                 print(f"Name: {info['project_name']}")
@@ -298,12 +298,12 @@ class InteractiveCLI:
                     perf = model_info.get('performance', {})
                     print(f"  - {model_info['type']} on {model_info.get('original_target', model_info['target'])}")
                     if perf:
-                        print(f"    R²={perf.get('r2', 'N/A'):.4f}, RMSE={perf.get('rmse', 'N/A'):.4f}")
+                        print(f"    R^2={perf.get('r2', 'N/A'):.4f}, RMSE={perf.get('rmse', 'N/A'):.4f}")
                 
                 if info.get('best_models'):
                     print("\nBest Models:")
                     for target, best in info['best_models'].items():
-                        print(f"  {target}: {best['model']} (R²={best['r2']:.4f})")
+                        print(f"  {target}: {best['model']} (R^2={best['r2']:.4f})")
                         
         except Exception as e:
             if RICH_AVAILABLE:
@@ -312,7 +312,7 @@ class InteractiveCLI:
                 print(f"Error: {e}")
     
     def batch_prediction(self):
-        """批量预测交互流程"""
+        """Batch prediction interactive flow"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -322,7 +322,7 @@ class InteractiveCLI:
         
         self.print_header()
         
-        # 获取数据文件
+        # Get data file
         if RICH_AVAILABLE:
             self.console.print("[bold]Batch Prediction Setup[/bold]\n")
             data_file = Prompt.ask("Enter data file path", default="data/Database_normalized.csv")
@@ -331,7 +331,7 @@ class InteractiveCLI:
             data_file = input("Enter data file path (default=data/Database_normalized.csv): ")
             data_file = data_file or "data/Database_normalized.csv"
         
-        # 检查文件是否存在
+        # Check file existence
         if not Path(data_file).exists():
             if RICH_AVAILABLE:
                 self.console.print(f"[red]File not found: {data_file}[/red]")
@@ -339,7 +339,7 @@ class InteractiveCLI:
                 print(f"File not found: {data_file}")
             return
         
-        # 选择预测模式
+        # Choose prediction mode
         modes = {
             "1": ("best", "Use best models only"),
             "2": ("all", "Use all models"),
@@ -362,7 +362,7 @@ class InteractiveCLI:
         
         mode = modes[mode_choice][0]
         
-        # 如果是ensemble，询问方法
+        # If ensemble, ask for method
         method = "mean"
         if mode == "ensemble":
             methods = {"1": "mean", "2": "median", "3": "weighted"}
@@ -379,7 +379,7 @@ class InteractiveCLI:
                 method_choice = method_choice or "1"
             method = methods[method_choice]
         
-        # 输出文件
+        # Output file
         default_output = f"{self.current_project}/predictions_{mode}.csv"
         
         if RICH_AVAILABLE:
@@ -388,7 +388,7 @@ class InteractiveCLI:
             output_file = input(f"Output file (default={default_output}): ")
             output_file = output_file or default_output
         
-        # 确认执行
+        # Confirm execution
         if RICH_AVAILABLE:
             self.console.print("\n[bold]Summary:[/bold]")
             self.console.print(f"  Project: {self.current_project}")
@@ -413,7 +413,7 @@ class InteractiveCLI:
             if proceed.lower() == 'n':
                 return
         
-        # 执行预测
+        # Run prediction
         try:
             if RICH_AVAILABLE:
                 with self.console.status("[bold green]Running prediction...", spinner="dots"):
@@ -423,10 +423,10 @@ class InteractiveCLI:
                 self._run_prediction(data_file, mode, output_file, method)
             
             if RICH_AVAILABLE:
-                self.console.print(f"\n✅ [green]Prediction completed![/green]")
+                self.console.print(f"\n[green]Prediction completed.[/green]")
                 self.console.print(f"   Output saved to: {output_file}")
             else:
-                print(f"\n✅ Prediction completed!")
+                print(f"\nPrediction completed.")
                 print(f"   Output saved to: {output_file}")
                 
         except Exception as e:
@@ -436,7 +436,7 @@ class InteractiveCLI:
                 print(f"Prediction failed: {e}")
     
     def _run_prediction(self, data_file: str, mode: str, output_file: str, method: str = "mean"):
-        """执行预测"""
+        """Run prediction"""
         if not self.current_predictor:
             self.current_predictor = ProjectPredictor(self.current_project, verbose=False)
         
@@ -459,7 +459,7 @@ class InteractiveCLI:
             )
     
     def view_comparison_table(self):
-        """查看对比表"""
+        """View comparison table"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -469,12 +469,12 @@ class InteractiveCLI:
         
         self.print_header()
         
-        # 查找对比表文件
+        # Find comparison table files
         project_path = Path(self.current_project)
         table_files = list(project_path.glob("comparison_table_*.csv"))
         
         if not table_files:
-            # 若没有现成表格，提示是否立即生成
+            # If no table exists, prompt to generate immediately
             if RICH_AVAILABLE:
                 self.console.print("[yellow]No comparison tables found. Let's generate one now.[/yellow]")
                 if not Confirm.ask("Generate comparison table now?", default=True):
@@ -494,7 +494,7 @@ class InteractiveCLI:
                     print(f"Failed to generate table: {e}")
                 return
 
-            # 重新加载
+            # Reload
             table_files = list(project_path.glob("comparison_table_*.csv"))
             if not table_files:
                 if RICH_AVAILABLE:
@@ -503,17 +503,17 @@ class InteractiveCLI:
                     print("Still no tables found after generation.")
                 return
         
-        # 读取最新的表格
+        # Read the latest table
         latest_table = sorted(table_files)[-1]
         df = pd.read_csv(latest_table)
         
         if RICH_AVAILABLE:
             self.console.print(f"[bold]Comparison Table:[/bold] {latest_table.name}\n")
             
-            # 转换为rich表格
+            # Convert to rich table
             table = Table(show_header=True, header_style="bold magenta", title=f"Model Comparison Table")
             
-            # 智能添加列 - 识别mean和std列
+            # Smart add columns - detect mean/std
             col_groups = {}
             for col in df.columns:
                 if '_mean' in col:
@@ -527,32 +527,32 @@ class InteractiveCLI:
                         col_groups[base_name] = {}
                     col_groups[base_name]['std'] = col
             
-            # 添加列头
+            # Add headers
             for col in df.columns:
-                # 检查是否是成对的mean/std列
+                # Check if paired mean/std columns
                 is_metric_col = False
                 for base_name, group in col_groups.items():
                     if col == group.get('mean'):
-                        # 这是mean列，检查是否有对应的std
+                        # Mean column; check corresponding std
                         if 'std' in group:
-                            table.add_column(f"{base_name} (mean±std)", justify="right", style="yellow")
+                            table.add_column(f"{base_name} (mean+/-std)", justify="right", style="yellow")
                         else:
                             table.add_column(col, justify="right", style="yellow")
                         is_metric_col = True
                         break
                     elif col == group.get('std'):
-                        # std列会和mean列合并，跳过
+                        # Std column merged with mean; skip
                         is_metric_col = True
                         break
                 
                 if not is_metric_col:
-                    # 普通列
+                    # Regular column
                     if 'R2' in col or 'RMSE' in col or 'MAE' in col:
                         table.add_column(col, justify="right", style="yellow")
                     else:
                         table.add_column(col, style="cyan")
             
-            # 添加行
+            # Add rows
             for _, row in df.iterrows():
                 row_data = []
                 processed_cols = set()
@@ -561,14 +561,14 @@ class InteractiveCLI:
                     if col in processed_cols:
                         continue
                     
-                    # 检查是否需要合并mean和std
+                    # Check whether to merge mean/std
                     merged = False
                     for base_name, group in col_groups.items():
                         if col == group.get('mean') and 'std' in group:
                             mean_val = row[col]
                             std_val = row[group['std']]
                             if isinstance(mean_val, float) and isinstance(std_val, float):
-                                row_data.append(f"{mean_val:.4f}±{std_val:.4f}")
+                                row_data.append(f"{mean_val:.4f}+/-{std_val:.4f}")
                             else:
                                 row_data.append(str(mean_val))
                             processed_cols.add(col)
@@ -577,7 +577,7 @@ class InteractiveCLI:
                             break
                     
                     if not merged and col not in processed_cols:
-                        # 检查是否是单独的std列（应该已被处理）
+                        # Standalone std column (should be processed)
                         is_std_col = any(col == g.get('std') for g in col_groups.values())
                         if not is_std_col:
                             val = row[col]
@@ -595,7 +595,7 @@ class InteractiveCLI:
             print(df.to_string(index=False))
 
     def generate_comparison_table(self, auto_after_view: bool = False):
-        """生成模型对比表（整合到Manager）"""
+        """Generate model comparison table (integrated with Manager)"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -630,20 +630,20 @@ class InteractiveCLI:
             )
 
             if RICH_AVAILABLE:
-                self.console.print("\n✅ [green]Comparison table generated.[/green]")
+                self.console.print("\n[green]Comparison table generated.[/green]")
                 for k, v in exported.items():
                     self.console.print(f"   - {k}: {v}")
-                # 生成后在命令行内渲染展示一次
+                # Render once in console after generation
                 try:
                     self.console.print("\n[bold]Preview (rendered in console):[/bold]\n")
                     self.view_comparison_table()
                 except Exception:
                     pass
             else:
-                print("\n✅ Comparison table generated.")
+                print("\nComparison table generated.")
                 for k, v in exported.items():
                     print(f"   - {k}: {v}")
-                # 生成后在命令行内渲染展示一次
+                # Render once in console after generation
                 try:
                     print("\nPreview (rendered in console):\n")
                     self.view_comparison_table()
@@ -656,7 +656,7 @@ class InteractiveCLI:
                 print(f"Generation failed: {e}")
     
     def export_project(self):
-        """导出项目"""
+        """Export project"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -682,9 +682,9 @@ class InteractiveCLI:
             self.manager.export_project(self.current_project, output_file, format_choice)
             
             if RICH_AVAILABLE:
-                self.console.print(f"✅ [green]Project exported to: {output_file}[/green]")
+                self.console.print(f"[green]Project exported to: {output_file}[/green]")
             else:
-                print(f"✅ Project exported to: {output_file}")
+                print(f"Project exported to: {output_file}")
                 
         except Exception as e:
             if RICH_AVAILABLE:
@@ -693,7 +693,7 @@ class InteractiveCLI:
                 print(f"Export failed: {e}")
     
     def generate_report(self):
-        """生成报告"""
+        """Generate report"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -715,9 +715,9 @@ class InteractiveCLI:
             self.manager.generate_project_report(self.current_project, output_file)
             
             if RICH_AVAILABLE:
-                self.console.print(f"✅ [green]Report generated: {output_file}[/green]")
+                self.console.print(f"[green]Report generated: {output_file}[/green]")
             else:
-                print(f"✅ Report generated: {output_file}")
+                print(f"Report generated: {output_file}")
                 
         except Exception as e:
             if RICH_AVAILABLE:
@@ -726,7 +726,7 @@ class InteractiveCLI:
                 print(f"Report generation failed: {e}")
     
     def train_models(self):
-        """训练新模型"""
+        """Train new models"""
         self.print_header()
         
         if RICH_AVAILABLE:
@@ -766,31 +766,31 @@ class InteractiveCLI:
             
             for config in configs:
                 models = config_models.get(config, [])
-                # 显示所有模型，不截断
+                # Show all models without truncation
                 models_display = ", ".join(models)
                 table.add_row(config, models_display, str(len(models)))
             
             self.console.print(table)
             
-            # 额外显示所有13个可用模型的完整列表
+            # Show complete list of 13 available models
             self.console.print("\n[bold]All Available Models (13 total):[/bold]")
             all_models = [
-                ("XGBoost", "🚀 Tree-based ensemble"),
-                ("LightGBM", "🚀 Tree-based ensemble"),
-                ("CatBoost", "🚀 Tree-based ensemble"),
-                ("Random Forest", "🌲 Tree-based ensemble"),
-                ("Gradient Boosting", "🌲 Tree-based ensemble"),
-                ("Extra Trees", "🌲 Tree-based ensemble"),
-                ("AdaBoost", "🌲 Tree-based ensemble"),
-                ("Decision Tree", "🌳 Single tree"),
-                ("Ridge", "📊 Linear model"),
-                ("Lasso", "📊 Linear model"),
-                ("Elastic Net", "📊 Linear model"),
-                ("SVR", "🔮 Support Vector"),
-                ("KNN", "📍 Instance-based")
+                ("XGBoost", "Tree-based ensemble"),
+                ("LightGBM", "Tree-based ensemble"),
+                ("CatBoost", "Tree-based ensemble"),
+                ("Random Forest", "Tree-based ensemble"),
+                ("Gradient Boosting", "Tree-based ensemble"),
+                ("Extra Trees", "Tree-based ensemble"),
+                ("AdaBoost", "Tree-based ensemble"),
+                ("Decision Tree", "Single tree"),
+                ("Ridge", "Linear model"),
+                ("Lasso", "Linear model"),
+                ("Elastic Net", "Linear model"),
+                ("SVR", "Support Vector"),
+                ("KNN", "Instance-based")
             ]
             
-            # 创建一个表格显示所有模型
+            # Create a table to display all models
             model_table = Table(show_header=True, header_style="bold cyan", box=None)
             model_table.add_column("#", justify="right", style="dim")
             model_table.add_column("Model", style="yellow")
@@ -806,14 +806,14 @@ class InteractiveCLI:
             config_idx = 1 if not isinstance(config_idx, int) else max(1, min(config_idx, len(configs)))
             config = configs[config_idx - 1]
             
-            # 如果选择了custom，让用户选择具体的模型
+            # If custom is selected, let user choose specific models
             custom_models_list = None
-            custom_models_selected = False  # 标记是否选择了自定义模型
+            custom_models_selected = False  # Mark whether custom models are selected
             if config == "custom":
                 self.console.print("\n[bold]Select models to train:[/bold]")
                 self.console.print("[dim]Enter model numbers separated by commas (e.g., 1,2,3 or 1-5,7,9)[/dim]\n")
                 
-                # 显示所有可选模型（注意顺序要与标准模式一致）
+                # Show all selectable models (order consistent with standard mode)
                 all_model_names = ["adaboost", "catboost", "decision_tree", "elastic_net", 
                                   "extra_trees", "gradient_boosting", "knn", "lasso", 
                                   "lightgbm", "random_forest", "ridge", "svr", "xgboost"]
@@ -821,14 +821,9 @@ class InteractiveCLI:
                                     "Extra Trees", "Gradient Boosting", "KNN", "Lasso", 
                                     "LightGBM", "Random Forest", "Ridge", "SVR", "XGBoost"]
                 
-                # 创建模型选择表格
+                # Create model selection table
                 for i, (name, display) in enumerate(zip(all_model_names, all_model_display), 1):
-                    emoji = "🚀" if name in ["xgboost", "lightgbm", "catboost"] else \
-                            "🌲" if name in ["random_forest", "gradient_boosting", "extra_trees", "adaboost"] else \
-                            "🌳" if name == "decision_tree" else \
-                            "📊" if name in ["ridge", "lasso", "elastic_net"] else \
-                            "🔮" if name == "svr" else "📍"
-                    self.console.print(f"  {i:2}. {emoji} [yellow]{display:20}[/yellow] [dim]({name})[/dim]")
+                    self.console.print(f"  {i:2}. [yellow]{display:20}[/yellow] [dim]({name})[/dim]")
                 
                 # 获取用户选择
                 selection = Prompt.ask("\nSelect models", default="1,2,3,4")
@@ -1063,7 +1058,7 @@ class InteractiveCLI:
                         fmts = ["markdown","html","csv"]
                     extra_args.append(f"comparison.formats={json.dumps(fmts)}")
 
-            # 构建命令
+            # Build command
             base = [
                 "python", "automl.py", "train",
                 f"config={config}",
@@ -1071,26 +1066,26 @@ class InteractiveCLI:
                 f"project={project}"
             ]
             
-            # 显示命令（用于调试）
+            # Display command (for debugging)
             cmd_display = " ".join(base + extra_args)
             self.console.print(f"\n[bold]Command:[/bold] {cmd_display}")
             
             if Confirm.ask("Execute training?", default=True):
-                # 使用subprocess执行，更好地处理参数
+                # Use subprocess for better argument handling
                 try:
                     result = subprocess.run(base + extra_args, check=False)
                     if result.returncode == 0:
                         self.current_project = project
-                        self.console.print(f"\n✅ Training completed. Project: [bold green]{project}[/bold green]")
+                        self.console.print(f"\nTraining completed. Project: [bold green]{project}[/bold green]")
                     else:
-                        self.console.print(f"\n⚠️ Training exited with code {result.returncode}")
+                        self.console.print(f"\nTraining exited with code {result.returncode}")
                 except Exception as e:
-                    self.console.print(f"\n❌ Training failed: {e}")
+                    self.console.print(f"\nTraining failed: {e}")
         else:
             print("Train New Models\n")
             print("This will launch the training pipeline.\n")
             
-            # 每个配置支持的模型
+            # Supported models per configuration
             config_models = {
                 "xgboost_quick": ["XGBoost"],
                 "xgboost_standard": ["XGBoost"],
@@ -1438,25 +1433,25 @@ class InteractiveCLI:
                 f"data={data_file}",
                 f"project={project}"
             ]
-            # 显示命令（用于调试）
+            # Display command (for debugging)
             cmd_display = " ".join(base + extra_args)
             print(f"\nCommand: {cmd_display}")
             
             proceed = input("Execute training? (y/n, default=y): ")
             if proceed.lower() != 'n':
-                # 使用subprocess执行，更好地处理参数
+                # Use subprocess for better argument handling
                 try:
                     result = subprocess.run(base + extra_args, check=False)
                     if result.returncode == 0:
                         self.current_project = project
-                        print(f"\n✅ Training completed. Project: {project}")
+                        print(f"\nTraining completed. Project: {project}")
                     else:
-                        print(f"\n⚠️ Training exited with code {result.returncode}")
+                        print(f"\nTraining exited with code {result.returncode}")
                 except Exception as e:
-                    print(f"\n❌ Training failed: {e}")
+                    print(f"\nTraining failed: {e}")
     
     def clean_project(self):
-        """清理项目"""
+        """Clean project"""
         if not self.current_project:
             if RICH_AVAILABLE:
                 self.console.print("[yellow]Please select a project first.[/yellow]")
@@ -1475,7 +1470,7 @@ class InteractiveCLI:
             if Confirm.ask(f"\n[red]This will delete intermediate files. Continue?[/red]", default=False):
                 try:
                     self.manager.clean_project(self.current_project, keep_models, keep_results)
-                    self.console.print("✅ [green]Project cleaned successfully.[/green]")
+                    self.console.print("[green]Project cleaned successfully.[/green]")
                 except Exception as e:
                     self.console.print(f"[red]Clean failed: {e}[/red]")
         else:
@@ -1491,20 +1486,20 @@ class InteractiveCLI:
             if confirm.lower() == 'y':
                 try:
                     self.manager.clean_project(self.current_project, keep_models, keep_results)
-                    print("✅ Project cleaned successfully.")
+                    print("Project cleaned successfully.")
                 except Exception as e:
                     print(f"Clean failed: {e}")
     
     def run(self):
-        """运行交互式界面"""
+        """Run interactive interface"""
         while True:
             choice = self.main_menu()
             
             if choice == "0":
                 if RICH_AVAILABLE:
-                    self.console.print("\n[bold cyan]Goodbye![/bold cyan] 👋")
+                    self.console.print("\n[bold cyan]Goodbye![/bold cyan]")
                 else:
-                    print("\nGoodbye! 👋")
+                    print("\nGoodbye!")
                 break
             elif choice == "1":
                 self.list_projects()
@@ -1535,7 +1530,7 @@ class InteractiveCLI:
 
 
 def main():
-    """主函数"""
+    """Main function"""
     cli = InteractiveCLI()
     try:
         cli.run()

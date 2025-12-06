@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-AutoML - 自动化机器学习命令行接口
-类似YOLO的简洁命令行工具
+AutoML - Command-line interface for automated machine learning
 
-使用方式:
+Usage:
     automl train model=xgboost data=mydata.csv config=config.yaml
     automl predict model=saved_model.joblib data=test.csv
     automl validate config=config.yaml
@@ -23,7 +22,7 @@ import psutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
 
-# 添加当前目录到路径
+# Add current directory to sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.system import ExperimentConfig, ConfigValidator
@@ -36,79 +35,79 @@ import joblib
 
 
 # ========================================
-#           命令解析器
+#           Argument Parser
 # ========================================
 
 class MLArgumentParser:
-    """ML命令行参数解析器"""
+    """ML CLI argument parser"""
     
     @staticmethod
     def parse_args_string(args_string: str) -> Dict[str, Any]:
         """
-        解析 key=value 格式的参数字符串
+        Parse a key=value formatted argument string
         
         Args:
-            args_string: 参数字符串，如 "model=xgboost data=file.csv"
+            args_string: Argument string, e.g. "model=xgboost data=file.csv"
         
         Returns:
-            参数字典
+            Parsed argument dictionary
         """
         params = {}
         
-        # 分割参数
+        # Split arguments
         parts = args_string.split()
         
         for part in parts:
             if '=' in part:
                 key, value = part.split('=', 1)
                 
-                # 移除外层引号（如果存在）
+                # Remove outer quotes if present
                 if (value.startswith("'") and value.endswith("'")) or \
                    (value.startswith('"') and value.endswith('"')):
                     value = value[1:-1]
                 
-                # 尝试解析值的类型
-                # 特殊参数：name和project应该始终是字符串
+                # Try to infer value types
+                # Special keys: name and project should stay strings
                 if key in ['name', 'project']:
-                    # 保持为字符串，不进行类型转换
+                    # Keep as string
                     pass
-                # 布尔值
+                # Boolean
                 elif value.lower() in ['true', 'false']:
                     value = value.lower() == 'true'
-                # 数字
+                # Number
                 elif value.replace('.', '').replace('-', '').isdigit():
                     if '.' in value:
                         value = float(value)
                     else:
                         value = int(value)
-                # 列表
+                # List
                 elif value.startswith('[') and value.endswith(']'):
                     try:
                         value = json.loads(value)
                     except json.JSONDecodeError:
-                        # 尝试修复单引号的JSON
+                        # Try to fix single-quoted JSON
                         try:
                             fixed_value = value.replace("'", '"')
                             value = json.loads(fixed_value)
                         except:
-                            # 如果还是失败，尝试作为逗号分隔的列表
+                            # Fallback: comma-separated list
                             inner = value[1:-1].strip()
                             if inner:
                                 value = [v.strip().strip("'\"") for v in inner.split(',')]
                             else:
                                 value = []
-                # 字典
+                # Dict
                 elif value.startswith('{') and value.endswith('}'):
                     try:
                         value = json.loads(value)
                     except json.JSONDecodeError:
-                        # 尝试修复单引号的JSON
+                        # Try to fix single-quoted JSON
                         try:
                             fixed_value = value.replace("'", '"')
                             value = json.loads(fixed_value)
                         except:
-                            pass  # 保持原值
-                # 特殊处理models参数：支持逗号分隔格式
+                            pass  # keep original
+                # Special handling for models: allow comma-separated format
                 elif key == 'models' and ',' in value:
                     value = [m.strip() for m in value.split(',')]
                 
@@ -118,7 +117,7 @@ class MLArgumentParser:
     
     @staticmethod
     def _parse_bool(value) -> bool:
-        """解析布尔值"""
+        """Parse boolean values"""
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
@@ -128,34 +127,34 @@ class MLArgumentParser:
     @staticmethod
     def merge_params_to_config(config: ExperimentConfig, params: Dict[str, Any]) -> ExperimentConfig:
         """
-        将参数合并到配置中
+        Merge parsed parameters into an ExperimentConfig
         
         Args:
-            config: 基础配置
-            params: 要合并的参数
+            config: Base configuration
+            params: Parameters to merge
         
         Returns:
-            更新后的配置
+            Updated configuration
         """
         for key, value in params.items():
-            # 处理嵌套键
+            # Handle dotted nested keys
             if '.' in key:
                 parts = key.split('.')
                 obj = config
                 
-                # 导航到嵌套对象
+                # Navigate to nested object
                 for part in parts[:-1]:
                     if hasattr(obj, part):
                         obj = getattr(obj, part)
                     else:
-                        print(f"⚠️ 未知配置项: {key}")
+                        print(f"WARNING: Unknown config key: {key}")
                         continue
                 
-                # 设置值
+                # Set value
                 if hasattr(obj, parts[-1]):
                     setattr(obj, parts[-1], value)
             else:
-                # 特殊处理一些常用参数
+                # Handle common top-level params
                 if key == 'model':
                     config.model.model_type = value
                 elif key == 'data':
@@ -172,23 +171,23 @@ class MLArgumentParser:
                     else:
                         config.data.target_columns = value
                 elif key == 'save_curves':
-                    # 处理保存训练曲线参数
+                    # Save training curves
                     config.training.save_training_curves = MLArgumentParser._parse_bool(value)
                 elif key == 'save_importance':
-                    # 处理保存特征重要性参数
+                    # Save feature importance
                     config.training.save_feature_importance = MLArgumentParser._parse_bool(value)
                 elif key in ['test_data', 'test_data_path']:
-                    # 训练完成后对外部测试集进行评估
+                    # Evaluate on external test set after training
                     config.data.test_data_path = value
-                    print(f"   ✅ 设置测试数据集: {value}")
+                    print(f"   INFO: Test dataset set: {value}")
                 elif key in ['nan_handling', 'nan', 'missing']:
-                    # 缺失值处理策略
+                    # Missing value handling strategy
                     config.data.nan_handling = value
-                    print(f"   ✅ 设置缺失值处理: {value}")
+                    print(f"   INFO: Missing value handling: {value}")
                 elif key in ['multi_target', 'multi_target_strategy', 'target_strategy']:
-                    # 多目标数据选择策略
+                    # Multi-target data selection strategy
                     config.data.multi_target_strategy = value
-                    print(f"   ✅ 设置多目标策略: {value}")
+                    print(f"   INFO: Multi-target strategy: {value}")
                 elif hasattr(config, key):
                     setattr(config, key, value)
         
@@ -196,87 +195,87 @@ class MLArgumentParser:
 
 
 # ========================================
-#           训练命令
+#           Train Command
 # ========================================
 
 def train_command(args: List[str]):
-    """训练命令"""
+    """Train command"""
     print("\n" + "="*60)
     print("AutoML Training System")
     print("="*60)
     from time import perf_counter as _pc
     _t0 = _pc()
     
-    # 解析参数（带类型推断）
+    # Parse arguments (with type inference)
     parser = MLArgumentParser()
     params = parser.parse_args_string(' '.join(args))
     config_path = params.pop('config', None)
     name = params.get('name')
     project = params.get('project')
-    # 检测全模型开关
+    # Detect train-all flag
     all_flag = any(flag in args for flag in ['-all', '--all'])
     
-    # 解析NUMA和并行参数
+    # Parse NUMA and parallel parameters
     numa_enabled = parser._parse_bool(params.get('numa', False))
     cores_per_task = int(params.get('cores', 4)) if 'cores' in params else None
     parallel_tasks = int(params.get('parallel', 1)) if 'parallel' in params else 1
     bind_cpu = parser._parse_bool(params.get('bind_cpu', False))
     
-    # 加载或创建配置
+    # Load or create configuration
     _t_conf_start = _pc()
     manager = DynamicConfigManager()
     
     if config_path:
-        # 尝试获取配置（支持模板名称或文件路径）
+        # Try to get config (supports template name or file path)
         config = manager.get_config(config_path)
         if config:
-            print(f"✅ 使用配置: {config_path}")
+            print(f"INFO: Using config: {config_path}")
         else:
-            print(f"❌ 配置文件或模板不存在: {config_path}")
+            print(f"ERROR: Config file or template not found: {config_path}")
             return 1
     else:
-        # 使用默认配置
+        # Use default configuration
         config = manager.get_config('xgboost_quick')
         if not config:
-            # 如果没有找到配置文件，使用内置默认配置
+            # If not found, use built-in default config
             config = ExperimentConfig()
-            print("✅ 使用默认配置")
+            print("INFO: Using built-in default config")
         else:
-            print("✅ 使用默认配置: xgboost_quick")
+            print("INFO: Using default template: xgboost_quick")
     
-    # 合并命令行参数
+    # Merge CLI params
     config = parser.merge_params_to_config(config, params)
     _t_conf_end = _pc(); conf_secs = _t_conf_end - _t_conf_start
     
-    # 检查是否需要训练多个模型
+    # Check multi-model training
     models_to_train = []
     if all_flag:
-        # 使用 --all 标志训练所有模型
+        # Train all supported models
         from models import ModelFactory
         models_to_train = ModelFactory.get_supported_models()
-        print("✅ 启用全模型训练模式")
-        print(f"   将训练 {len(models_to_train)} 个模型: {models_to_train}")
+        print("INFO: Enabled train-all mode")
+        print(f"   Models to train: {len(models_to_train)} -> {models_to_train}")
     elif 'models' in params and params['models']:
-        # 从命令行参数获取模型列表
+        # Get model list from CLI
         if isinstance(params['models'], list):
             models_to_train = params['models']
         elif isinstance(params['models'], str):
-            # 支持逗号分隔的模型列表
+            # Support comma-separated list
             models_to_train = [m.strip() for m in params['models'].split(',')]
-        print("✅ 多模型训练模式")
-        print(f"   将训练 {len(models_to_train)} 个模型: {models_to_train}")
+        print("INFO: Multi-model training mode")
+        print(f"   Models to train: {len(models_to_train)} -> {models_to_train}")
     
-    # 保存模型列表到配置（用于后续训练）
+    # Save model list into config (used for subsequent training)
     if models_to_train:
         config.models_to_train = models_to_train
     
-    # 创建运行目录（类似YOLO）
+    # Create run directory (YOLO-style)
     _t_run_dir_start = _pc()
-    # 如果指定了project，使用project作为基础目录，否则使用默认的runs
+    # If project specified, use it as base dir; otherwise default runs
     if project:
         run_manager = RunManager(base_dir=project, task="train")
-        run_dir = run_manager.get_next_run_dir(name=name, project=None)  # project已经作为base_dir了
-        # 对于指定project的情况，保持完整的目录结构
+        run_dir = run_manager.get_next_run_dir(name=name, project=None)  # project already used as base_dir
+        # Keep full directory structure for project
         config.logging.base_dir = str(run_dir.parent)
         config.logging.project_name = run_dir.name
     else:
@@ -285,29 +284,29 @@ def train_command(args: List[str]):
         config.logging.base_dir = str(run_dir.parent)
         config.logging.project_name = run_dir.name
     
-    # 显示配置信息（YOLO风格的详细配置）
+    # Show configuration summary
     print(f"\n" + "="*60)
-    print("📋 配置信息 (Configuration)")
+    print("Configuration")
     print("="*60)
     
-    # 数据配置
-    print("\n🗂️  数据配置 (Data):")
-    print(f"   训练数据: {config.data.data_path}")
+    # Data configuration
+    print("\nData Configuration:")
+    print(f"   Training data: {config.data.data_path}")
     data_path = Path(config.data.data_path)
     if data_path.exists():
-        print(f"   ✅ 训练数据存在 ({data_path.stat().st_size / 1024:.1f} KB)")
+        print(f"   INFO: Training data found ({data_path.stat().st_size / 1024:.1f} KB)")
     else:
-        print(f"   ❌ 训练数据不存在!")
+        print(f"   ERROR: Training data not found!")
     
-    # 测试数据配置
+    # Test data configuration
     if hasattr(config.data, 'test_data_path') and config.data.test_data_path:
-        print(f"   测试数据: {config.data.test_data_path}")
+        print(f"   Test data: {config.data.test_data_path}")
         test_path = Path(config.data.test_data_path)
         if test_path.exists():
-            print(f"   ✅ 测试数据存在 ({test_path.stat().st_size / 1024:.1f} KB)")
+            print(f"   INFO: Test data found ({test_path.stat().st_size / 1024:.1f} KB)")
         else:
-            print(f"   ⚠️ 测试数据路径无效: {test_path}")
-            # 尝试其他可能的路径
+            print(f"   WARNING: Invalid test data path: {test_path}")
+            # Try alternative paths
             alt_paths = [
                 Path(test_path.name),
                 Path("../data") / test_path.name,
@@ -315,143 +314,143 @@ def train_command(args: List[str]):
             ]
             for alt in alt_paths:
                 if alt.exists():
-                    print(f"   💡 找到文件在: {alt}")
+                    print(f"   TIP: Found file at: {alt}")
                     config.data.test_data_path = str(alt)
                     break
     else:
-        print("   测试数据: 未指定")
+        print("   Test data: not specified")
     
-    print(f"   目标列: {config.data.target_columns}")
-    print(f"   多目标策略: {config.data.multi_target_strategy}")
+    print(f"   Target columns: {config.data.target_columns}")
+    print(f"   Multi-target strategy: {config.data.multi_target_strategy}")
     if config.data.multi_target_strategy == "intersection":
-        print(f"     → 使用所有目标都有值的数据（最严格）")
+        print(f"     -> Use rows where all targets have values (strict)")
     elif config.data.multi_target_strategy == "independent":
-        print(f"     → 每个目标独立使用有效数据（默认）")
+        print(f"     -> Each target uses its own valid rows (default)")
     elif config.data.multi_target_strategy == "union":
-        print(f"     → 使用所有数据，缺失值填充")
-    print(f"   缺失值处理: {config.data.nan_handling}")
+        print(f"     -> Use all rows with missing values filled")
+    print(f"   Missing value handling: {config.data.nan_handling}")
     if config.data.nan_handling != "skip":
-        print(f"     - 特征NaN策略: {config.data.feature_nan_strategy}")
-        print(f"     - 目标NaN策略: {config.data.target_nan_strategy}")
+        print(f"     - Feature NaN strategy: {config.data.feature_nan_strategy}")
+        print(f"     - Target NaN strategy: {config.data.target_nan_strategy}")
     
-    # 模型配置
-    print("\n🤖 模型配置 (Model):")
-    print(f"   模型类型: {config.model.model_type}")
-    print(f"   交叉验证: {config.training.n_folds}折")
+    # Model configuration
+    print("\nModel Configuration:")
+    print(f"   Model type: {config.model.model_type}")
+    print(f"   Cross validation: {config.training.n_folds}-fold")
     if config.model.hyperparameters:
-        print("   超参数:")
+        print("   Hyperparameters:")
         for key, value in config.model.hyperparameters.items():
             print(f"     - {key}: {value}")
     
-    # 特征配置
-    print("\n🔧 特征配置 (Features):")
-    print(f"   特征类型: {config.feature.feature_type}")
+    # Feature configuration
+    print("\nFeature Configuration:")
+    print(f"   Feature type: {config.feature.feature_type}")
     if hasattr(config.feature, 'morgan_bits'):
-        print(f"   Morgan指纹位数: {config.feature.morgan_bits}")
+        print(f"   Morgan bits: {config.feature.morgan_bits}")
     if hasattr(config.feature, 'morgan_radius'):
-        print(f"   Morgan指纹半径: {config.feature.morgan_radius}")
-    print(f"   缓存: {'启用' if config.feature.use_cache else '禁用'}")
+        print(f"   Morgan radius: {config.feature.morgan_radius}")
+    print(f"   Cache: {'enabled' if config.feature.use_cache else 'disabled'}")
     
-    # 输出配置
-    print("\n📁 输出配置 (Output):")
-    print(f"   项目目录: {run_dir}")
-    print(f"   模型保存: {run_dir}/models/")
-    print(f"   结果导出: {run_dir}/exports/")
-    print(f"   特征重要性: {run_dir}/feature_importance/")
+    # Output configuration
+    print("\nOutput Configuration:")
+    print(f"   Project directory: {run_dir}")
+    print(f"   Models: {run_dir}/models/")
+    print(f"   Exports: {run_dir}/exports/")
+    print(f"   Feature importance: {run_dir}/feature_importance/")
     
     print("\n" + "="*60)
     if hasattr(config, 'models_to_train') and config.models_to_train:
-        print(f"   多模型训练: 已启用")
-        print(f"   训练模型: {len(config.models_to_train)} 个")
-        print(f"   模型列表: {', '.join(config.models_to_train[:5])}{'...' if len(config.models_to_train) > 5 else ''}")
+        print(f"   Multi-model training: enabled")
+        print(f"   Models to train: {len(config.models_to_train)}")
+        print(f"   Model list: {', '.join(config.models_to_train[:5])}{'...' if len(config.models_to_train) > 5 else ''}")
     if numa_enabled:
-        print(f"   NUMA优化: 已启用")
-        print(f"   并行任务数: {parallel_tasks}")
+        print(f"   NUMA optimization: enabled")
+        print(f"   Parallel tasks: {parallel_tasks}")
         if cores_per_task:
-            print(f"   每任务核心数: {cores_per_task}")
-    print(f"   运行目录: {run_dir}")
+            print(f"   Cores per task: {cores_per_task}")
+    print(f"   Run directory: {run_dir}")
     
-    # 验证配置
+    # Validate config
     _t_validate_start = _pc()
     if not ConfigValidator.validate_all(config):
         return 1
     _t_validate_end = _pc(); validate_secs = _t_validate_end - _t_validate_start
     
-    # 执行训练
+    # Run training
     _t_train_start = _pc()
     try:
-        # 检查是否需要训练多个模型
+        # Check if multiple models need to be trained
         if hasattr(config, 'models_to_train') and config.models_to_train:
-            # 多模型训练模式
+            # Multi-model mode
             if parallel_tasks > 1:
-                print(f"\n🚀 启动并行训练: {parallel_tasks} 个并发任务")
+                print(f"\nINFO: Starting parallel training with {parallel_tasks} concurrent tasks")
                 results = parallel_train_models(
                     config, run_dir, 
                     numa_enabled, cores_per_task, parallel_tasks, bind_cpu
                 )
             else:
-                print(f"\n🚀 串行训练 {len(config.models_to_train)} 个模型...")
+                print(f"\nINFO: Serial training of {len(config.models_to_train)} models...")
                 all_results = []
                 
                 for i, model_type in enumerate(config.models_to_train, 1):
-                    print(f"\n[{i}/{len(config.models_to_train)}] 训练模型: {model_type}")
+                    print(f"\n[{i}/{len(config.models_to_train)}] Training model: {model_type}")
                     print("-" * 40)
                     
-                    # 创建模型专用配置（深拷贝）
+                    # Create model-specific config (deep copy)
                     import copy
                     model_config = copy.deepcopy(config)
                     model_config.model.model_type = model_type
                     
-                    # 重要：重置超参数为模型特定的默认值，避免使用其他模型的参数
+                    # Reset hypers to model-specific defaults to avoid mixing params
                     from models.base import MODEL_PARAMS
                     if model_type in MODEL_PARAMS:
                         model_config.model.hyperparameters = MODEL_PARAMS[model_type].copy()
                     else:
                         model_config.model.hyperparameters = {}
                     
-                    # 修复深拷贝后的配置对象
+                    # Fix config objects after deep copy
                     from config.system import ComparisonConfig, ExportConfig
                     if isinstance(model_config.comparison, dict):
                         model_config.comparison = ComparisonConfig(**model_config.comparison)
                     if isinstance(model_config.export, dict):
                         model_config.export = ExportConfig(**model_config.export)
                     
-                    # 创建统一的AutoML目录结构
+                    # Create unified AutoML directory structure
                     automl_dir = run_dir / "automl_train"
                     automl_dir.mkdir(parents=True, exist_ok=True)
                     model_run_dir = automl_dir / model_type
                     model_run_dir.mkdir(parents=True, exist_ok=True)
                     
-                    # 更新日志配置，使用父目录
+                    # Update logging config to use parent directory
                     model_config.logging.base_dir = str(run_dir.parent)
                     model_config.logging.project_name = f"{run_dir.name}/automl_train/{model_type}"
                     
                     try:
-                        # 设置CPU亲和性（如果启用）
+                        # Set CPU affinity if enabled
                         if numa_enabled and cores_per_task:
                             setup_cpu_affinity(0, cores_per_task, bind_cpu)
                             if 'n_jobs' in model_config.model.hyperparameters:
                                 model_config.model.hyperparameters['n_jobs'] = cores_per_task
                         
-                        # 训练模型
+                        # Train model
                         pipeline = TrainingPipeline(model_config)
                         results = pipeline.run()
                         all_results.append({'model': model_type, 'success': True, 'results': results})
-                        print(f"✅ {model_type} 训练完成")
+                        print(f"SUCCESS: {model_type} training completed")
                         
                     except Exception as e:
-                        print(f"❌ {model_type} 训练失败: {e}")
+                        print(f"ERROR: {model_type} training failed: {e}")
                         all_results.append({'model': model_type, 'success': False, 'error': str(e)})
                 
-                # 汇总结果
+                # Aggregate results
                 results = all_results
         
         else:
-            # 单模型训练
+            # Single-model training
             if numa_enabled and cores_per_task:
-                # 设置CPU亲和性
+                # Set CPU affinity
                 setup_cpu_affinity(0, cores_per_task, bind_cpu)
-                # 更新模型的n_jobs参数
+                # Update n_jobs parameter
                 if 'n_jobs' in config.model.hyperparameters:
                     config.model.hyperparameters['n_jobs'] = cores_per_task
             
@@ -461,70 +460,70 @@ def train_command(args: List[str]):
         _t_train_end = _pc(); train_secs = _t_train_end - _t_train_start
         total_secs = _pc() - _t0
         print("\n" + "="*60)
-        print("✨ 训练完成!")
+        print("Training completed!")
         print("="*60)
         
-        # 如果启用了对比表格生成
+        # If comparison table generation is enabled
         _t_table_start = _pc()
         if (hasattr(config, 'comparison') and hasattr(config.comparison, 'enable') and config.comparison.enable and
             hasattr(config, 'models_to_train') and config.models_to_train):
-            print("\n📊 生成模型对比表格...")
+            print("\nGenerating model comparison table...")
             try:
                 from utils.comparison_table import ComparisonTableGenerator
                 
-                # 创建对比表生成器
+                # Create table generator
                 generator = ComparisonTableGenerator(str(run_dir))
                 
-                # 收集所有结果
+                # Collect all results
                 df_comparison = generator.collect_all_results()
                 
                 if not df_comparison.empty:
-                    # 导出所有格式
+                    # Export all formats
                     formats = config.comparison.formats if hasattr(config.comparison, 'formats') else ['markdown', 'csv']
                     output_files = generator.export_all_formats(
                         output_dir=str(run_dir),
                         formats=formats
                     )
                     
-                    print("✅ 对比表格已生成:")
+                    print("INFO: Comparison tables generated:")
                     for fmt, path in output_files.items():
                         print(f"   - {fmt}: {Path(path).name}")
                 else:
-                    print("⚠️ 未找到足够的结果生成对比表")
+                    print("WARNING: Not enough results to generate comparison table")
                     
             except Exception as e:
-                print(f"❌ 生成对比表失败: {e}")
+                print(f"ERROR: Failed to generate comparison table: {e}")
         _t_table_end = _pc(); table_secs = _t_table_end - _t_table_start
         
-        # 如果有测试集，显示测试结果汇总
+        # If test set provided, show summary
         if hasattr(config.data, 'test_data_path') and config.data.test_data_path:
-            print("\n📊 测试集评估汇总:")
-            print("   测试文件: " + Path(config.data.test_data_path).name)
-            print("   注: 详细测试结果见上方各目标的测试评估部分")
+            print("\nTest set evaluation summary:")
+            print("   Test file: " + Path(config.data.test_data_path).name)
+            print("   Note: See per-target evaluation above for details")
         
-        # 保存运行信息
+        # Save run info
         run_manager.save_run_info(
             run_dir, 
             config.to_dict(),
             command=' '.join(['automl', 'train'] + args)
         )
         
-        # 创建指向最新运行的链接
+        # Create symlink to latest run
         RunManager.create_symlink(run_dir, "last")
         
-        # 保存配置
+        # Save config
         config_save_path = run_dir / "config.yaml"
         config.to_yaml(str(config_save_path))
-        print(f"📁 结果保存在: {run_dir}")
-        print(f"   查看结果: {run_dir}/exports/")
-        print(f"   查看报告: {run_dir}/exports/*.html")
-        print(f"   查看模型: {run_dir}/models/")
+        print(f"INFO: Results saved in: {run_dir}")
+        print(f"   See exports: {run_dir}/exports/")
+        print(f"   See reports: {run_dir}/exports/*.html")
+        print(f"   See models: {run_dir}/models/")
 
-        # 训练阶段耗时记录（summary + detail）
+        # Training phase timing (summary + detail)
         try:
-            # 尝试向 logger 写入 timing（如果可用）
+            # Attempt to write timing to logger (if available)
             if 'training' in locals() or 'pipeline' in locals():
-                # pipeline 内部 logger 在运行时已存在（按训练目标写入），这里我们只追加全局 timing 到 summary 文件
+                # Internal pipeline logger exists during run; append global timing to summary file only
                 pass
             timing_summary = {
                 'startup_to_end': total_secs,
@@ -536,9 +535,9 @@ def train_command(args: List[str]):
             import json as __json
             with open(_Path(run_dir) / 'timing_summary.json', 'w') as f:
                 __json.dump(timing_summary, f, indent=2)
-            print(f"   ⏱️ 时间统计保存: {run_dir}/timing_summary.json")
+            print(f"   INFO: Timing summary saved: {run_dir}/timing_summary.json")
 
-            # 细粒度: 汇总每个实验写入 timing_detail.json（若存在logger导出的实验JSON）
+            # Fine-grained: aggregate each experiment into timing_detail.json (if logger-exported JSON exists)
             try:
                 detail = {}
                 exp_dir = _Path(run_dir) / 'training_logs' / run_dir.name / 'experiments'
@@ -552,14 +551,14 @@ def train_command(args: List[str]):
                         except Exception:
                             continue
                 with open(_Path(run_dir) / 'timing_detail.json', 'w') as f:
-                    __json.dump(detail, f, indent=2, ensure_ascii=False)
-                print(f"   ⏱️ 细粒度时间统计保存: {run_dir}/timing_detail.json")
+                    __json.dump(detail, f, indent=2, ensure_ascii=True)
+                print(f"   INFO: Fine-grained timing saved: {run_dir}/timing_detail.json")
             except Exception:
                 pass
         except Exception:
             pass
 
-        # 论文完整资料包整合（仅在 paper_comparison 或显式开启 comparison.enable 时启用）
+        # Paper complete package assembly (enabled for paper_comparison or when comparison.enable is true)
         try:
             is_paper_mode = (config.name.lower().startswith('paper_comparison') if hasattr(config, 'name') else False)
         except Exception:
@@ -582,19 +581,19 @@ def train_command(args: List[str]):
                 paper_dir = _Path(run_dir) / 'paper_complete'
                 paper_dir.mkdir(parents=True, exist_ok=True)
 
-                # 1) 表格导出（四种格式）
+                # 1) Export tables (four formats)
                 generator = ComparisonTableGenerator(str(run_dir))
                 exported = generator.export_all_formats(output_dir=str(paper_dir), formats=['markdown','html','latex','csv'])
 
-                # 2) 生成论文图（含数据）
+                # 2) Generate paper figures (with data)
                 try:
                     from scripts.generate_paper_figures import generate_all_figures
                     data_path = config.data.data_path if hasattr(config, 'data') else 'data/Database_normalized.csv'
                     generate_all_figures(str(run_dir), data_path, str(paper_dir))
                 except Exception as e:
-                    print(f"⚠️ 生成论文图表失败: {e}")
+                    print(f"WARNING: Failed to generate paper figures: {e}")
 
-                # 3) 保留测试集原始预测与真值（若有）到 paper_complete
+                # 3) Preserve test set raw predictions and ground truth (if available) to paper_complete
                 try:
                     from pathlib import Path as __Path
                     exports_dir = __Path(run_dir) / 'exports'
@@ -606,11 +605,11 @@ def train_command(args: List[str]):
                 except Exception:
                     pass
 
-                # 4) 汇总文件与配置
+                # 4) Summarize files and configuration
                 from datetime import datetime as _datetime
                 import numpy as ___np
 
-                # 定义一个JSON编码器来处理numpy类型
+                # Define a JSON encoder to handle numpy types
                 class NumpyEncoder(_json.JSONEncoder):
                     def default(self, obj):
                         if isinstance(obj, (___np.integer, ___np.int64)):
@@ -629,9 +628,9 @@ def train_command(args: List[str]):
                     'best_models': generator.get_best_models() if exported else {},
                 }
                 with open(paper_dir / 'summary.json', 'w', encoding='utf-8') as f:
-                    _json.dump(summary, f, indent=2, ensure_ascii=False, cls=NumpyEncoder)
+                    _json.dump(summary, f, indent=2, ensure_ascii=True, cls=NumpyEncoder)
 
-                # 保存最终配置副本
+                # Save final config copy
                 try:
                     (_Path(run_dir) / 'config.yaml').replace(paper_dir / 'config.yaml')
                 except Exception:
@@ -641,7 +640,7 @@ def train_command(args: List[str]):
                     except Exception:
                         pass
 
-                # 5) 可选首页 index.html
+                # 5) Optional homepage index.html
                 try:
                     index_path = paper_dir / 'index.html'
                     index_html = f"""
@@ -668,12 +667,12 @@ def train_command(args: List[str]):
                 except Exception:
                     pass
 
-                # 追加 timing 到 summary
+                # Append timing to summary
                 try:
                     import json as ___json
                     import numpy as ___np
                     
-                    # 定义一个JSON编码器来处理numpy类型
+                    # Define a JSON encoder to handle numpy types
                     class NumpyEncoder(___json.JSONEncoder):
                         def default(self, obj):
                             if isinstance(obj, (___np.integer, ___np.int64)):
@@ -691,35 +690,35 @@ def train_command(args: List[str]):
                         data = {}
                     data['timing'] = timing_summary if 'timing_summary' in locals() else {}
                     with open(s_path, 'w') as f:
-                        ___json.dump(data, f, indent=2, ensure_ascii=False, cls=NumpyEncoder)
+                        ___json.dump(data, f, indent=2, ensure_ascii=True, cls=NumpyEncoder)
                 except Exception:
                     pass
 
-                # 6) 可选自动发布到后端（通过环境变量控制）
+                # 6) Optional auto publish to backend (controlled by environment variables)
                 try:
                     import os as ___os
                     from utils.publisher import ResultsPublisher
                     api_url = ___os.getenv('RESULTS_API_URL', '').strip()
                     if api_url:
-                        print("\n🌐 发布论文资料包到后端...")
+                        print("\nINFO: Publishing paper package to backend...")
                         publisher = ResultsPublisher()
                         resp = publisher.publish_package(
                             str(paper_dir),
                             metadata={'project': run_dir.name, 'path': str(run_dir)}
                         )
                         if resp:
-                            print(f"✅ 发布成功: {resp}")
+                            print(f"INFO: Publish succeeded: {resp}")
                         else:
-                            print("⚠️ 发布未返回成功响应")
+                            print("WARNING: Publish did not return a success response")
                 except Exception as e:
-                    print(f"⚠️ 发布过程异常: {e}")
+                    print(f"WARNING: Publish raised exception: {e}")
 
-                print(f"\n📦 论文资料包已生成: {paper_dir}")
+                print(f"\nINFO: Paper package generated: {paper_dir}")
             except Exception as e:
-                print(f"⚠️ 整合论文资料包失败: {e}")
+                print(f"WARNING: Failed to create paper package: {e}")
 
         
-        # 打印示例预测指令（为本次训练产生的所有模型逐一打印：单配体/多配体）
+        # Print example prediction commands (for all models produced in this run: single-ligand/multi-ligand)
         try:
             models_dir = run_dir / "models"
             model_paths = []
@@ -728,24 +727,24 @@ def train_command(args: List[str]):
                     [p for p in models_dir.glob("*.joblib")],
                     key=lambda p: p.stat().st_mtime
                 )
-            # 回退：查找 run_dir 下所有 joblib
+            # Fallback: search for all joblib files under run_dir
             if not model_paths:
                 model_paths = sorted(
                     [p for p in run_dir.glob("**/*.joblib")],
                     key=lambda p: p.stat().st_mtime
                 )
             if model_paths:
-                print("\n📌 示例预测指令（复制后可直接运行，按模型列出）：")
+                print("\nExample prediction commands (copy to run; listed by model):")
                 for mp in model_paths:
                     print(f"  # {mp.name}")
-                    # 检查文件名是否包含特殊字符，如果有则用引号包裹
+                    # Quote path if it contains special characters
                     model_param = f"model={mp}"
                     if any(char in str(mp) for char in ['(', ')', '[', ']', '{', '}', ' ', '*', '?']):
                         model_param = f'"model={mp}"'
                     
-                    # 单样本：使用数据集中真实示例的 L1/L2/L3
+                    # Single sample: use real example ligands L1/L2/L3
                     print(f"  python automl.py predict {model_param} input='[[\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"C1=CN=C(C2=CN(CCCCCCN3C4=CC=CC=C4C4=C3C=CC=C4)N=N2)C=C1\"]]' feature=combined")
-                    # 双样本：重复该三联体作为第二个样本
+                    # Two samples: repeat the triple as the second sample
                     print(f"  python automl.py predict {model_param} input='[[\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"C1=CN=C(C2=CN(CCCCCCN3C4=CC=CC=C4C4=C3C=CC=C4)N=N2)C=C1\"],[\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"C1=CN=C(C2=CN(CCCCCCN3C4=CC=CC=C4C4=C3C=CC=C4)N=N2)C=C1\"]]' feature=combined")
         except Exception:
             pass
@@ -753,9 +752,9 @@ def train_command(args: List[str]):
         return 0
         
     except KeyboardInterrupt:
-        print("\n⏹️ 检测到中断，保存已完成的部分并输出示例预测命令...")
+        print("\nINFO: Interrupted; saving completed parts and printing example commands...")
         try:
-            # 尝试保存运行信息与配置
+            # Try to save run info and configuration
             run_manager.save_run_info(
                 run_dir,
                 config.to_dict(),
@@ -766,7 +765,7 @@ def train_command(args: List[str]):
             config.to_yaml(str(config_save_path))
         except Exception:
             pass
-        # 尝试打印当前已有模型的预测命令
+        # Try to print example prediction commands for currently available models
         try:
             models_dir = run_dir / "models"
             model_paths = []
@@ -776,58 +775,58 @@ def train_command(args: List[str]):
                     key=lambda p: p.stat().st_mtime
                 )
             if model_paths:
-                print("\n📌 已完成模型的示例预测指令：")
+                print("\nINFO: Example prediction commands for completed models:")
                 for mp in model_paths:
                     print(f"  # {mp.name}")
                     print(f"  python automl.py predict model={mp} input='[[\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"[C-]1=C(C2=NC=CC3=CC=CC=C23)C=CC=C1\",\"C1=CN=C(C2=CN(CCCCCCN3C4=CC=CC=C4C4=C3C=CC=C4)N=N2)C=C1\"]]' feature=combined")
             else:
-                print("⚠️ 尚未产生模型文件。")
+                print("WARNING: No model files have been produced yet.")
         except Exception:
             pass
-        return 130  # 常见中断退出码
+        return 130  # Common interrupt exit code
 
     except Exception as e:
-        print(f"\n❌ 训练失败: {e}")
+        print(f"\nERROR: Training failed: {e}")
         import traceback
         traceback.print_exc()
         return 1
 
 
 # ========================================
-#           预测命令
+#           Prediction Command
 # ========================================
 
 def predict_command(args: List[str]):
-    """预测命令"""
+    """Prediction command"""
     print("\n" + "="*60)
     print("AutoML Prediction System")
     print("="*60)
     
-    # 解析参数
+    # Parse arguments
     params = {}
     for arg in args:
         if '=' in arg:
             key, value = arg.split('=', 1)
             params[key] = value
     
-    # 检查必要参数
+    # Check required params
     if 'model' not in params:
-        print("❌ 缺少模型参数: model=path/to/model.joblib")
+        print("ERROR: Missing model parameter: model=path/to/model.joblib")
         return 1
     
     if 'data' not in params and 'input' not in params:
-        print("❌ 需要提供数据: data=path/to/data.csv 或 input=[\"CCO\",\"c1ccccc1\"]")
+        print("ERROR: Provide data via data=path/to/data.csv or input=['CCO','c1ccccc1']")
         return 1
     
-    # 加载模型
-    print(f"\n📦 加载模型: {params['model']}")
+    # Load model
+    print(f"\nLoading model: {params['model']}")
     try:
         model = load_model(params['model'])
     except Exception as e:
-        print(f"❌ 模型加载失败: {e}")
+        print(f"ERROR: Model loading failed: {e}")
         return 1
     
-    # 推断训练配置（用于自动对齐特征类型与 SMILES 列）
+    # Infer training config (auto-align feature type and SMILES columns)
     training_feature_type = None
     training_smiles_columns = None
     training_morgan_bits = None
@@ -835,7 +834,7 @@ def predict_command(args: List[str]):
     training_descriptor_count = None
     try:
         model_path = Path(params['model']).resolve()
-        # 常见保存位置: runs/.../models/*.joblib → runs/.../config.yaml
+        # Common save location: runs/.../models/*.joblib -> runs/.../config.yaml
         run_dir = model_path.parent.parent if model_path.parent.name == 'models' else model_path.parent
         config_candidates = [run_dir / 'config.yaml', run_dir / 'experiment_config.yaml']
         for cfg in config_candidates:
@@ -854,41 +853,41 @@ def predict_command(args: List[str]):
     except Exception:
         pass
     
-    # 解析/决策特征类型
+    # Resolve feature type
     feature_param = params.get('feature')
     if feature_param is None or str(feature_param).lower() == 'auto':
         feature_type = (training_feature_type or 'combined').lower()
         if training_feature_type:
-            print(f"🔁 按训练配置自动设置特征类型: {feature_type}")
+            print(f"INFO: Auto-set feature type from training config: {feature_type}")
     else:
         feature_type = str(feature_param).lower()
     
-    # 解析/决策 SMILES 列
+    # Resolve SMILES columns
     smiles_param = params.get('smiles_columns')
     if smiles_param:
         resolved_smiles_cols = [c.strip() for c in smiles_param.split(',') if c.strip()]
-        print(f"📌 使用指定的 SMILES 列: {','.join(resolved_smiles_cols)}")
+        print(f"INFO: Using specified SMILES columns: {','.join(resolved_smiles_cols)}")
     else:
         resolved_smiles_cols = training_smiles_columns or ['L1', 'L2', 'L3']
         if training_smiles_columns:
-            print(f"🔁 按训练配置自动设置 SMILES 列: {','.join(resolved_smiles_cols)}")
+            print(f"INFO: Auto-set SMILES columns from training config: {','.join(resolved_smiles_cols)}")
     expected_ligand_count = len(resolved_smiles_cols)
     
-    # 解析输出列名
+    # Output column name
     output_column = params.get('output_column', 'Prediction')
     
-    # 解析批处理参数
+    # Batch parameters
     batch_size = int(params.get('batch_size', '1000'))
     show_progress = params.get('show_progress', 'true').lower() in ['true', '1', 'yes']
     skip_errors = params.get('skip_errors', 'true').lower() in ['true', '1', 'yes']
     
-    # 准备特征
-    print("\n🔧 准备特征...")
+    # Prepare features
+    print("\nPreparing features...")
     from core.feature_extractor import FeatureExtractor
     X = None
     df = None
     
-    # 允许通过命令指定 morgan_bits/morgan_radius（兼容别名 bits/radius）
+    # Allow specifying morgan_bits/morgan_radius (aliases bits/radius)
     morgan_bits = params.get('morgan_bits', params.get('bits'))
     morgan_radius = params.get('morgan_radius', params.get('radius'))
     try:
@@ -899,13 +898,13 @@ def predict_command(args: List[str]):
         morgan_radius = int(morgan_radius) if morgan_radius is not None else None
     except ValueError:
         morgan_radius = None
-    # 若未显式提供，则按训练配置自动设置
+    # If not provided, auto-set from training config
     if morgan_bits is None and training_morgan_bits is not None:
         morgan_bits = int(training_morgan_bits)
-        print(f"🔁 按训练配置自动设置 morgan_bits: {morgan_bits}")
+        print(f"INFO: Auto-set morgan_bits from training config: {morgan_bits}")
     if morgan_radius is None and training_morgan_radius is not None:
         morgan_radius = int(training_morgan_radius)
-        print(f"🔁 按训练配置自动设置 morgan_radius: {morgan_radius}")
+        print(f"INFO: Auto-set morgan_radius from training config: {morgan_radius}")
     feature_extractor = FeatureExtractor(use_cache=True, morgan_bits=morgan_bits, morgan_radius=morgan_radius, descriptor_count=training_descriptor_count)
     
     if 'input' in params:
@@ -917,33 +916,34 @@ def predict_command(args: List[str]):
             try:
                 user_input = json.loads(raw_input)
             except Exception:
-                # 退化处理：按逗号拆分字符串
+                # Fallback: split string by comma
                 user_input = [s.strip() for s in str(raw_input).split(',') if s.strip()]
         
-        print("📥 使用 inline input 进行预测")
+        print("INFO: Using inline input for prediction")
         if feature_type in ['morgan', 'descriptors', 'combined']:
-            # 规范化为每个样本一个 SMILES 列表
+            # Normalize to a SMILES list per sample
             samples = []
             if all(isinstance(x, str) for x in user_input):
                 samples = [[s] for s in user_input]
             elif all(isinstance(x, (list, tuple)) for x in user_input):
                 samples = [list(sample) for sample in user_input]
             else:
-                print("❌ input 格式不支持。对于分子特征，使用 ['SMI', ...] 或 [['L1','L2'], ...]")
+                print("ERROR: Unsupported input format. For molecular features, use ['SMI', ...] or [['L1','L2'], ...]")
                 return 1
             
-            # 按训练需要的配体数自动补齐/截断
+            # Auto pad/truncate ligand count based on training requirement
             if expected_ligand_count > 0:
                 adjusted = False
                 for i in range(len(samples)):
                     if len(samples[i]) < expected_ligand_count:
-                        samples[i] = samples[i] + [None] * (expected_ligand_count - len(samples[i]))
+                        samples[i] = samples[i] + [None] * (expected_ligand_count - len(samples[i])
+                        )
                         adjusted = True
                     elif len(samples[i]) > expected_ligand_count:
                         samples[i] = samples[i][:expected_ligand_count]
                         adjusted = True
                 if adjusted:
-                    print(f"ℹ️ 已按训练配置对齐配体数: 期望 {expected_ligand_count}，已自动补齐/截断")
+                    print(f"INFO: Ligand count aligned to training config: expected {expected_ligand_count}; auto padded/truncated")
 
             features = []
             for smiles_list in samples:
@@ -954,40 +954,41 @@ def predict_command(args: List[str]):
                 )
                 features.append(feat)
             X = np.array(features)
-            # 为了导出结果，保留一个最小 df
+            # Keep a minimal df for export
             df = pd.DataFrame({'L1_L2_L3': [','.join([s for s in sm if s is not None]) for sm in samples]})
         else:
-            # tabular/auto: 直接使用数值/数组
+            # tabular/auto: use numeric/array values directly
             arr = np.array(user_input, dtype=float)
             if arr.ndim == 1:
                 arr = arr.reshape(1, -1)
             X = arr
-            df = pd.DataFrame({'row': list(range(len(X)))})
+            df = pd.DataFrame({'row': list(range(len(X)))}
+            )
     else:
-        # 从 CSV 读取 - 使用批处理优化
-        print(f"📊 加载数据: {params['data']}")
+        # Read from CSV - use batch optimization
+        print(f"Loading data: {params['data']}")
         try:
             df = pd.read_csv(params['data'])
-            print(f"   数据形状: {df.shape}")
-            print(f"   列名: {', '.join(df.columns[:10])}{'...' if len(df.columns) > 10 else ''}")
+            print(f"   Shape: {df.shape}")
+            print(f"   Columns: {', '.join(df.columns[:10])}{'...' if len(df.columns) > 10 else ''}")
         except Exception as e:
-            print(f"❌ 数据加载失败: {e}")
+            print(f"ERROR: Data loading failed: {e}")
             return 1
         
-        # 检查SMILES列是否存在
+        # Check SMILES columns existence
         missing_cols = [col for col in resolved_smiles_cols if col not in df.columns]
         if missing_cols:
-            print(f"⚠️  警告: 缺少列 {missing_cols}, 将使用 None 值")
+            print(f"WARNING: Missing columns {missing_cols}; using None values")
         
         if feature_type in ['morgan', 'descriptors', 'combined']:
-            # 使用增强版批处理预测（带文件缓存）
-            print(f"\n🚀 使用批处理模式 (batch_size={batch_size})")
-            
-            # 检查是否使用文件缓存
+            # Enhanced batch prediction (with file cache)
+            print(f"\nINFO: Using batch mode (batch_size={batch_size})")
+        
+            # Check whether to use file cache
             use_file_cache = params.get('use_file_cache', 'true').lower() in ['true', '1', 'yes']
             file_cache_dir = params.get('file_cache_dir', 'file_feature_cache')
             
-            # 使用V2版本的批处理器
+            # Use V2 batch predictor
             from utils.batch_predictor_v2 import BatchPredictorV2
             
             predictor = BatchPredictorV2(
@@ -1005,71 +1006,71 @@ def predict_command(args: List[str]):
                 smiles_columns=resolved_smiles_cols,
                 feature_type=feature_type,
                 combination_method='mean',
-                input_file=params['data']  # 传递文件路径用于缓存
+                input_file=params['data']  # Pass file path for caching
             )
             
-            # 添加预测列到原始数据框
+            # Append prediction column to original dataframe
             df[output_column] = predictions
             
-            # 显示统计信息
+            # Show statistics
             stats = predictor.get_statistics(predictions)
-            print(f"\n📊 预测统计:")
-            print(f"   成功: {stats['count']} / {len(df)} ({stats['success_rate']:.1f}%)")
+            print(f"\nPrediction statistics:")
+            print(f"   Success: {stats['count']} / {len(df)} ({stats['success_rate']:.1f}%)")
             if stats['count'] > 0:
-                print(f"   最小值: {stats['min']:.4f}")
-                print(f"   最大值: {stats['max']:.4f}")
-                print(f"   平均值: {stats['mean']:.4f}")
-                print(f"   标准差: {stats['std']:.4f}")
+                print(f"   Min: {stats['min']:.4f}")
+                print(f"   Max: {stats['max']:.4f}")
+                print(f"   Mean: {stats['mean']:.4f}")
+                print(f"   Std: {stats['std']:.4f}")
             
-            # 保存错误日志
+            # Save error log
             if failed_indices and skip_errors:
                 error_file = params.get('output', 'predictions.csv').replace('.csv', '_errors.log')
                 predictor.save_error_log(error_file)
             
-            # 跳过后续的预测步骤，直接保存
+            # Skip subsequent prediction steps; save directly
             output_path = params.get('output', None)
             
-            # 如果没有指定输出文件，使用固定文件名并覆盖
+            # If output not specified, use default filename and overwrite
             if output_path is None:
                 output_path = 'predictions.csv'
             
             df.to_csv(output_path, index=False)
             
-            # 获取绝对路径
+            # Get absolute path
             from pathlib import Path
             abs_path = Path(output_path).absolute()
             
-            print(f"\n💾 预测结果已保存:")
-            print(f"   文件: {output_path}")
-            print(f"   完整路径: {abs_path}")
-            print(f"   保留了所有 {len(df.columns)} 列")
+            print(f"\nPrediction results saved:")
+            print(f"   File: {output_path}")
+            print(f"   Absolute path: {abs_path}")
+            print(f"   Preserved all {len(df.columns)} columns")
             
-            # 显示预览
-            print(f"\n📋 预测结果预览:")
+            # Show preview
+            print(f"\nPrediction preview:")
             preview_df = df.copy()
             
-            # 限制SMILES显示长度
+            # Limit SMILES display length
             for col in resolved_smiles_cols:
                 if col in preview_df.columns:
                     preview_df[col] = preview_df[col].apply(
                         lambda x: str(x)[:30] + '...' if isinstance(x, str) and len(str(x)) > 30 else x
                     )
             
-            # 显示前后几行
+            # Show head and tail
             print("-" * 80)
             if len(preview_df) <= 20:
                 print(preview_df.to_string(index=False))
             else:
-                print("前5行:")
+                print("Head (first 5):")
                 print(preview_df.head(5).to_string(index=False))
-                print("\n后5行:")
+                print("\nTail (last 5):")
                 print(preview_df.tail(5).to_string(index=False))
-                print(f"\n(共 {len(preview_df)} 行)")
+                print(f"\n(total {len(preview_df)} rows)")
             print("-" * 80)
             
             return 0
         else:
-            # tabular 或 auto 模式
+            # tabular or auto mode
             target_cols = []
             if 'target' in params:
                 target_cols = [t.strip() for t in str(params['target']).split(',') if t.strip()]
@@ -1080,59 +1081,59 @@ def predict_command(args: List[str]):
             )
     
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
-    print(f"   特征维度: {X.shape}")
+    print(f"   Feature shape: {X.shape}")
     
-    # 预测
-    print("\n🎯 执行预测...")
+    # Predict
+    print("\nRunning prediction...")
     try:
         predictions = model.predict(X)
-        print(f"   预测完成: {len(predictions)} 个样本")
+        print(f"   Predictions complete: {len(predictions)} samples")
     except Exception as e:
-        print(f"❌ 预测失败: {e}")
+        print(f"ERROR: Prediction failed: {e}")
         return 1
     
-    # 保存结果 - 保留所有原始列
+    # Save results - keep original columns
     output_path = params.get('output', None)
     
-    # 如果没有指定输出文件，使用固定文件名并覆盖
+    # If output not specified, use default filename and overwrite
     if output_path is None:
         output_path = 'predictions.csv'
     
     if df is None:
         df = pd.DataFrame()
     
-    # 使用用户指定的输出列名
+    # Use user-specified output column name
     df[output_column] = predictions
     df.to_csv(output_path, index=False)
     
-    # 获取绝对路径
+    # Get absolute path
     from pathlib import Path
     abs_path = Path(output_path).absolute()
     
-    print(f"\n💾 预测结果已保存:")
-    print(f"   文件: {output_path}")
-    print(f"   完整路径: {abs_path}")
-    print(f"   保留了所有 {len(df.columns)} 列")
+    print(f"\nPrediction results saved:")
+    print(f"   File: {output_path}")
+    print(f"   Absolute path: {abs_path}")
+    print(f"   Preserved all {len(df.columns)} columns")
     
-    # 显示统计
-    print(f"\n📊 预测统计:")
-    print(f"   最小值: {predictions.min():.4f}")
-    print(f"   最大值: {predictions.max():.4f}")
-    print(f"   平均值: {predictions.mean():.4f}")
-    print(f"   标准差: {predictions.std():.4f}")
+    # Show statistics
+    print(f"\nPrediction statistics:")
+    print(f"   Min: {predictions.min():.4f}")
+    print(f"   Max: {predictions.max():.4f}")
+    print(f"   Mean: {predictions.mean():.4f}")
+    print(f"   Std: {predictions.std():.4f}")
     
-    # 显示预测结果表格
-    print(f"\n📋 预测结果预览:")
-    # 如果有原始数据的标识信息，一起显示
+    # Show predictions preview
+    print(f"\nPrediction preview:")
+    # If original data identifiers exist, display them as well
     preview_df = df.copy() if df is not None else pd.DataFrame()
     
-    # 选择要显示的列（如果存在）
+    # Select columns to display if present
     display_cols = []
     for col in ['Unnamed: 0', 'Abbreviation_in_the_article', 'L1', 'L2', 'L3']:
         if col in preview_df.columns:
             display_cols.append(col)
     
-    # 限制SMILES显示长度
+    # Limit SMILES display length
     if display_cols:
         preview_df = preview_df[display_cols].copy()
         for col in ['L1', 'L2', 'L3']:
@@ -1142,101 +1143,101 @@ def predict_command(args: List[str]):
     preview_df['Prediction'] = predictions
     preview_df['Prediction'] = preview_df['Prediction'].round(4)
     
-    # 打印表格
+    # Print table
     print("-" * 80)
     if len(preview_df) <= 20:
         print(preview_df.to_string(index=False))
     else:
-        print("前10行:")
+        print("Head (first 10):")
         print(preview_df.head(10).to_string(index=False))
-        print("\n后10行:")
+        print("\nTail (last 10):")
         print(preview_df.tail(10).to_string(index=False))
-        print(f"\n(共 {len(preview_df)} 行)")
+        print(f"\n(total {len(preview_df)} rows)")
     print("-" * 80)
     
     return 0
 
 
 # ========================================
-#           验证命令
+#           Validate Command
 # ========================================
 
 def validate_command(args: List[str]):
-    """验证命令 - 支持验证配置文件或数据文件"""
+    """Validate command - validate config files or data files"""
     print("\n" + "="*60)
     print("AutoML Validator")
     print("="*60)
     
-    # 解析参数
+    # Parse arguments
     params = {}
     for arg in args:
         if '=' in arg:
             key, value = arg.split('=', 1)
             params[key] = value
     
-    # 检查是验证数据还是配置
+    # Determine whether to validate data or config
     data_path = params.get('data')
     config_path = params.get('config')
     
     if data_path:
-        # 验证数据文件
-        print(f"\n📊 验证数据文件: {data_path}")
+        # Validate data file
+        print(f"\nValidating data file: {data_path}")
         
-        # 检查文件是否存在
+        # Check file exists
         if not Path(data_path).exists():
-            print(f"❌ 数据文件不存在: {data_path}")
+            print(f"ERROR: Data file not found: {data_path}")
             return 1
         
         try:
-            # 加载数据
+            # Load data
             import pandas as pd
             df = pd.read_csv(data_path)
-            print(f"✅ 数据加载成功")
+            print(f"INFO: Data loaded successfully")
             
-            # 显示数据信息
-            print("\n数据信息:")
+            # Show data info
+            print("\nData info:")
             print("-" * 40)
-            print(f"行数: {len(df)}")
-            print(f"列数: {len(df.columns)}")
-            print(f"列名: {', '.join(df.columns[:10])}")
+            print(f"Rows: {len(df)}")
+            print(f"Columns: {len(df.columns)}")
+            print(f"Column names: {', '.join(df.columns[:10])}")
             if len(df.columns) > 10:
-                print(f"      ... 还有 {len(df.columns)-10} 列")
+                print(f"      ... plus {len(df.columns)-10} more columns")
             
-            # 检查必要的列
+            # Check required columns
             smiles_cols = ['L1', 'L2', 'L3']
             target_cols = ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)']
             
-            print("\n🔍 检查必要列...")
+            print("\nChecking required columns...")
             
-            # 检查SMILES列
+            # Check SMILES columns
             has_smiles = any(col in df.columns for col in smiles_cols)
             if has_smiles:
                 found_smiles = [col for col in smiles_cols if col in df.columns]
-                print(f"✅ SMILES列: {', '.join(found_smiles)}")
+                print(f"INFO: SMILES columns: {', '.join(found_smiles)}")
             else:
-                print(f"⚠️  未找到SMILES列 (期望: {', '.join(smiles_cols)})")
+                print(f"WARNING: No SMILES columns found (expected: {', '.join(smiles_cols)})")
             
-            # 检查目标列
+            # Check target columns
             has_targets = any(col in df.columns for col in target_cols)
             if has_targets:
                 found_targets = [col for col in target_cols if col in df.columns]
-                print(f"✅ 目标列: {', '.join(found_targets)}")
+                print(f"INFO: Target columns: {', '.join(found_targets)}")
             else:
-                print(f"⚠️  未找到目标列 (期望: {', '.join(target_cols)})")
+                print(f"WARNING: No target columns found (expected: {', '.join(target_cols)})")
             
-            # 检查数据质量
-            print("\n📈 数据质量检查:")
-            print(f"缺失值总数: {df.isnull().sum().sum()}")
-            print(f"重复行数: {df.duplicated().sum()}")
+            # Check data quality
+            print("\nData quality check:")
+            print(f"Missing values total: {df.isnull().sum().sum()}")
+            print(f"Duplicate rows: {df.duplicated().sum()}")
             
-            # 如果有SMILES列，检查SMILES有效性
+            # If SMILES columns exist, validate SMILES format
             if has_smiles:
                 try:
                     from rdkit import Chem
                     invalid_count = 0
                     for col in found_smiles:
                         if col in df.columns:
-                            # 取样检查（最多100个）
+                            # Sample up to 100 rows
                             sample = df[col].dropna().head(100)
                             for smiles in sample:
                                 if pd.notna(smiles) and smiles != '':
@@ -1244,25 +1245,25 @@ def validate_command(args: List[str]):
                                     if mol is None:
                                         invalid_count += 1
                     if invalid_count > 0:
-                        print(f"⚠️  发现 {invalid_count} 个无效SMILES")
+                        print(f"WARNING: Found {invalid_count} invalid SMILES")
                     else:
-                        print(f"✅ SMILES格式检查通过")
+                        print(f"INFO: SMILES format check passed")
                 except ImportError:
-                    print("ℹ️  RDKit未安装，跳过SMILES验证")
+                    print("INFO: RDKit not installed; skipping SMILES validation")
             
-            print("\n✅ 数据验证完成!")
+            print("\nData validation completed!")
             return 0
             
         except Exception as e:
-            print(f"❌ 数据验证失败: {e}")
+            print(f"ERROR: Data validation failed: {e}")
             return 1
     
     elif config_path:
-        # 验证配置文件
-        print(f"\n📋 验证配置文件: {config_path}")
+        # Validate configuration file
+        print(f"\nValidating configuration file: {config_path}")
         
         if not Path(config_path).exists():
-            print(f"❌ 配置文件不存在: {config_path}")
+            print(f"ERROR: Config file not found: {config_path}")
             return 1
         
         try:
@@ -1271,54 +1272,54 @@ def validate_command(args: List[str]):
             else:
                 config = ExperimentConfig.from_json(config_path)
             
-            # 显示配置
-            print("\n配置内容:")
+            # Show configuration
+            print("\nConfig content:")
             print("-" * 40)
-            print(f"名称: {config.name}")
-            print(f"描述: {config.description}")
-            print(f"模型: {config.model.model_type}")
-            print(f"特征: {config.feature.feature_type}")
-            print(f"数据: {config.data.data_path}")
-            print(f"目标: {config.data.target_columns}")
-            print(f"交叉验证: {config.training.n_folds}折")
+            print(f"Name: {config.name}")
+            print(f"Description: {config.description}")
+            print(f"Model: {config.model.model_type}")
+            print(f"Feature: {config.feature.feature_type}")
+            print(f"Data: {config.data.data_path}")
+            print(f"Targets: {config.data.target_columns}")
+            print(f"Cross validation: {config.training.n_folds}-fold")
             
-            # 验证配置
-            print("\n🔍 验证配置...")
+            # Validate configuration
+            print("\nValidating configuration...")
             if ConfigValidator.validate_all(config):
-                print("✅ 配置验证通过!")
+                print("INFO: Configuration validation passed!")
                 return 0
             else:
-                print("❌ 配置验证失败!")
+                print("ERROR: Configuration validation failed!")
                 return 1
                 
         except Exception as e:
-            print(f"❌ 配置加载失败: {e}")
+            print(f"ERROR: Failed to load configuration: {e}")
             return 1
     
     else:
-        # 默认查找配置文件
+        # Default: look for config files
         if Path('config.yaml').exists():
             return validate_command(['config=config.yaml'])
         elif Path('config.json').exists():
             return validate_command(['config=config.json'])
         else:
-            print("❌ 请指定要验证的文件:")
-            print("   验证数据: automl validate data=<数据文件>")
-            print("   验证配置: automl validate config=<配置文件>")
+            print("ERROR: Please specify a file to validate:")
+            print("   Validate data: automl validate data=<data_file>")
+            print("   Validate config: automl validate config=<config_file>")
             return 1
 
 
 # ========================================
-#           导出命令
+#           Export Command
 # ========================================
 
 def export_command(args: List[str]):
-    """导出命令"""
+    """Export command"""
     print("\n" + "="*60)
     print("AutoML Model Export System")
     print("="*60)
     
-    # 解析参数
+    # Parse arguments
     params = {}
     for arg in args:
         if '=' in arg:
@@ -1330,26 +1331,26 @@ def export_command(args: List[str]):
     output_path = params.get('output', 'exported_model')
     
     if not model_path:
-        print("❌ 缺少模型参数: model=path/to/model.joblib")
+        print("ERROR: Missing model parameter: model=path/to/model.joblib")
         return 1
     
-    # 加载模型
-    print(f"\n📦 加载模型: {model_path}")
+    # Load model
+    print(f"\nLoading model: {model_path}")
     try:
         model = load_model(model_path)
     except Exception as e:
-        print(f"❌ 模型加载失败: {e}")
+        print(f"ERROR: Model loading failed: {e}")
         return 1
     
-    # 导出模型
-    print(f"📤 导出为 {format_type} 格式...")
+    # Export model
+    print(f"Exporting as {format_type} format...")
     
     if format_type == 'onnx':
         try:
             import skl2onnx
             from skl2onnx import convert_sklearn
             
-            # 需要输入形状信息
+            # Input shape information is required
             n_features = int(params.get('n_features', 1109))
             initial_type = [('float_input', skl2onnx.common.data_types.FloatTensorType([None, n_features]))]
             
@@ -1358,78 +1359,78 @@ def export_command(args: List[str]):
             with open(f"{output_path}.onnx", "wb") as f:
                 f.write(onx.SerializeToString())
             
-            print(f"✅ 模型已导出: {output_path}.onnx")
+            print(f"INFO: Model exported: {output_path}.onnx")
             
         except ImportError:
-            print("❌ 需要安装 skl2onnx: pip install skl2onnx")
+            print("ERROR: skl2onnx is required: pip install skl2onnx")
             return 1
         except Exception as e:
-            print(f"❌ 导出失败: {e}")
+            print(f"ERROR: Export failed: {e}")
             return 1
     
     elif format_type == 'pmml':
-        print("❌ PMML导出暂未实现")
+        print("ERROR: PMML export not implemented")
         return 1
     
     elif format_type == 'pickle':
         import pickle
         with open(f"{output_path}.pkl", 'wb') as f:
             pickle.dump(model, f)
-        print(f"✅ 模型已导出: {output_path}.pkl")
+        print(f"INFO: Model exported: {output_path}.pkl")
     
     else:
-        print(f"❌ 不支持的格式: {format_type}")
+        print(f"ERROR: Unsupported format: {format_type}")
         return 1
     
     return 0
 
 
 # ========================================
-#           分析命令
+#           Analysis Command
 # ========================================
 
 def analyze_command(args: List[str]):
-    """分析实验结果"""
+    """Analyze experiment results"""
     print("\n" + "="*60)
     print("AutoML Results Analysis")
     print("="*60)
     
-    # 解析参数
+    # Parse arguments
     params = {}
     for arg in args:
         if '=' in arg:
             key, value = arg.split('=', 1)
             params[key] = value
     
-    # 获取运行目录
+    # Get run directory
     run_dir = params.get('run_dir', params.get('dir', 'runs/train'))
     output_format = params.get('format', 'text')
     output_path = params.get('output')
     print_results = params.get('print', 'true').lower() == 'true'
     
-    # 转换为Path对象
+    # Convert to Path
     run_dir = Path(run_dir)
     
-    # 如果使用 'last' 关键字，查找最新的运行
+    # If using 'last', find most recent run
     if str(run_dir) == 'last':
-        # 查找最新的运行目录
+        # Find latest run directory
         if Path('runs/train').exists():
             run_dirs = sorted([d for d in Path('runs/train').iterdir() if d.is_dir() and d.name != 'last'])
             if run_dirs:
                 run_dir = run_dirs[-1]
             else:
-                print("❌ 没有找到训练运行记录")
+                print("ERROR: No training runs found")
                 return 1
         else:
-            print("❌ 没有找到训练运行记录")
+            print("ERROR: No training runs found")
             return 1
     
-    # 检查目录是否存在
+    # Check directory exists
     if not run_dir.exists():
-        print(f"❌ 运行目录不存在: {run_dir}")
-        print("\n可用的运行目录:")
+        print(f"ERROR: Run directory not found: {run_dir}")
+        print("\nAvailable run directories:")
         
-        # 列出可用的运行目录
+        # List available run directories
         for base_dir in ['runs', '.']:
             base_path = Path(base_dir)
             if base_path.exists():
@@ -1438,126 +1439,126 @@ def analyze_command(args: List[str]):
                         sub_dirs = [d for d in task_dir.iterdir() if d.is_dir() and d.name != 'last']
                         if sub_dirs:
                             print(f"  {task_dir}:")
-                            for d in sorted(sub_dirs)[-5:]:  # 显示最近5个
+                            for d in sorted(sub_dirs)[-5:]:  # show latest 5
                                 print(f"    - {d}")
         return 1
     
-    print(f"\n📂 分析目录: {run_dir}")
+    print(f"\nAnalyzing directory: {run_dir}")
     
-    # 创建分析器
+    # Create analyzer
     try:
         analyzer = ResultsAnalyzer(run_dir)
     except Exception as e:
-        print(f"❌ 创建分析器失败: {e}")
+        print(f"ERROR: Failed to create analyzer: {e}")
         return 1
     
-    # 生成报告
-    print(f"📊 生成{output_format.upper()}格式报告...")
+    # Generate report
+    print(f"Generating {output_format.upper()} report...")
     
     try:
-        # 保存报告
+        # Save report
         if output_path:
             output_path = Path(output_path)
         analyzer.save_report(output_path=output_path, output_format=output_format)
         
-        # 打印到控制台
+        # Print to console
         if print_results:
             print("\n" + "="*60)
             print(analyzer.generate_report('text'))
             print("="*60)
         
-        print("\n✅ 分析完成!")
+        print("\nAnalysis completed!")
         return 0
         
     except Exception as e:
-        print(f"❌ 分析失败: {e}")
+        print(f"ERROR: Analysis failed: {e}")
         import traceback
         traceback.print_exc()
         return 1
 
 
 # ========================================
-#           信息命令
+#           Info Command
 # ========================================
 
 def info_command(args: List[str]):
-    """显示系统信息"""
+    """Show system information"""
     print("\n" + "="*60)
     print("AutoML System Information")
     print("="*60)
     
-    # 系统信息
-    print("\n📊 系统信息:")
-    print(f"   Python版本: {sys.version.split()[0]}")
-    print(f"   平台: {sys.platform}")
+    # System information
+    print("\nSystem info:")
+    print(f"   Python version: {sys.version.split()[0]}")
+    print(f"   Platform: {sys.platform}")
     
-    # 可用模型
+    # Available models
     from models import ModelFactory
-    print("\n🤖 可用模型:")
+    print("\nAvailable models:")
     for model in ModelFactory.get_supported_models():
         print(f"   - {model}")
     
-    # 可用模板
+    # Available templates
     manager = ConfigManager()
-    print("\n📋 配置模板:")
+    print("\nConfig templates:")
     for template in manager.list_templates():
         desc = manager.templates[template].description
         print(f"   - {template}: {desc}")
     
-    # 特征类型
-    print("\n🔧 特征类型:")
-    print("   - morgan: Morgan指纹")
-    print("   - descriptors: 分子描述符")
-    print("   - combined: 组合特征")
+    # Feature types
+    print("\nFeature types:")
+    print("   - morgan: Morgan fingerprint")
+    print("   - descriptors: molecular descriptors")
+    print("   - combined: combined features")
     
-    # 使用示例
-    print("\n💡 使用示例:")
-    print("   训练: automl train model=xgboost data=data.csv config=config.yaml")
-    print("   分析: automl analyze dir=quick_test format=html")
-    print("   预测: automl predict model=model.joblib data=test.csv")
-    print("   验证: automl validate config=config.yaml")
-    print("   导出: automl export model=model.joblib format=onnx")
+    # Usage examples
+    print("\nUsage examples:")
+    print("   train: automl train model=xgboost data=data.csv config=config.yaml")
+    print("   analyze: automl analyze dir=quick_test format=html")
+    print("   predict: automl predict model=model.joblib data=test.csv")
+    print("   validate: automl validate config=config.yaml")
+    print("   export: automl export model=model.joblib format=onnx")
     
     return 0
 
 
 # ========================================
-#           NUMA和并行支持
+#           NUMA and Parallel Support
 # ========================================
 
 def setup_cpu_affinity(task_id: int, cores_per_task: int, bind_cpu: bool = False):
     """
-    设置CPU亲和性和NUMA绑定
+    Set CPU affinity and optional NUMA binding
     
     Args:
-        task_id: 任务ID
-        cores_per_task: 每个任务使用的核心数
-        bind_cpu: 是否绑定CPU
+        task_id: Task ID
+        cores_per_task: Number of cores per task
+        bind_cpu: Whether to bind CPU
     """
     if not bind_cpu:
         return
     
     try:
-        # 获取系统CPU信息
+        # Get system CPU info
         cpu_count = psutil.cpu_count(logical=True)
         
-        # 计算核心范围
+        # Compute core range
         core_start = (task_id * cores_per_task) % cpu_count
         core_end = min(core_start + cores_per_task, cpu_count)
         cores = list(range(core_start, core_end))
         
-        # 设置CPU亲和性
+        # Set CPU affinity
         p = psutil.Process()
         p.cpu_affinity(cores)
         
-        print(f"   ✅ CPU亲和性设置: 任务{task_id} -> 核心{cores}")
+        print(f"   INFO: CPU affinity set: task {task_id} -> cores {cores}")
         
     except Exception as e:
-        print(f"   ⚠️ 无法设置CPU亲和性: {e}")
+        print(f"   WARNING: Failed to set CPU affinity: {e}")
 
 
 def get_numa_info():
-    """获取NUMA信息"""
+    """Get NUMA information"""
     try:
         import subprocess
         result = subprocess.run(['numactl', '--hardware'], 
@@ -1574,26 +1575,26 @@ def get_numa_info():
 
 
 # ========================================
-#           预热缓存命令
+#           Warmup Cache Command
 # ========================================
 
 def warmup_command(args: List[str]):
-    """预计算并写入特征缓存（支持分子/表格），避免训练阶段并发提取开销"""
+    """Precompute and write feature cache (molecular/tabular) to reduce training-time overhead"""
     print("\n" + "="*60)
     print("AutoML Cache Warmup")
     print("="*60)
 
-    # 解析参数（key=value）
+    # Parse key=value arguments
     params = {}
     for arg in args:
         if '=' in arg:
             k, v = arg.split('=', 1)
             params[k] = v
 
-    # 必要参数
+    # Required params
     data_path = params.get('data')
     if not data_path:
-        print("❌ 缺少参数: data=path/to.csv")
+        print("ERROR: Missing parameter: data=path/to.csv")
         return 1
 
     feature_type = str(params.get('feature', 'auto')).lower()
@@ -1609,23 +1610,23 @@ def warmup_command(args: List[str]):
         morgan_bits = None
         morgan_radius = None
 
-    # 并发参数（预热阶段本命令内部串行写缓存，避免竞争；可加 n_jobs 做行内并行）
+    # Concurrency params (warmup runs serially to avoid contention; n_jobs for intra-row parallel)
     n_jobs = int(params.get('n_jobs', 0))
 
-    # 加载数据
+    # Load data
     import pandas as pd
     import numpy as np
     from core.feature_extractor import FeatureExtractor
 
-    print(f"\n📊 加载数据: {data_path}")
+    print(f"\nLoading data: {data_path}")
     try:
         df = pd.read_csv(data_path)
     except Exception as e:
-        print(f"❌ 数据加载失败: {e}")
+        print(f"ERROR: Data loading failed: {e}")
         return 1
-    print(f"   形状: {df.shape}")
+    print(f"   Shape: {df.shape}")
 
-    # 构建提取器
+    # Build feature extractor
     extractor = FeatureExtractor(
         feature_type=feature_type,
         use_cache=True,
@@ -1633,22 +1634,22 @@ def warmup_command(args: List[str]):
         morgan_radius=morgan_radius
     )
 
-    # 自动识别 smiles 列
+    # Auto-detect SMILES columns
     if feature_type in ['morgan', 'descriptors', 'combined', 'auto']:
         if not smiles_columns:
-            # 若 auto/molecular，尝试从 DF 猜测
+            # For auto/molecular, guess from DF
             guessed = [col for col in df.columns if any(ind in col.lower() for ind in ['smiles','l1','l2','l3'])]
             smiles_columns = guessed or ['L1','L2','L3']
 
-    print(f"   特征类型: {feature_type}")
+    print(f"   Feature type: {feature_type}")
     if smiles_columns:
-        print(f"   SMILES列: {','.join(smiles_columns)}")
+        print(f"   SMILES columns: {','.join(smiles_columns)}")
     if morgan_bits:
         print(f"   morgan_bits: {morgan_bits}")
     if morgan_radius:
         print(f"   morgan_radius: {morgan_radius}")
 
-    # 预热：逐行提取（必要时可加入 tqdm）
+    # Warmup: row-wise extraction
     from tqdm import tqdm
     total = len(df)
     errors = 0
@@ -1656,8 +1657,8 @@ def warmup_command(args: List[str]):
     if feature_type in ['morgan', 'descriptors', 'combined'] or (
         feature_type == 'auto' and extractor.detect_data_type(df) == 'molecular'
     ):
-        # 分子路径
-        for _, row in tqdm(df.iterrows(), total=total, desc='预热分子特征缓存'):
+        # Molecular path
+        for _, row in tqdm(df.iterrows(), total=total, desc='Warm up molecular feature cache'):
             smiles_list = [row[col] if col in row and pd.notna(row[col]) else None for col in smiles_columns]
             try:
                 _ = extractor.extract_combination(smiles_list, feature_type=feature_type if feature_type!='auto' else 'combined')
@@ -1665,38 +1666,38 @@ def warmup_command(args: List[str]):
                 errors += 1
                 continue
     else:
-        # 表格路径：一次性写入（内部会缓存列级特征名，不逐行）
+        # Tabular path: single-shot write (caches column-level feature names)
         try:
             _ = extractor.extract_from_dataframe(df, target_columns=[] if 'target' not in params else [params['target']])
         except Exception:
             errors += 1
 
-    print(f"\n✅ 预热完成: {total - errors}/{total} 条记录已写入/命中缓存")
+    print(f"\nWarmup completed: {total - errors}/{total} records cached/hit")
     return 0
 
 def train_single_model_parallel(args):
     """
-    并行训练单个模型的工作函数
+    Worker function to train a single model in parallel
     
     Args:
         args: (config, model_type, task_id, numa_enabled, cores_per_task, bind_cpu)
     """
     config, model_type, task_id, numa_enabled, cores_per_task, bind_cpu = args
     
-    # 设置CPU亲和性
+    # Set CPU affinity
     if numa_enabled and cores_per_task:
         setup_cpu_affinity(task_id, cores_per_task, bind_cpu)
     
-    # 重建配置对象（从字典或配置对象）
+    # Rebuild config object (from dict or config object)
     from config.system import ExperimentConfig
     if isinstance(config, dict):
         config = ExperimentConfig.from_dict(config)
     else:
-        config = ExperimentConfig.from_dict(config.to_dict())  # 深拷贝
+        config = ExperimentConfig.from_dict(config.to_dict())  # deep copy
     
     config.model.model_type = model_type
     
-    # 重要：重置超参数为模型特定的默认值，避免使用其他模型的参数
+    # Reset hyperparameters to model-specific defaults to avoid cross-contamination
     from models.base import MODEL_PARAMS
     if model_type in MODEL_PARAMS:
         config.model.hyperparameters = MODEL_PARAMS[model_type].copy()
@@ -1705,11 +1706,11 @@ def train_single_model_parallel(args):
     
     config.logging.project_name = f"{config.logging.project_name}_{model_type}"
     
-    # 设置n_jobs
+    # Set n_jobs
     if cores_per_task and 'n_jobs' in config.model.hyperparameters:
         config.model.hyperparameters['n_jobs'] = cores_per_task
     
-    # 执行训练
+    # Run training
     try:
         from training.pipeline import TrainingPipeline
         pipeline = TrainingPipeline(config)
@@ -1722,87 +1723,87 @@ def train_single_model_parallel(args):
 def parallel_train_models(config, run_dir, numa_enabled=False, 
                          cores_per_task=None, parallel_tasks=8, bind_cpu=False):
     """
-    并行训练多个模型
+    Train multiple models in parallel
     
     Args:
-        config: 实验配置
-        run_dir: 运行目录
-        numa_enabled: 是否启用NUMA优化
-        cores_per_task: 每个任务的核心数
-        parallel_tasks: 并行任务数
-        bind_cpu: 是否绑定CPU
+        config: Experiment configuration
+        run_dir: Run directory
+        numa_enabled: Whether to enable NUMA optimization
+        cores_per_task: Number of cores per task
+        parallel_tasks: Number of parallel tasks
+        bind_cpu: Whether to bind CPU
     """
     models = config.models_to_train if hasattr(config, 'models_to_train') else []
     
-    # 准备任务参数（序列化配置为字典）
+    # Prepare task parameters (serialize config to dict)
     tasks = []
-    config_dict = config.to_dict()  # 转换为字典以便序列化
+    config_dict = config.to_dict()  # convert to dict for serialization
     for i, model in enumerate(models):
         task_args = (config_dict, model, i, numa_enabled, cores_per_task, bind_cpu)
         tasks.append(task_args)
     
-    # 显示NUMA信息
+    # Show NUMA info
     if numa_enabled:
         numa_nodes = get_numa_info()
-        print(f"   NUMA节点数: {numa_nodes}")
-        print(f"   CPU总核心数: {psutil.cpu_count(logical=True)}")
+        print(f"   NUMA nodes: {numa_nodes}")
+        print(f"   CPU total cores: {psutil.cpu_count(logical=True)}")
     
-    # 并行执行
+    # Execute in parallel
     results = []
     with ProcessPoolExecutor(max_workers=parallel_tasks) as executor:
-        # 提交所有任务
+        # Submit all tasks
         future_to_model = {
             executor.submit(train_single_model_parallel, task): task[1]
             for task in tasks
         }
         
-        # 收集结果
+        # Collect results
         for future in as_completed(future_to_model):
             model = future_to_model[future]
             try:
                 result = future.result()
                 results.append(result)
                 if result['success']:
-                    print(f"   ✅ {model} 训练完成")
+                    print(f"   SUCCESS: {model} training completed")
                 else:
-                    print(f"   ❌ {model} 训练失败: {result.get('error', 'Unknown')}")
+                    print(f"   ERROR: {model} training failed: {result.get('error', 'Unknown')}")
             except Exception as e:
-                print(f"   ❌ {model} 执行异常: {e}")
+                print(f"   ERROR: {model} execution exception: {e}")
                 results.append({'model': model, 'success': False, 'error': str(e)})
     
-    # 汇总结果
+    # Summarize results
     successful = [r for r in results if r['success']]
     failed = [r for r in results if not r['success']]
     
-    print(f"\n📊 并行训练结果:")
-    print(f"   成功: {len(successful)}/{len(models)}")
+    print(f"\nParallel training results:")
+    print(f"   Success: {len(successful)}/{len(models)}")
     if failed:
-        print(f"   失败: {', '.join([r['model'] for r in failed])}")
+        print(f"   Failed: {', '.join([r['model'] for r in failed])}")
     
     return results
 
 
 # ========================================
-#           主入口
+#           Main Entry
 # ========================================
 
 def config_command(args: List[str]):
-    """配置管理命令"""
+    """Configuration management command"""
     print("\n" + "="*60)
     print("AutoML Configuration Manager")
     print("="*60)
     
-    # 解析子命令
+    # Parse subcommands
     if not args or args[0] == 'list':
-        # 列出所有可用配置
+        # List all available configs
         manager = DynamicConfigManager()
         manager.print_config_summary()
         return 0
     
     elif args[0] == 'show':
-        # 显示特定配置详情
+        # Show specific config details
         if len(args) < 2:
-            print("❌ 请指定配置名称: config show <name>")
+            print("ERROR: Please specify config name: config show <name>")
             return 1
         
         config_name = args[1]
@@ -1810,127 +1811,127 @@ def config_command(args: List[str]):
         config = manager.get_config(config_name)
         
         if not config:
-            print(f"❌ 配置不存在: {config_name}")
+            print(f"ERROR: Config not found: {config_name}")
             return 1
         
-        print(f"\n📋 配置: {config_name}")
+        print(f"\nConfig: {config_name}")
         print("-" * 40)
-        print(f"描述: {config.description}")
-        print(f"模型: {config.model.model_type}")
-        print(f"特征: {config.feature.feature_type}")
-        print(f"折数: {config.training.n_folds}")
-        print(f"优化: {'启用' if config.optimization.enable else '禁用'}")
+        print(f"Description: {config.description}")
+        print(f"Model: {config.model.model_type}")
+        print(f"Feature: {config.feature.feature_type}")
+        print(f"Folds: {config.training.n_folds}")
+        print(f"Optimization: {'enabled' if config.optimization.enable else 'disabled'}")
         
         if config.model.hyperparameters:
-            print("\n超参数:")
+            print("\nHyperparameters:")
             for k, v in config.model.hyperparameters.items():
                 print(f"  {k}: {v}")
         
         return 0
     
     else:
-        print(f"❌ 未知子命令: {args[0]}")
-        print("可用子命令: list, show")
+        print(f"ERROR: Unknown subcommand: {args[0]}")
+        print("Available subcommands: list, show")
         return 1
 
 
 def cache_command(args: List[str]):
-    """缓存管理命令"""
+    """Cache management command"""
     print("\n" + "="*60)
     print("Cache Management System")
     print("="*60)
     
-    # 导入缓存管理器
+    # Import cache manager
     from utils.file_feature_cache import FileFeatureCache
     
-    # 解析子命令
+    # Parse subcommand
     if not args or args[0] == 'stats':
-        # 显示缓存统计
+        # Show cache statistics
         cache = FileFeatureCache()
         stats = cache.get_cache_stats()
         
-        print("\n📊 缓存统计:")
-        print(f"   缓存目录: {stats['cache_dir']}")
-        print(f"   缓存文件数: {stats['total_files']}")
-        print(f"   总大小: {stats['total_size_mb']:.2f} MB")
-        print(f"   总访问次数: {stats['total_accesses']}")
+        print("\nCache statistics:")
+        print(f"   Cache dir: {stats['cache_dir']}")
+        print(f"   Cache files: {stats['total_files']}")
+        print(f"   Total size: {stats['total_size_mb']:.2f} MB")
+        print(f"   Total accesses: {stats['total_accesses']}")
         
         if stats['most_accessed']:
-            print("\n🔥 最常访问:")
+            print("\nMost accessed:")
             for item in stats['most_accessed']:
-                print(f"   - {item['file']}: {item['accesses']} 次 ({item['feature_type']})")
+                print(f"   - {item['file']}: {item['accesses']} times ({item['feature_type']})")
         
         if stats['largest_files']:
-            print("\n💾 最大文件:")
+            print("\nLargest files:")
             for item in stats['largest_files']:
                 print(f"   - {item['file']}: {item['size_mb']:.2f} MB ({item['feature_type']})")
         
         return 0
     
     elif args[0] == 'clear':
-        # 清理缓存
+        # Clear cache
         cache = FileFeatureCache()
         
-        # 检查是否有参数
+        # Check for parameter
         if len(args) > 1 and args[1].isdigit():
             days = int(args[1])
-            print(f"\n🗑️  清理 {days} 天前的缓存...")
+            print(f"\nClearing cache older than {days} days...")
             count, size = cache.clear_cache(older_than_days=days)
         else:
-            print("\n🗑️  清理所有缓存...")
-            confirm = input("确认清理所有缓存? (y/n): ")
+            print("\nClearing ALL cache...")
+            confirm = input("Confirm clearing all cache? (y/n): ")
             if confirm.lower() != 'y':
-                print("取消清理")
+                print("Cancelled clearing")
                 return 0
             count, size = cache.clear_cache()
         
-        print(f"✅ 已清理 {count} 个文件 ({size / 1024 / 1024:.2f} MB)")
+        print(f"INFO: Cleared {count} files ({size / 1024 / 1024:.2f} MB)")
         return 0
     
     elif args[0] == 'verify':
-        # 验证缓存完整性
+        # Verify cache integrity
         cache = FileFeatureCache()
-        print("\n🔍 验证缓存完整性...")
+        print("\nVerifying cache integrity...")
         valid, invalid = cache.verify_cache()
-        print(f"   有效: {valid} 个文件")
-        print(f"   无效: {invalid} 个文件")
+        print(f"   Valid: {valid} files")
+        print(f"   Invalid: {invalid} files")
         if invalid > 0:
-            print(f"   已自动清理无效缓存")
+            print(f"   Automatically cleaned invalid cache")
         return 0
     
     else:
-        print(f"❌ 未知子命令: {args[0]}")
-        print("\n可用子命令:")
-        print("  stats  - 显示缓存统计")
-        print("  clear  - 清理缓存")
-        print("  verify - 验证缓存完整性")
-        print("\n示例:")
+        print(f"ERROR: Unknown subcommand: {args[0]}")
+        print("\nAvailable subcommands:")
+        print("  stats  - show cache statistics")
+        print("  clear  - clear cache")
+        print("  verify - verify cache integrity")
+        print("\nExamples:")
         print("  automl cache stats")
         print("  automl cache clear")
-        print("  automl cache clear 30  # 清理30天前的缓存")
+        print("  automl cache clear 30  # clear cache older than 30 days")
         print("  automl cache verify")
         return 1
 
 
 def project_command(args: List[str]):
     """
-    项目管理命令
+    Project management command
     
-    使用示例:
-        automl project list                        # 列出所有项目
-        automl project info project=test           # 项目详情
-        automl project predict project=test data=test.csv mode=best  # 批量预测
-        automl project export project=test format=zip  # 导出项目
+    Examples:
+        automl project list                        # list all projects
+        automl project info project=test           # project details
+        automl project predict project=test data=test.csv mode=best  # batch prediction
+        automl project export project=test format=zip  # export project
     """
     if not args:
-        print("📦 项目管理命令")
-        print("\n子命令:")
-        print("  list    - 列出所有项目")
-        print("  info    - 显示项目信息")
-        print("  predict - 使用项目模型进行批量预测")
-        print("  export  - 导出项目")
-        print("  report  - 生成项目报告")
-        print("\n示例:")
+        print("Project Management")
+        print("\nSubcommands:")
+        print("  list    - list all projects")
+        print("  info    - show project info")
+        print("  predict - batch prediction using project models")
+        print("  export  - export project")
+        print("  report  - generate project report")
+        print("\nExamples:")
         print("  automl project list")
         print("  automl project info project=TestPaperComparison")
         print("  automl project predict project=test data=test.csv mode=best")
@@ -1940,68 +1941,68 @@ def project_command(args: List[str]):
     subcommand = args[0].lower()
     params = MLArgumentParser.parse_args_string(' '.join(args[1:]))
     
-    # 导入项目管理器
+    # Import project manager
     from utils.project_manager import ProjectManager
     from utils.project_predictor import ProjectPredictor
     
     manager = ProjectManager()
     
     if subcommand == 'list':
-        # 列出所有项目
+        # List all projects
         projects = manager.list_projects()
         if projects:
-            print("\n📁 项目列表:")
+            print("\nProject list:")
             for p in projects:
-                print(f"\n  📦 {p['name']}")
-                print(f"     路径: {p['path']}")
-                print(f"     创建: {p['created']}")
-                print(f"     模型: {p['models']}, 运行: {p['runs']}")
+                print(f"\n  Project: {p['name']}")
+                print(f"     Path: {p['path']}")
+                print(f"     Created: {p['created']}")
+                print(f"     Models: {p['models']}, Runs: {p['runs']}")
         else:
-            print("❌ 未找到任何项目")
+            print("ERROR: No projects found")
         return 0
     
     elif subcommand == 'info':
-        # 显示项目信息
+        # Show project info
         project = params.get('project')
         if not project:
-            print("❌ 请指定项目: project=<name>")
+            print("ERROR: Please specify project: project=<name>")
             return 1
         
         try:
             info = manager.get_project_info(project)
             predictor = ProjectPredictor(project, verbose=False)
             
-            print(f"\n📦 项目信息: {info['project_name']}")
-            print(f"   创建时间: {info.get('created_at', 'Unknown')}")
-            print(f"   路径: {info['path']}")
+            print(f"\nProject info: {info['project_name']}")
+            print(f"   Created at: {info.get('created_at', 'Unknown')}")
+            print(f"   Path: {info['path']}")
             
-            # 显示模型列表
+            # Show model list
             df = predictor.list_models()
             
-            # 显示最佳模型
+            # Show best models
             if info.get('best_models'):
-                print("\n🏆 最佳模型:")
+                print("\nBest models:")
                 for target, best in info['best_models'].items():
-                    print(f"   {target}: {best['model']} (R²={best['r2']:.4f})")
+                    print(f"   {target}: {best['model']} (R^2={best['r2']:.4f})")
             
         except Exception as e:
-            print(f"❌ 无法获取项目信息: {e}")
+            print(f"ERROR: Failed to get project info: {e}")
             return 1
         
         return 0
     
     elif subcommand == 'predict':
-        # 批量预测
+        # Batch prediction
         project = params.get('project')
         data = params.get('data')
         mode = params.get('mode', 'all')  # all, best, ensemble
         output = params.get('output')
         
         if not project:
-            print("❌ 请指定项目: project=<name>")
+            print("ERROR: Please specify project: project=<name>")
             return 1
         if not data:
-            print("❌ 请指定数据文件: data=<file>")
+            print("ERROR: Please specify data file: data=<file>")
             return 1
         
         try:
@@ -2025,76 +2026,76 @@ def project_command(args: List[str]):
                     method=method
                 )
             else:
-                print(f"❌ 未知预测模式: {mode}")
-                print("   可用模式: all, best, ensemble")
+                print(f"ERROR: Unknown predict mode: {mode}")
+                print("   Available modes: all, best, ensemble")
                 return 1
                 
         except Exception as e:
-            print(f"❌ 预测失败: {e}")
+            print(f"ERROR: Prediction failed: {e}")
             return 1
         
         return 0
     
     elif subcommand == 'export':
-        # 导出项目
+        # Export project
         project = params.get('project')
         output = params.get('output')
         format = params.get('format', 'zip')
         
         if not project:
-            print("❌ 请指定项目: project=<name>")
+            print("ERROR: Please specify project: project=<name>")
             return 1
         
         try:
             manager.export_project(project, output, format)
         except Exception as e:
-            print(f"❌ 导出失败: {e}")
+            print(f"ERROR: Export failed: {e}")
             return 1
         
         return 0
     
     elif subcommand == 'report':
-        # 生成项目报告
+        # Generate project report
         project = params.get('project')
         output = params.get('output')
         
         if not project:
-            print("❌ 请指定项目: project=<name>")
+            print("ERROR: Please specify project: project=<name>")
             return 1
         
         try:
             manager.generate_project_report(project, output)
         except Exception as e:
-            print(f"❌ 生成报告失败: {e}")
+            print(f"ERROR: Report generation failed: {e}")
             return 1
         
         return 0
     
     else:
-        print(f"❌ 未知子命令: {subcommand}")
+        print(f"ERROR: Unknown subcommand: {subcommand}")
         return 1
 
 
 def main():
-    """主函数"""
+    """Main function"""
     if len(sys.argv) < 2:
-        print("AutoML - 自动化机器学习命令行工具")
-        print("\n使用方式:")
+        print("AutoML - Command-line tool for automated machine learning")
+        print("\nUsage:")
         print("  automl <command> [options]")
-        print("\n可用命令:")
-        print("  train       - 训练模型")
-        print("  analyze     - 分析实验结果")
-        print("  predict     - 执行预测")
-        print("  project     - 项目管理（批量预测）")
-        print("  interactive - 🎯 交互式管理界面")
-        print("  validate    - 验证配置")
-        print("  config      - 管理配置模板")
-        print("  cache       - 管理特征缓存")
-        print("  export      - 导出模型")
-        print("  warmup      - 预计算并写入特征缓存")
-        print("  info        - 显示系统信息")
-        print("\n示例:")
-        print("  automl interactive                    # 启动交互式界面")
+        print("\nAvailable commands:")
+        print("  train       - train models")
+        print("  analyze     - analyze experiment results")
+        print("  predict     - run predictions")
+        print("  project     - project management (batch prediction)")
+        print("  interactive - interactive UI")
+        print("  validate    - validate configuration")
+        print("  config      - manage config templates")
+        print("  cache       - manage feature cache")
+        print("  export      - export models")
+        print("  warmup      - precompute and write feature cache")
+        print("  info        - show system information")
+        print("\nExamples:")
+        print("  automl interactive                    # start interactive UI")
         print("  automl train model=xgboost data=data.csv")
         print("  automl analyze dir=runs/train format=html")
         print("  automl project list")
@@ -2102,13 +2103,13 @@ def main():
         print("  automl config list")
         print("  automl train config=xgboost_standard")
         print("  automl predict model=model.joblib data=test.csv")
-        print("\n更多信息: automl info")
+        print("\nMore info: automl info")
         return 0
     
     command = sys.argv[1].lower()
     args = sys.argv[2:]
     
-    # 路由到对应命令
+    # Route to corresponding command
     if command == 'train':
         return train_command(args)
     elif command == 'analyze':
@@ -2118,7 +2119,7 @@ def main():
     elif command == 'project':
         return project_command(args)
     elif command == 'interactive':
-        # 启动交互式界面
+        # Launch interactive UI
         from interactive_cli import InteractiveCLI
         cli = InteractiveCLI()
         cli.run()
@@ -2136,8 +2137,8 @@ def main():
     elif command == 'info':
         return info_command(args)
     else:
-        print(f"❌ 未知命令: {command}")
-        print("使用 'automl info' 查看帮助")
+        print(f"ERROR: Unknown command: {command}")
+        print("Use 'automl info' for help")
         return 1
 
 

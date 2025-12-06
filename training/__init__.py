@@ -1,5 +1,5 @@
 """
-训练管道模块
+Training pipeline module
 """
 
 from .pipeline import TrainingPipeline

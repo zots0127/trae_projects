@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 """
-XGBoost训练器模块
-支持数据加载、模型训练、10折交叉验证
+XGBoost trainer module
+Supports data loading, model training, and 10-fold cross-validation
 """
 
 # ========================================
-#           全局配置参数
+#           Global configuration
 # ========================================
 
-# 数据配置
-DEFAULT_DATA_PATH = "data/Database_normalized.csv"  # 默认数据路径
-SMILES_COLUMNS = ['L1', 'L2', 'L3']       # SMILES列名
-TARGET_COLUMNS = ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)']  # 目标列名
+# Data configuration
+DEFAULT_DATA_PATH = "data/Database_normalized.csv"  # default data path
+SMILES_COLUMNS = ['L1', 'L2', 'L3']       # SMILES columns
+TARGET_COLUMNS = ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)']  # target columns
 
-# 特征配置
-FEATURE_TYPE = 'combined'  # 特征类型: 'morgan', 'descriptors', 'combined'
-USE_CACHE = True           # 是否使用特征缓存
+# Feature configuration
+FEATURE_TYPE = 'combined'  # Feature type: 'morgan', 'descriptors', 'combined'
+USE_CACHE = True           # Use feature cache
 
-# 训练配置
-N_FOLDS = 10              # 交叉验证折数
-RANDOM_STATE = 42         # 随机种子
-TEST_SIZE = 0.2           # 测试集比例（仅用于train_test_split模式）
+# Training configuration
+N_FOLDS = 10              # number of cross-validation folds
+RANDOM_STATE = 42         # random seed
+TEST_SIZE = 0.2           # test split ratio (only for train_test_split mode)
 
-# XGBoost默认参数
+# Default XGBoost parameters
 XGB_PARAMS = {
     'objective': 'reg:squarederror',
     'eval_metric': 'rmse',
@@ -36,14 +36,14 @@ XGB_PARAMS = {
     'verbosity': 1
 }
 
-# 输出配置
-SAVE_MODELS = True        # 是否保存模型
-MODEL_DIR = "models"      # 模型保存目录
-RESULTS_DIR = "results"   # 结果保存目录
-SAVE_PREDICTIONS = True   # 是否保存预测结果
+# Output configuration
+SAVE_MODELS = True        # save models
+MODEL_DIR = "models"      # model save directory
+RESULTS_DIR = "results"   # results directory
+SAVE_PREDICTIONS = True   # save predictions
 
 # ========================================
-#           导入依赖库
+#           Imports
 # ========================================
 
 import os
@@ -58,94 +58,94 @@ import json
 from typing import Dict, List, Tuple, Optional, Union
 from tqdm import tqdm
 
-# 添加项目根目录到路径
+# Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 导入特征提取模块
+# Import feature extractor
 from core.feature_extractor import FeatureExtractor, MORGAN_BITS, DESCRIPTOR_NAMES
 
-# 导入模型模块
+# Import model module
 from models.base import XGBoostTrainer, ModelFactory, generate_model_filename, evaluate_model
 
-# 忽略警告
+# Suppress warnings
 warnings.filterwarnings('ignore')
 
 # ========================================
-#           数据加载和预处理
+#           Data loading and preprocessing
 # ========================================
 
 class DataLoader:
-    """数据加载器类"""
+    """Data loader class"""
     
     def __init__(self, data_path: str = None, feature_type: str = None, use_cache: bool = None):
         """
-        初始化数据加载器
+        Initialize data loader
         
         Args:
-            data_path: 数据文件路径
-            feature_type: 特征类型
-            use_cache: 是否使用缓存
+            data_path: data file path
+            feature_type: feature type
+            use_cache: whether to use cache
         """
         self.data_path = data_path or DEFAULT_DATA_PATH
         self.feature_type = feature_type or FEATURE_TYPE
         self.use_cache = use_cache if use_cache is not None else USE_CACHE
         
-        # 初始化特征提取器
+        # Initialize feature extractor
         self.feature_extractor = FeatureExtractor(use_cache=self.use_cache)
         
-        print(f"✅ 数据加载器初始化")
-        print(f"   数据路径: {self.data_path}")
-        print(f"   特征类型: {self.feature_type}")
-        print(f"   使用缓存: {self.use_cache}")
+        print("DataLoader initialized")
+        print(f"   Data path: {self.data_path}")
+        print(f"   Feature type: {self.feature_type}")
+        print(f"   Use cache: {self.use_cache}")
     
     def load_data(self) -> pd.DataFrame:
-        """加载CSV数据"""
+        """Load CSV data"""
         if not os.path.exists(self.data_path):
-            raise FileNotFoundError(f"数据文件不存在: {self.data_path}")
+            raise FileNotFoundError(f"Data file not found: {self.data_path}")
         
         df = pd.read_csv(self.data_path)
-        print(f"\n📊 加载数据: {len(df)} 行, {len(df.columns)} 列")
+        print(f"\nLoaded data: {len(df)} rows, {len(df.columns)} columns")
         
-        # 检查必需的列
+        # Check required columns
         missing_cols = []
         for col in SMILES_COLUMNS:
             if col not in df.columns:
                 missing_cols.append(col)
         
         if missing_cols:
-            raise ValueError(f"缺少SMILES列: {missing_cols}")
+            raise ValueError(f"Missing SMILES columns: {missing_cols}")
         
-        # 检查目标列
+        # Check target columns
         available_targets = [col for col in TARGET_COLUMNS if col in df.columns]
         if not available_targets:
-            raise ValueError(f"没有找到任何目标列: {TARGET_COLUMNS}")
+            raise ValueError(f"No target columns found: {TARGET_COLUMNS}")
         
-        print(f"   SMILES列: {SMILES_COLUMNS}")
-        print(f"   目标列: {available_targets}")
+        print(f"   SMILES columns: {SMILES_COLUMNS}")
+        print(f"   Target columns: {available_targets}")
         
         return df
     
     def extract_features(self, df: pd.DataFrame, show_progress: bool = True) -> np.ndarray:
         """
-        提取特征
+        Extract features
         
         Args:
-            df: 数据框
-            show_progress: 是否显示进度条
+            df: DataFrame
+            show_progress: whether to show progress bar
         
         Returns:
-            特征矩阵
+            Feature matrix
         """
-        print(f"\n🔧 提取{self.feature_type}特征...")
+        print(f"\nExtracting {self.feature_type} features...")
         
         features = []
-        iterator = tqdm(df.iterrows(), total=len(df), desc="提取特征") if show_progress else df.iterrows()
+        iterator = tqdm(df.iterrows(), total=len(df), desc="Extract features") if show_progress else df.iterrows()
         
         for idx, row in iterator:
-            # 获取三个SMILES
+            # Get three SMILES
             smiles_list = [row[col] if pd.notna(row[col]) else None for col in SMILES_COLUMNS]
             
-            # 提取组合特征
+            # Extract combined features
             feat = self.feature_extractor.extract_combination(
                 smiles_list, 
                 feature_type=self.feature_type,
@@ -155,74 +155,74 @@ class DataLoader:
             features.append(feat)
         
         features = np.array(features)
-        print(f"   特征维度: {features.shape}")
+        print(f"   Feature shape: {features.shape}")
         
-        # 处理NaN和Inf
+        # Handle NaN and Inf
         n_nan = np.isnan(features).sum()
         n_inf = np.isinf(features).sum()
         
         if n_nan > 0 or n_inf > 0:
-            print(f"   ⚠️ 发现 {n_nan} 个NaN值, {n_inf} 个Inf值")
+            print(f"   Found {n_nan} NaN values, {n_inf} Inf values")
             features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
         
         return features
     
     def prepare_data(self, target_col: str) -> Tuple[np.ndarray, np.ndarray, pd.Index]:
         """
-        准备训练数据
+        Prepare training data
         
         Args:
-            target_col: 目标列名
+            target_col: target column name
         
         Returns:
-            (特征矩阵, 目标值, 有效索引)
+            (feature matrix, target values, valid index)
         """
-        # 加载数据
+        # Load data
         df = self.load_data()
         
-        # 筛选有效数据
+        # Filter valid data
         valid_mask = df[target_col].notna()
         for col in SMILES_COLUMNS:
             valid_mask &= df[col].notna()
         
         df_valid = df[valid_mask].copy()
-        print(f"\n📊 目标变量: {target_col}")
-        print(f"   有效样本: {len(df_valid)}/{len(df)}")
+        print(f"\nTarget variable: {target_col}")
+        print(f"   Valid samples: {len(df_valid)}/{len(df)}")
         
         if len(df_valid) == 0:
-            raise ValueError(f"没有有效的训练数据")
+            raise ValueError("No valid training data")
         
-        # 提取特征
+        # Extract features
         X = self.extract_features(df_valid)
         
-        # 获取目标值
+        # Get target values
         y = df_valid[target_col].values
         
-        # 单位转换（如果PLQY是百分比）
+        # Unit conversion (if PLQY is percentage)
         if target_col == 'PLQY' and y.max() > 1.5:
-            print("   转换PLQY: 百分比 → 小数")
+            print("   Convert PLQY: percentage -> decimal")
             y = y / 100
         
         return X, y, df_valid.index
 
 # ========================================
-#           结果保存辅助函数
+#           Result saving helpers
 # ========================================
 
 def save_training_results(results: Dict, target_col: str, model_type: str, n_folds: int):
     """
-    保存训练结果
+    Save training results
     
     Args:
-        results: 结果字典
-        target_col: 目标列名
-        model_type: 模型类型
-        n_folds: 交叉验证折数
+        results: results dict
+        target_col: target column name
+        model_type: model type
+        n_folds: number of folds
     """
     if not SAVE_PREDICTIONS:
         return
     
-    # 创建输出目录
+    # Create output directory
     Path(RESULTS_DIR).mkdir(exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -237,7 +237,7 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
         clean_target = clean_target.replace('__', '_')
     clean_target = clean_target.strip('_')
     
-    # 保存CV预测结果
+    # Save CV predictions
     cv_df = pd.DataFrame({
         'true': results['true_values'],
         'predicted': results['predictions'],
@@ -246,9 +246,9 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
     
     csv_file = Path(RESULTS_DIR) / f"cv_predictions_{model_type}_{clean_target}.csv"
     cv_df.to_csv(csv_file, index=False)
-    print(f"   💾 预测结果已保存: {csv_file}")
+    print(f"   Saved predictions: {csv_file}")
     
-    # 保存评估指标
+    # Save evaluation metrics
     metrics = {
         'target': target_col,
         'model_type': model_type,
@@ -268,22 +268,22 @@ def save_training_results(results: Dict, target_col: str, model_type: str, n_fol
     json_file = Path(RESULTS_DIR) / f"cv_metrics_{model_type}_{clean_target}.json"
     with open(json_file, 'w') as f:
         json.dump(metrics, f, indent=2)
-    print(f"   💾 评估指标已保存: {json_file}")
+    print(f"   Saved metrics: {json_file}")
 
 # ========================================
-#           主训练流程
+#           Main training flow
 # ========================================
 
 class Trainer:
-    """主训练器类"""
+    """Main trainer class"""
     
     def __init__(self, data_path: str = None, feature_type: str = None):
         """
-        初始化主训练器
+        Initialize main trainer
         
         Args:
-            data_path: 数据路径
-            feature_type: 特征类型
+            data_path: data path
+            feature_type: feature type
         """
         self.data_loader = DataLoader(data_path, feature_type)
         self.xgb_trainer = XGBoostTrainer()
@@ -291,138 +291,138 @@ class Trainer:
     
     def train_target(self, target_col: str):
         """
-        训练单个目标
+        Train a single target
         
         Args:
-            target_col: 目标列名
+            target_col: target column name
         """
         print(f"\n{'='*60}")
-        print(f"训练目标: {target_col}")
+        print(f"Training target: {target_col}")
         print(f"{'='*60}")
         
         try:
-            # 准备数据
+            # Prepare data
             X, y, idx = self.data_loader.prepare_data(target_col)
             
-            # 交叉验证
+            # Cross-validation
             cv_results = self.xgb_trainer.train_cv(X, y)
             
-            # 训练最终模型
+            # Train final model
             final_model = self.xgb_trainer.train_full(X, y)
             
-            # 保存模型和结果
+            # Save model and results
             self.xgb_trainer.save_model(final_model, target_col, "_final")
             self.xgb_trainer.save_results(cv_results, target_col)
             
-            # 保存结果
+            # Save results
             self.results[target_col] = {
                 'cv_results': cv_results,
                 'final_model': final_model,
                 'n_samples': len(y)
             }
             
-            print(f"\n✅ {target_col} 训练完成!")
+            print(f"\n{target_col} training complete!")
             
         except Exception as e:
-            print(f"\n❌ {target_col} 训练失败: {e}")
+            print(f"\n{target_col} training failed: {e}")
             self.results[target_col] = {'error': str(e)}
     
     def train_all(self):
-        """训练所有目标"""
-        # 加载数据以确定可用的目标
+        """Train all targets"""
+        # Load data to determine available targets
         df = self.data_loader.load_data()
         available_targets = [col for col in TARGET_COLUMNS if col in df.columns]
         
-        print(f"\n🎯 将训练 {len(available_targets)} 个目标: {available_targets}")
+        print(f"\nWill train {len(available_targets)} targets: {available_targets}")
         
         for target in available_targets:
             self.train_target(target)
         
-        # 汇总结果
+        # Summarize results
         self.print_summary()
     
     def print_summary(self):
-        """打印训练汇总"""
+        """Print training summary"""
         print(f"\n{'='*60}")
-        print("训练汇总")
+        print("Training summary")
         print(f"{'='*60}")
         
         for target, result in self.results.items():
             if 'error' in result:
-                print(f"\n❌ {target}: 失败 - {result['error']}")
+                print(f"\n{target}: failed - {result['error']}")
             else:
                 cv_res = result['cv_results']
-                print(f"\n✅ {target}:")
-                print(f"   样本数: {result['n_samples']}")
-                print(f"   RMSE: {cv_res['mean_rmse']:.4f} ± {cv_res['std_rmse']:.4f}")
-                print(f"   R²:   {cv_res['mean_r2']:.4f} ± {cv_res['std_r2']:.4f}")
+                print(f"\n{target}:")
+                print(f"   Samples: {result['n_samples']}")
+                print(f"   RMSE: {cv_res['mean_rmse']:.4f} +/- {cv_res['std_rmse']:.4f}")
+                print(f"   R^2:   {cv_res['mean_r2']:.4f} +/- {cv_res['std_r2']:.4f}")
 
 # ========================================
-#           命令行接口
+#           Command-line interface
 # ========================================
 
 def main():
-    """主函数"""
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description='XGBoost训练器 - 支持10折交叉验证',
+        description='XGBoost trainer - supports 10-fold cross-validation',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument('--data', '-d', type=str, default=DEFAULT_DATA_PATH,
-                       help=f'数据文件路径 (默认: {DEFAULT_DATA_PATH})')
+                       help=f'Data file path (default: {DEFAULT_DATA_PATH})')
     parser.add_argument('--target', '-t', type=str,
-                       help='指定目标列（不指定则训练所有）')
+                       help='Specify target column (train all if not set)')
     parser.add_argument('--feature', '-f', type=str, default=FEATURE_TYPE,
                        choices=['morgan', 'descriptors', 'combined'],
-                       help=f'特征类型 (默认: {FEATURE_TYPE})')
+                       help=f'Feature type (default: {FEATURE_TYPE})')
     parser.add_argument('--folds', '-k', type=int,
-                       help=f'交叉验证折数 (默认: {N_FOLDS})')
+                       help=f'Number of folds (default: {N_FOLDS})')
     parser.add_argument('--no-cache', action='store_true',
-                       help='不使用特征缓存')
+                       help='Do not use feature cache')
     parser.add_argument('--no-save', action='store_true',
-                       help='不保存模型和结果')
+                       help='Do not save models and results')
     
     args = parser.parse_args()
     
-    # 设置参数
+    # Set parameters
     use_cache = not args.no_cache
     save_models = not args.no_save
     save_predictions = not args.no_save
     n_folds = args.folds if args.folds else N_FOLDS
     
     print("="*60)
-    print("XGBoost 分子性质预测训练器")
+    print("XGBoost molecular property prediction trainer")
     print("="*60)
-    print(f"\n配置:")
-    print(f"  数据文件: {args.data}")
-    print(f"  特征类型: {args.feature}")
-    print(f"  交叉验证: {n_folds}折")
-    print(f"  使用缓存: {use_cache}")
-    print(f"  保存结果: {save_models}")
+    print(f"\nConfig:")
+    print(f"  Data file: {args.data}")
+    print(f"  Feature type: {args.feature}")
+    print(f"  Cross-validation: {n_folds} folds")
+    print(f"  Use cache: {use_cache}")
+    print(f"  Save results: {save_models}")
     
-    # 创建数据加载器（传入use_cache参数）
+    # Create data loader (pass use_cache)
     data_loader = DataLoader(args.data, args.feature, use_cache)
     
-    # 创建XGBoost训练器（传入n_folds参数）
+    # Create XGBoost trainer (pass n_folds)
     xgb_trainer = XGBoostTrainer(n_folds=n_folds)
     
-    # 根据save参数设置
+    # Configure by save parameter
     if not save_models:
         xgb_trainer.save_model = lambda *args, **kwargs: None
         xgb_trainer.save_results = lambda *args, **kwargs: None
     
-    # 创建主训练器
+    # Create main trainer
     trainer = Trainer(args.data, args.feature)
     trainer.data_loader = data_loader
     trainer.xgb_trainer = xgb_trainer
     
-    # 训练
+    # Train
     if args.target:
         trainer.train_target(args.target)
     else:
         trainer.train_all()
     
-    print("\n✨ 训练完成!")
+    print("\nTraining finished!")
 
 if __name__ == "__main__":
     main()

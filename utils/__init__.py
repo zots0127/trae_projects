@@ -1,5 +1,5 @@
 """
-工具模块
+Utility modules
 """
 
 from .run_manager import RunManager
@@ -8,7 +8,7 @@ from .training_curves import TrainingCurveRecorder, TrainingCurveAggregator
 from .feature_importance import FeatureImportanceRecorder, FeatureImportanceAggregator
 
 class TimingTracker:
-    """轻量级阶段计时器，可嵌入各流程，最终导出为字典或JSON"""
+    """Lightweight phase timer; embed in workflows; export as dict or JSON"""
     def __init__(self):
         from time import perf_counter
         self._pc = perf_counter

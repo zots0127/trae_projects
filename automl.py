@@ -1816,8 +1816,6 @@ def config_command(args: List[str]):
         print(f"Model: {config.model.model_type}")
         print(f"Feature: {config.feature.feature_type}")
         print(f"Folds: {config.training.n_folds}")
-        print(f"Optimization: {'enabled' if config.optimization.enable else 'disabled'}")
-        
         if config.model.hyperparameters:
             print("\nHyperparameters:")
             for k, v in config.model.hyperparameters.items():

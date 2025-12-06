@@ -13,7 +13,7 @@ DATA_FILE="${DATA_FILE:-data/PhosIrDB.csv}"
 TEST_DATA_FILE="${TEST_DATA_FILE:-data/ours.csv}"
 VIRTUAL_FILE="${VIRTUAL_FILE:-data/ir_assemble.csv}"
 
-TRAIN_MODELS_DEFAULT="catboost,lightgbm,xgboost,random_forest"
+TRAIN_MODELS_DEFAULT="catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost"
 TRAIN_MODELS_FULL="adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost"
 TRAIN_MODELS="${TRAIN_MODELS:-$TRAIN_MODELS_DEFAULT}"
 TRAIN_FULL="${TRAIN_FULL:-0}"

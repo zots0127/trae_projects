@@ -18,13 +18,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.feature_extractor import FeatureExtractor
 from models.base import BaseModel, evaluate_model, MODEL_PARAMS
-# from models.optimizer import OptunaOptimizer  # Optimization removed
+# Hyperparameter search has been removed to keep pipeline simple
 
 warnings.filterwarnings('ignore')
 
 
 class AutoML:
-    """Lightweight AutoML programmatic interface (train/predict/optimize)."""
+    """Lightweight AutoML programmatic interface (train/predict)."""
 
     def __init__(self, model: str = 'xgboost', device: str = 'cpu', verbose: bool = True):
         self.model_type = model
@@ -44,7 +44,6 @@ class AutoML:
               epochs: Optional[int] = None,
               val_split: float = 0.2,
               save_dir: str = 'runs',
-              optimize: bool = False,
               **kwargs) -> Dict[str, Dict[str, float]]:
         if self.verbose:
             print(f"\n{'='*60}\nStarting training {self.model_type}\n{'='*60}")
@@ -63,14 +62,11 @@ class AutoML:
             X_t, y_t = X[valid], y[valid]
             if target == 'PLQY' and y_t.max() > 1.5:
                 y_t = y_t / 100
-            if optimize:
-                model = self._train_with_optimization(X_t, y_t, target)
-            else:
-                params = kwargs.copy()
-                if epochs:
-                    params['n_estimators'] = epochs
-                model = BaseModel(self.model_type, params)
-                model.fit(X_t, y_t)
+            params = kwargs.copy()
+            if epochs:
+                params['n_estimators'] = epochs
+            model = BaseModel(self.model_type, params)
+            model.fit(X_t, y_t)
             self.trained_models[target] = model
             y_pred = model.predict(X_t)
             metrics = evaluate_model(y_t, y_pred)
@@ -102,15 +98,6 @@ class AutoML:
                 pred = pred * 100
             outputs[tgt] = pred
         return outputs
-
-    def optimize(self, data: Union[str, pd.DataFrame], n_trials: int = 50, target: Optional[str] = None, **kwargs) -> Dict[str, Dict]:
-        """Optimization removed - return default parameters"""
-        # Optimization functionality has been removed
-        # Return default parameters instead
-        from models.base import MODEL_PARAMS
-        default_params = MODEL_PARAMS.get(self.model_type, {})
-        targets = [target] if target else self.target_columns
-        return {tgt: default_params for tgt in targets}
 
     def save(self, path: str = 'model.pkl') -> str:
         p = Path(path)
@@ -166,15 +153,6 @@ class AutoML:
             feat = self.feature_extractor.extract_combination(parts, feature_type=self.feature_type, combination_method='mean')
             feats.append(feat)
         return np.array(feats)
-
-    def _train_with_optimization(self, X: np.ndarray, y: np.ndarray, target: str):
-        # Optimization has been removed - train with default parameters
-        from models.base import MODEL_PARAMS
-        params = MODEL_PARAMS.get(self.model_type, {})
-        model = BaseModel(self.model_type, params)
-        model.fit(X, y)
-        return model
-
 
 def load_model(path: str) -> AutoML:
     m = AutoML(verbose=False)

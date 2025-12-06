@@ -12,7 +12,6 @@ catboost>=1.0.0
 rdkit>=2022.03.1  # Install with conda: conda install -c conda-forge rdkit
 
 # Hyperparameter Optimization
-optuna>=3.0.0
 
 # Visualization
 matplotlib>=3.4.0
@@ -23,6 +22,9 @@ plotly>=5.0.0
 tqdm>=4.62.0
 pyyaml>=5.4.0
 joblib>=1.1.0
+openpyxl>=3.1.0
+tabulate>=0.9.0
+shap>=0.42.0
 
 # Web Framework (optional, for API)
 fastapi>=0.85.0

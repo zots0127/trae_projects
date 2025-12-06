@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Predict test dataset with trained XGBoost models
-Input: Database_ours_0903update_normalized.csv
+Input: ours.csv
 Output: test_predict.csv
 """
 
@@ -265,7 +265,7 @@ def main():
                        help='Model project directory (default: latest Paper_* autodetect)')
     parser.add_argument('--input', '-i', 
                        default=None,
-                       help='Test data file (default: PROJECT/Database_ours_0903update_normalized.csv)')
+                       help='Test data file (default: PROJECT/ours.csv)')
     parser.add_argument('--output', '-o',
                        help='Output file (default: PROJECT/test_predict.csv)')
     parser.add_argument('--model', '-m',
@@ -298,7 +298,7 @@ def main():
         else:
             args.output = f"{args.project}/test_predict.csv"
     if not args.input:
-        args.input = f"{args.project}/Database_ours_0903update_normalized.csv"
+        args.input = f"{args.project}/ours.csv"
     
     print("="*80)
     print("Test data prediction")

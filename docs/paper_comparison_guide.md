@@ -114,7 +114,7 @@ comparison.formats=[latex,csv]
 ```bash
 python automl.py train config=paper_comparison \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=NaturePaper \
     name=submission_v1 \
     smiles_columns=L1,L2,L3 \

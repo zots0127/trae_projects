@@ -10,7 +10,7 @@
 ls ../data/Database_normalized.csv
 
 # 检查测试数据  
-ls Database_ours_0903update_normalized.csv
+ls ours.csv
 
 # 如果文件不存在，请先准备数据
 ```
@@ -24,7 +24,7 @@ ls Database_ours_0903update_normalized.csv
 python automl.py train \
     model=xgboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=xgboost_quick \
     n_folds=5 \
@@ -39,7 +39,7 @@ python automl.py train \
 python automl.py train \
     model=xgboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=xgboost_standard \
     n_folds=10 \
@@ -56,7 +56,7 @@ python automl.py train \
 python automl.py train \
     model=xgboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=xgboost_full \
     n_folds=10 \
@@ -77,7 +77,7 @@ python automl.py train \
 python automl.py train \
     model=lightgbm \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=lightgbm_quick \
     n_folds=5 \
@@ -92,7 +92,7 @@ python automl.py train \
 python automl.py train \
     model=lightgbm \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=lightgbm_standard \
     n_folds=10 \
@@ -112,7 +112,7 @@ python automl.py train \
 python automl.py train \
     model=catboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=catboost_quick \
     n_folds=5 \
@@ -127,7 +127,7 @@ python automl.py train \
 python automl.py train \
     model=catboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=catboost_standard \
     n_folds=10 \
@@ -144,7 +144,7 @@ python automl.py train \
 python automl.py train \
     model=random_forest \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=random_forest \
     n_folds=10 \
@@ -162,7 +162,7 @@ python automl.py train \
 python automl.py train \
     config=automl \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     n_folds=10
 ```
@@ -186,7 +186,7 @@ ls -la Nature/*/models/*.joblib
 # 使用 XGBoost 模型预测
 python automl.py predict \
     model=Nature/train1/models/xgboost_Max_wavelength_nm_final.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_wavelength.csv \
     output_column=Predicted_Max_wavelength \
     smiles_columns=L1,L2,L3 \
@@ -200,7 +200,7 @@ python automl.py predict \
 # 使用 XGBoost 模型预测
 python automl.py predict \
     model=Nature/train1/models/xgboost_PLQY_final.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_plqy.csv \
     output_column=Predicted_PLQY \
     smiles_columns=L1,L2,L3 \
@@ -226,7 +226,7 @@ echo "开始批量预测..."
 echo "1. 预测 Max_wavelength..."
 python automl.py predict \
     model=$MODEL_DIR/xgboost_Max_wavelength_nm_final.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_wavelength.csv \
     output_column=Predicted_Max_wavelength
 
@@ -234,7 +234,7 @@ python automl.py predict \
 echo "2. 预测 PLQY..."
 python automl.py predict \
     model=$MODEL_DIR/xgboost_PLQY_final.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_plqy.csv \
     output_column=Predicted_PLQY
 
@@ -324,7 +324,7 @@ ls Nature/train1/models/
 # 步骤3: 预测（自动命名输出文件）
 python automl.py predict \
     model=Nature/train1/models/xgboost_Max_wavelength_nm_final_*.joblib \
-    data=Database_ours_0903update_normalized.csv
+    data=ours.csv
 
 # 预测结果会自动保存为: predictions_20250912_HHMMSS.csv
 ```

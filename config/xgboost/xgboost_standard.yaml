@@ -36,7 +36,7 @@ feature:
 
 data:
   data_path: data/PhosIrDB.csv
-  test_data_path: Database_ours_0903update_normalized.csv  # 外部测试集
+  test_data_path: ours.csv  # 外部测试集
   smiles_columns:
     - L1
     - L2

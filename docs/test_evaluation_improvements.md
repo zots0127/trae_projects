@@ -15,7 +15,7 @@
 ==================================================
 🧪 测试集评估 (Test Evaluation)
 ==================================================
-文件: Database_ours_0903update_normalized.csv
+文件: ours.csv
 状态: ✅ 文件存在
 路径: /path/to/test/file
 
@@ -42,7 +42,7 @@
 python automl.py train \
     config=xgboost_standard \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     n_folds=10 \
     name=experiment_111

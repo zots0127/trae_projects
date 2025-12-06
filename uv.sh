@@ -1,90 +1,104 @@
 #!/bin/bash
+# Clean uv-based environment bootstrap for Nature release
+set -euo pipefail
 
-# UV-based Python environment setup script
-
-set -e  # Exit on any error
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_PATH="$ROOT_DIR/.venv"
+PY_VER="${UV_PYTHON:-3.9}"
 
 echo "==========================================="
 echo "Setting up Python environment with uv"
 echo "==========================================="
 
-# Check if uv is available
-if ! command -v uv &> /dev/null; then
-    # Try sourcing uv environment first
-    if [ -f "$HOME/.local/bin/uv" ]; then
-        export PATH="$HOME/.local/bin:$PATH"
-    elif [ -f "$HOME/.cargo/env" ]; then
-        source "$HOME/.cargo/env"
-    fi
+ensure_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    return
+  fi
 
-    # Check again after sourcing
-    if ! command -v uv &> /dev/null; then
-        echo "uv not found. Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh || true
+  # Try common install locations
+  if [ -f "$HOME/.local/bin/uv" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+  elif [ -f "$HOME/.cargo/env" ]; then
+    # shellcheck disable=SC1090
+    source "$HOME/.cargo/env"
+  fi
 
-        # Add to PATH manually
-        export PATH="$HOME/.local/bin:$PATH"
+  if command -v uv >/dev/null 2>&1; then
+    return
+  fi
 
-        # Verify installation
-        if ! command -v uv &> /dev/null; then
-            echo "Failed to install or locate uv. Please install it manually."
-            exit 1
-        fi
-    fi
-fi
+  echo "uv not found. Installing uv..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
 
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Failed to install or locate uv. Please install it manually."
+    exit 1
+  fi
+}
+
+ensure_uv
 echo "uv version: $(uv --version)"
 
-# Create virtual environment (clear if exists)
-echo ""
-echo "Creating virtual environment (.venv)..."
-uv venv .venv --clear --python 3.9
+# Recreate venv only when explicitly requested
+if [ "${UV_RECREATE:-0}" = "1" ] && [ -d "$VENV_PATH" ]; then
+  echo "UV_RECREATE=1 detected, removing existing venv..."
+  rm -rf "$VENV_PATH"
+fi
 
-# Activate virtual environment
-echo ""
+if [ ! -d "$VENV_PATH" ]; then
+  echo "Creating virtual environment at $VENV_PATH (Python $PY_VER)..."
+  uv venv "$VENV_PATH" --python "$PY_VER"
+else
+  echo "Using existing virtual environment at $VENV_PATH"
+fi
+
 echo "Activating virtual environment..."
-source .venv/bin/activate
+# shellcheck disable=SC1091
+source "$VENV_PATH/bin/activate"
 
-# Install dependencies
 echo ""
-echo "Installing dependencies..."
+echo "Installing core requirements..."
+uv pip install -r "$ROOT_DIR/requirements.txt"
 
-# Core ML libraries
-uv pip install numpy pandas scikit-learn xgboost lightgbm catboost
-
-# Deep learning (CPU)
+echo ""
+echo "Installing PyTorch CPU wheel..."
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# Data visualization
-uv pip install matplotlib seaborn plotly
-
-# Utilities
-uv pip install jupyter ipython tqdm pyyaml openpyxl tabulate
-
-# Model evaluation and metrics
-uv pip install optuna shap
-
-# Additional ML tools
-uv pip install imbalanced-learn scipy statsmodels
-
-# Chemistry and molecular tools
-uv pip install rdkit
+echo ""
+echo "Installing extra ML utilities..."
+EXTRA_PKGS=(
+  imbalanced-learn
+  statsmodels
+)
+uv pip install "${EXTRA_PKGS[@]}"
 
 echo ""
 echo "==========================================="
 echo "Environment setup complete!"
 echo "==========================================="
-echo ""
 echo "Python version: $(python --version)"
 echo ""
+echo "Activate with: source \"$VENV_PATH/bin/activate\""
+echo "To recreate: UV_RECREATE=1 UV_PYTHON=$PY_VER bash uv.sh"
 
-# Run workflow if available
-if [ -f "./run_workflow.sh" ]; then
-    echo "Running workflow: run_workflow.sh"
+# Auto-run full workflow unless explicitly skipped
+if [ "${UV_SKIP_WORKFLOW:-0}" != "1" ]; then
+  WORKFLOW="$ROOT_DIR/run_workflow.sh"
+  if [ -x "$WORKFLOW" ]; then
+    echo ""
     echo "==========================================="
-    bash ./run_workflow.sh
-else
+    echo "Running workflow: $WORKFLOW"
+    echo "==========================================="
+    bash "$WORKFLOW"
+  elif [ -f "$WORKFLOW" ]; then
+    echo "Workflow script found but not executable: $WORKFLOW"
+    echo "Run: chmod +x run_workflow.sh && bash uv.sh"
+    exit 1
+  else
     echo "No workflow script found (run_workflow.sh)."
-    echo "To activate the environment manually, run:"
-    echo "  source .venv/bin/activate"
+    echo "Set UV_SKIP_WORKFLOW=1 to suppress this check."
+  fi
+else
+  echo "UV_SKIP_WORKFLOW=1 set; skipping workflow run."
 fi

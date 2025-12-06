@@ -10,7 +10,7 @@ python automl.py train config=xgboost_quick data=../data/Database_normalized.csv
 ls Nature/train1/models/
 
 # 3. 预测（自动保存到带时间戳的文件）
-python automl.py predict model=Nature/train1/models/*_Max_wavelength_*.joblib data=Database_ours_0903update_normalized.csv
+python automl.py predict model=Nature/train1/models/*_Max_wavelength_*.joblib data=ours.csv
 ```
 
 ## 📋 完整训练命令（直接复制）
@@ -20,7 +20,7 @@ python automl.py predict model=Nature/train1/models/*_Max_wavelength_*.joblib da
 python automl.py train \
     model=xgboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=xgboost_standard \
     n_folds=10 \
@@ -35,7 +35,7 @@ python automl.py train \
 python automl.py train \
     model=lightgbm \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=lightgbm_standard \
     n_folds=10 \
@@ -50,7 +50,7 @@ python automl.py train \
 python automl.py train \
     model=catboost \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature \
     name=catboost_standard \
     n_folds=10 \
@@ -66,7 +66,7 @@ python automl.py train \
 ```bash
 python automl.py predict \
     model=Nature/train1/models/xgboost_Max_wavelength_nm_final*.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_wavelength.csv \
     output_column=Predicted_Max_wavelength
 ```
@@ -75,7 +75,7 @@ python automl.py predict \
 ```bash
 python automl.py predict \
     model=Nature/train1/models/xgboost_PLQY_final*.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=predictions_plqy.csv \
     output_column=Predicted_PLQY
 ```
@@ -95,7 +95,7 @@ echo "开始训练..."
 python automl.py train \
     config=xgboost_standard \
     data=../data/Database_normalized.csv \
-    test_data=Database_ours_0903update_normalized.csv \
+    test_data=ours.csv \
     project=Nature
 
 # 等待训练完成
@@ -109,13 +109,13 @@ echo "使用模型目录: $MODEL_DIR"
 echo "预测 Max_wavelength..."
 python automl.py predict \
     model=$MODEL_DIR/*Max_wavelength*.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=pred_wavelength.csv
 
 echo "预测 PLQY..."
 python automl.py predict \
     model=$MODEL_DIR/*PLQY*.joblib \
-    data=Database_ours_0903update_normalized.csv \
+    data=ours.csv \
     output=pred_plqy.csv
 
 echo "=== 完成！==="
@@ -162,7 +162,7 @@ ls predictions_*.csv pred_*.csv
 ```bash
 # 检查文件
 ls ../data/Database_normalized.csv
-ls Database_ours_0903update_normalized.csv
+ls ours.csv
 
 # 检查模型
 ls Nature/*/models/*.joblib

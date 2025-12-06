@@ -147,7 +147,7 @@ class ModelShapAnalyzer:
 
     def _resolve_predictor(self, loaded_model):
         """Parse model object, return prediction function and underlying model for SHAP"""
-        # 直接使用可预测的模型
+        # Use directly a model that implements predict
         if hasattr(loaded_model, 'predict'):
             return loaded_model.predict, loaded_model
 
@@ -220,7 +220,7 @@ class ModelShapAnalyzer:
         else:
             X_sample = X
 
-        # 创建SHAP分析器
+        # Create SHAP analyzer
         print(f"INFO: Computing SHAP values...")
         try:
             # Determine model type
@@ -338,7 +338,7 @@ class ModelShapAnalyzer:
         except Exception as e:
             print(f"WARNING: Failed to generate summary plot: {e}")
 
-        # 保存元数据
+        # Save metadata
         metadata = {
             'model_name': model_name,
             'target': target_clean,

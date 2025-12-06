@@ -37,7 +37,7 @@ def create_intersection(args):
     intersection_count = len(df_intersection)
     percentage = 100 * intersection_count / original_count
     
-    print(f"✅ Intersection data created:")
+    print(f"Intersection data created:")
     print(f"   Original: {original_count} samples")
     print(f"   Intersection: {intersection_count} samples ({percentage:.1f}%)")
     print(f"   Saved to: {args.output}")
@@ -46,7 +46,7 @@ def create_intersection(args):
 
 
 def find_best_model(args):
-    """Find the best model based on R² scores"""
+    """Find the best model based on R^2 scores"""
     output_dir = Path(args.output_dir)
     models = args.models.split()
     
@@ -67,7 +67,7 @@ def find_best_model(args):
                 with open(summary_file, 'r') as f:
                     data = json.load(f)
                 
-                # Get R² for wavelength (primary target)
+                # Get R^2 for wavelength (primary target)
                 if 'Max_wavelength' in str(summary_file):
                     r2 = data.get('mean_r2', 0)
                     if r2 > best_r2:
@@ -76,7 +76,7 @@ def find_best_model(args):
                         best_model_name = f"{model}{suffix}"
     
     if best_model_dir:
-        print(f"Best model: {best_model_name} (R²={best_r2:.4f})")
+        print(f"Best model: {best_model_name} (R^2={best_r2:.4f})")
         print(str(best_model_dir))
     else:
         print("No models found")
@@ -115,21 +115,21 @@ def merge_predictions(args):
                 high_plqy = high_plqy.head(args.top_n)
             
             high_plqy.to_csv(high_plqy_file, index=False)
-            print(f"✅ Found {len(high_plqy)} candidates with PLQY >= {args.filter_plqy}")
+            print(f"Found {len(high_plqy)} candidates with PLQY >= {args.filter_plqy}")
             print(f"   Saved to: {high_plqy_file}")
             
             # Show top 5
             if len(high_plqy) > 0:
                 print("\nTop candidates:")
                 for i, row in high_plqy.head(5).iterrows():
-                    print(f"  {i+1}. PLQY={row['Predicted_PLQY']:.4f}, λ={row['Predicted_wavelength']:.1f}nm")
+                    print(f"  {i+1}. PLQY={row['Predicted_PLQY']:.4f}, Wavelength={row['Predicted_wavelength']:.1f} nm")
     
     # Save merged predictions
     df.to_csv(args.output, index=False)
-    print(f"✅ Merged predictions saved to: {args.output}")
+    print(f"Merged predictions saved to: {args.output}")
     print(f"   Samples: {len(df)}")
-    print(f"   Wavelength: {df['Predicted_wavelength'].mean():.1f} ± {df['Predicted_wavelength'].std():.1f} nm")
-    print(f"   PLQY: {df['Predicted_PLQY'].mean():.4f} ± {df['Predicted_PLQY'].std():.4f}")
+    print(f"   Wavelength: {df['Predicted_wavelength'].mean():.1f} +/- {df['Predicted_wavelength'].std():.1f} nm")
+    print(f"   PLQY: {df['Predicted_PLQY'].mean():.4f} +/- {df['Predicted_PLQY'].std():.4f}")
 
 
 def generate_comparison(args):
@@ -162,8 +162,8 @@ def generate_comparison(args):
                     'Type': 'Intersection' if suffix else 'Regular',
                     'Target': target.replace('Max_wavelength(nm)', 'Wavelength')
                                    .replace('tau(s*10^-6)', 'Lifetime'),
-                    'R²_mean': data.get('mean_r2', 0),
-                    'R²_std': data.get('std_r2', 0),
+                    'R2_mean': data.get('mean_r2', 0),
+                    'R2_std': data.get('std_r2', 0),
                     'RMSE_mean': data.get('mean_rmse', 0),
                     'RMSE_std': data.get('std_rmse', 0),
                     'MAE_mean': data.get('mean_mae', 0),
@@ -182,15 +182,15 @@ def generate_comparison(args):
     df.to_csv(output_dir / 'model_comparison.csv', index=False)
     
     # Format for display
-    df['R²'] = df.apply(lambda x: f"{x['R²_mean']:.4f} ± {x['R²_std']:.4f}", axis=1)
-    df['RMSE'] = df.apply(lambda x: f"{x['RMSE_mean']:.2f} ± {x['RMSE_std']:.2f}", axis=1)
-    df['MAE'] = df.apply(lambda x: f"{x['MAE_mean']:.2f} ± {x['MAE_std']:.2f}", axis=1)
+    df['R2'] = df.apply(lambda x: f"{x['R2_mean']:.4f} +/- {x['R2_std']:.4f}", axis=1)
+    df['RMSE'] = df.apply(lambda x: f"{x['RMSE_mean']:.2f} +/- {x['RMSE_std']:.2f}", axis=1)
+    df['MAE'] = df.apply(lambda x: f"{x['MAE_mean']:.2f} +/- {x['MAE_std']:.2f}", axis=1)
     
     # Display by target
     for target in df['Target'].unique():
         print(f"\n{target}:")
         print("-"*70)
-        target_df = df[df['Target'] == target][['Model', 'Type', 'R²', 'RMSE', 'MAE']]
+        target_df = df[df['Target'] == target][['Model', 'Type', 'R2', 'RMSE', 'MAE']]
         target_df = target_df.sort_values(['Type', 'Model'])
         print(target_df.to_string(index=False))
     
@@ -203,21 +203,21 @@ def generate_comparison(args):
     for target in df['Target'].unique():
         target_df = df[df['Target'] == target]
         if len(target_df) > 0:
-            best_idx = target_df['R²_mean'].idxmax()
+            best_idx = target_df['R2_mean'].idxmax()
             best = target_df.loc[best_idx]
             best_models.append({
                 'Target': target,
                 'Best Model': f"{best['Model']} ({best['Type']})",
-                'R²': f"{best['R²_mean']:.4f} ± {best['R²_std']:.4f}",
-                'RMSE': f"{best['RMSE_mean']:.2f} ± {best['RMSE_std']:.2f}"
+                'R^2': f"{best['R2_mean']:.4f} +/- {best['R2_std']:.4f}",
+                'RMSE': f"{best['RMSE_mean']:.2f} +/- {best['RMSE_std']:.2f}"
             })
     
     best_df = pd.DataFrame(best_models)
     best_df.to_csv(output_dir / 'best_models.csv', index=False)
     print(best_df.to_string(index=False))
     
-    print(f"\n✅ Comparison saved to: {output_dir}/model_comparison.csv")
-    print(f"✅ Best models saved to: {output_dir}/best_models.csv")
+    print(f"\nComparison saved to: {output_dir}/model_comparison.csv")
+    print(f"Best models saved to: {output_dir}/best_models.csv")
     
     # Generate LaTeX if requested
     if args.generate_latex:
@@ -247,7 +247,7 @@ Model & Type & Target & R$^2$ & RMSE & MAE \\
     
     for _, row in df.iterrows():
         latex_content += f"{row['Model']} & {row['Type']} & {row['Target']} & "
-        latex_content += f"{row['R²']} & {row['RMSE']} & {row['MAE']} \\\\\n"
+        latex_content += f"{row['R2']} & {row['RMSE']} & {row['MAE']} \\\n"
     
     latex_content += r"""\bottomrule
 \end{tabular}
@@ -259,7 +259,7 @@ Model & Type & Target & R$^2$ & RMSE & MAE \\
     with open(latex_file, 'w') as f:
         f.write(latex_content)
     
-    print(f"✅ LaTeX table saved to: {latex_file}")
+    print(f"LaTeX table saved to: {latex_file}")
 
 
 def generate_comparison_plots(df, output_dir):
@@ -270,7 +270,7 @@ def generate_comparison_plots(df, output_dir):
         
         plt.style.use('seaborn-v0_8-darkgrid')
         
-        # R² comparison bar plot
+        # R^2 comparison bar plot
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Prepare data
@@ -278,10 +278,10 @@ def generate_comparison_plots(df, output_dir):
         plot_df['Model_Type'] = plot_df['Model'] + ' (' + plot_df['Type'] + ')'
         
         # Plot
-        sns.barplot(data=plot_df, x='Model_Type', y='R²_mean', hue='Target', ax=ax)
+        sns.barplot(data=plot_df, x='Model_Type', y='R2_mean', hue='Target', ax=ax)
         ax.set_xlabel('Model')
-        ax.set_ylabel('R² Score')
-        ax.set_title('Model R² Comparison (10-fold CV)')
+        ax.set_ylabel('R^2 Score')
+        ax.set_title('Model R^2 Comparison (10-fold CV)')
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         
@@ -289,9 +289,9 @@ def generate_comparison_plots(df, output_dir):
         plt.savefig(plot_file, dpi=150, bbox_inches='tight')
         plt.close()
         
-        print(f"✅ Comparison plot saved to: {plot_file}")
+        print(f"Comparison plot saved to: {plot_file}")
     except ImportError:
-        print("⚠️  Matplotlib not available, skipping plots")
+        print("WARNING: Matplotlib not available, skipping plots")
 
 
 def generate_report(args):
@@ -319,8 +319,8 @@ def generate_report(args):
     if (output_dir / 'model_comparison.csv').exists():
         df = pd.read_csv(output_dir / 'model_comparison.csv')
         report['results']['models_trained'] = len(df)
-        report['results']['best_r2'] = df['R²_mean'].max()
-        report['results']['best_model'] = df.loc[df['R²_mean'].idxmax(), 'Model']
+        report['results']['best_r2'] = df['R2_mean'].max()
+        report['results']['best_model'] = df.loc[df['R2_mean'].idxmax(), 'Model']
     
     if (output_dir / 'test_predictions.csv').exists():
         df = pd.read_csv(output_dir / 'test_predictions.csv')
@@ -340,7 +340,7 @@ def generate_report(args):
     with open(report_file, 'w') as f:
         json.dump(report, f, indent=2)
     
-    print(f"\n✅ Final report saved to: {report_file}")
+    print(f"\nFinal report saved to: {report_file}")
     print(f"   Timestamp: {report['timestamp']}")
     print(f"   Files generated: {len(report['files'])}")
 

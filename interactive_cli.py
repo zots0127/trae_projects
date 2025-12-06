@@ -220,7 +220,7 @@ class InteractiveCLI:
                 )
                 self.console.print(info_panel)
                 
-                # 模型列表
+                # Model list
                 if self.current_predictor.models:
                     table = Table(title="Trained Models", show_header=True, header_style="bold cyan")
                     table.add_column("Model", style="cyan")
@@ -666,7 +666,7 @@ class InteractiveCLI:
         
         self.print_header()
         
-        # 选择格式
+        # Select format
         if RICH_AVAILABLE:
             format_choice = Prompt.ask("Export format", choices=["zip", "tar"], default="zip")
             default_output = f"{self.current_project}.{format_choice}"
@@ -733,10 +733,10 @@ class InteractiveCLI:
             self.console.print("[bold]Train New Models[/bold]\n")
             self.console.print("This will launch the training pipeline.\n")
             
-            # 配置编号选择 - 增加模型信息显示和自定义选项
+            # Configuration selection by number - add model info display and custom option
             configs = ["xgboost_quick", "xgboost_standard", "automl_quick", "automl", "paper_comparison", "custom"]
             
-            # 每个配置支持的模型
+            # Models supported by each configuration
             config_models = {
                 "xgboost_quick": ["XGBoost"],
                 "xgboost_standard": ["XGBoost"],
@@ -757,7 +757,7 @@ class InteractiveCLI:
                     models_str = f"[dim]({len(models)} models: {', '.join(models[:3])}{', ...' if len(models) > 3 else ''})[/dim]"
                     self.console.print(f"  {i}. [cyan]{c}[/cyan] {models_str}")
             
-            # 显示详细的模型列表
+            # Display detailed model list
             self.console.print("\n[bold]Supported models by configuration:[/bold]")
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Config", style="cyan")
@@ -825,10 +825,10 @@ class InteractiveCLI:
                 for i, (name, display) in enumerate(zip(all_model_names, all_model_display), 1):
                     self.console.print(f"  {i:2}. [yellow]{display:20}[/yellow] [dim]({name})[/dim]")
                 
-                # 获取用户选择
+                # Get user selection
                 selection = Prompt.ask("\nSelect models", default="1,2,3,4")
                 
-                # 解析选择（支持范围如1-5和单个数字）
+                # Parse selection (supports ranges like 1-5 and single numbers)
                 selected_indices = []
                 for part in selection.split(','):
                     part = part.strip()
@@ -844,35 +844,35 @@ class InteractiveCLI:
                         except:
                             pass
                 
-                # 转换为模型名称
+                # Convert to model names
                 selected_models = [all_model_names[i-1] for i in selected_indices 
                                  if 1 <= i <= len(all_model_names)]
                 
                 if not selected_models:
-                    selected_models = ["xgboost"]  # 默认至少选择XGBoost
+                    selected_models = ["xgboost"]  # Default selects at least XGBoost
                 
                 self.console.print(f"\n[green]Selected {len(selected_models)} models:[/green] {', '.join([all_model_display[all_model_names.index(m)] for m in selected_models])}\n")
                 
-                # 设置为automl模式但只使用选定的模型
+                # Set to automl mode but only use selected models
                 config = "automl"
-                # 保存选定的模型列表，稍后在构建命令时处理
+                # Save selected model list for later command building
                 custom_models_list = selected_models
-                custom_models_selected = True  # 标记已选择自定义模型
+                custom_models_selected = True  # Mark custom models selected
             
-            # 获取数据文件
+            # Get data file
             data_file = Prompt.ask("Data file", default="data/Database_normalized.csv")
             
-            # 获取项目名称
+            # Get project name
             project = Prompt.ask("Project name", default="project")
             
-            # 交互式附加选项（编号选择）
+            # Interactive extra options (numeric selection)
             extra_args = []
             if custom_models_list:
-                # 使用新的models参数格式（逗号分隔）
+                # Use new models parameter format (comma-separated)
                 models_str = ','.join(custom_models_list)
                 extra_args.append(f"models={models_str}")
 
-            # 特征类型
+            # Feature type
             feat_options = ["auto", "combined", "morgan", "descriptors", "tabular"]
             self.console.print("\n[bold]Feature type:[/bold]")
             for i, fopt in enumerate(feat_options, 1):
@@ -882,7 +882,7 @@ class InteractiveCLI:
             feat_choice = feat_options[feat_idx - 1]
             extra_args.append(f"feature.feature_type={feat_choice}")
 
-            # 分子特征参数
+            # Molecular feature parameters
             if feat_choice in ["combined", "morgan", "descriptors"]:
                 bits_choices = [512, 1024, 2048]
                 self.console.print("Morgan bits:")
@@ -908,14 +908,14 @@ class InteractiveCLI:
                 c_idx = 1 if not isinstance(c_idx, int) else max(1, min(c_idx, len(comb_options)))
                 extra_args.append(f"feature.combination_method={comb_options[c_idx-1]}")
 
-                # SMILES 列（可选）
+                # SMILES columns (optional)
                 set_smiles_idx = IntPrompt.ask("Custom SMILES columns? [1=Yes, 2=No]", default=2)
                 if int(set_smiles_idx) == 1:
                     smiles_cols = Prompt.ask("Enter SMILES columns (comma)", default="L1,L2,L3")
                     cols = [c.strip() for c in smiles_cols.split(',') if c.strip()]
                     extra_args.append(f"data.smiles_columns={json.dumps(cols)}")
 
-            # 目标列
+            # Target columns
             self.console.print("\n[bold]Targets:[/bold]")
             self.console.print("  1. Auto detect")
             self.console.print("  2. Single preset (choose)")
@@ -933,7 +933,7 @@ class InteractiveCLI:
                 if tgt_input.strip():
                     extra_args.append(f"target={tgt_input.strip()}")
 
-            # 折数与早停
+            # Folds and early stopping
             self.console.print("\n[bold]Cross validation folds:[/bold]")
             folds_options = [3, 5, 10]
             for i, f in enumerate(folds_options, 1):
@@ -953,7 +953,7 @@ class InteractiveCLI:
                 rr_idx = 2 if not isinstance(rr_idx, int) else max(1, min(rr_idx, len(rounds_options)))
                 extra_args.append(f"training.early_stopping_rounds={rounds_options[rr_idx-1]}")
 
-            # 并行/NUMA
+            # Parallel/NUMA
             self.console.print("\n[bold]Parallelism:[/bold]")
             par_choices = [1, 2, 4, 8, 16, 32]
             for i, pc in enumerate(par_choices, 1):
@@ -974,13 +974,13 @@ class InteractiveCLI:
             bind_idx = IntPrompt.ask("Bind CPU affinity? [1=Yes, 2=No]", default=2)
             extra_args.append(f"bind_cpu={'true' if int(bind_idx)==1 else 'false'}")
 
-            # 测试集（可选）
+            # Test dataset (optional)
             test_idx = IntPrompt.ask("Provide test dataset for evaluation? [1=Yes, 2=No]", default=2)
             if int(test_idx) == 1:
                 test_file = Prompt.ask("Test data file", default="data/test.csv")
                 extra_args.append(f"data.test_data_path={test_file}")
 
-            # 通用保存/报告选项
+            # Common save/report options
             self.console.print("\n[bold]Output options:[/bold]")
             save_fold_idx = IntPrompt.ask("Save fold models? [1=Yes, 2=No]", default=2)
             save_fold = int(save_fold_idx) == 1
@@ -994,16 +994,16 @@ class InteractiveCLI:
             gen_report = int(gen_report_idx) == 1
             extra_args.append(f"logging.generate_report={'true' if gen_report else 'false'}")
 
-            # AutoML相关选项（仅当选择automl配置时显示）
+            # AutoML options (shown only for automl configuration)
             if config.startswith("automl"):
-                # 只有在没有选择自定义模型时才询问是否使用所有模型
+                # Ask to use all models only when custom models not selected
                 if not custom_models_selected:
                     use_all_idx = IntPrompt.ask("AutoML use ALL supported models? [1=Yes, 2=No]", default=1)
                     use_all_models = int(use_all_idx) == 1
                     if use_all_models:
                         extra_args.append("--all")
                 
-                # AutoML trials / folds / metric (这些选项对自定义模型也适用)
+                # AutoML trials / folds / metric (also applicable to custom models)
                 trials_choices = [20, 50, 100]
                 for i, t in enumerate(trials_choices, 1):
                     self.console.print(f"  {i}. trials/model={t}")
@@ -1115,11 +1115,11 @@ class InteractiveCLI:
             for config in configs:
                 models = config_models.get(config, [])
                 print(f"{config:20} | Count: {len(models):2}")
-                # 显示所有模型，分行显示以便阅读
+                # Show all models across lines for readability
                 if len(models) <= 4:
                     print(f"{'':20} | {', '.join(models)}")
                 else:
-                    # 每行显示4个模型
+                    # Display 4 models per line
                     for i in range(0, len(models), 4):
                         chunk = models[i:i+4]
                         if i == 0:
@@ -1133,7 +1133,7 @@ class InteractiveCLI:
             all_models = ["XGBoost", "LightGBM", "CatBoost", "Random Forest", "Gradient Boosting", 
                          "Extra Trees", "AdaBoost", "Ridge", "Lasso", "Elastic Net", "SVR", "KNN", "Decision Tree"]
             
-            # 显示为编号列表，每行3个
+            # Show as numbered list, 3 per line
             for i in range(0, len(all_models), 3):
                 row_models = all_models[i:i+3]
                 row_str = "  ".join([f"{j+i+1:2}. {model:20}" for j, model in enumerate(row_models)])
@@ -1144,14 +1144,14 @@ class InteractiveCLI:
             config_idx = int(config_idx) if config_idx else 1
             config = configs[config_idx - 1] if 1 <= config_idx <= len(configs) else configs[0]
             
-            # 如果选择了custom，让用户选择具体的模型
+            # If 'custom' selected, let user choose specific models
             custom_models_list = None
-            custom_models_selected = False  # 标记是否选择了自定义模型
+            custom_models_selected = False  # Flag whether custom models were selected
             if config == "custom":
                 print("\nSelect models to train:")
                 print("Enter model numbers separated by commas (e.g., 1,2,3 or 1-5,7,9)\n")
                 
-                # 显示所有可选模型（注意顺序要与标准模式一致）
+                # Display all selectable models (keep order consistent with standard mode)
                 all_model_names = ["adaboost", "catboost", "decision_tree", "elastic_net", 
                                   "extra_trees", "gradient_boosting", "knn", "lasso", 
                                   "lightgbm", "random_forest", "ridge", "svr", "xgboost"]
@@ -1159,14 +1159,14 @@ class InteractiveCLI:
                                     "Extra Trees", "Gradient Boosting", "KNN", "Lasso", 
                                     "LightGBM", "Random Forest", "Ridge", "SVR", "XGBoost"]
                 
-                # 显示模型列表
+                # Display model list
                 for i, (name, display) in enumerate(zip(all_model_names, all_model_display), 1):
                     print(f"  {i:2}. {display:20} ({name})")
                 
-                # 获取用户选择
+                # Get user selection
                 selection = input("\nSelect models (default=1,2,3,4): ").strip() or "1,2,3,4"
                 
-                # 解析选择（支持范围如1-5和单个数字）
+                # Parse selection (supports ranges like 1-5 and single numbers)
                 selected_indices = []
                 for part in selection.split(','):
                     part = part.strip()
@@ -1182,20 +1182,20 @@ class InteractiveCLI:
                         except:
                             pass
                 
-                # 转换为模型名称
+                # Convert to model names
                 selected_models = [all_model_names[i-1] for i in selected_indices 
                                  if 1 <= i <= len(all_model_names)]
                 
                 if not selected_models:
-                    selected_models = ["xgboost"]  # 默认至少选择XGBoost
+                    selected_models = ["xgboost"]  # Default selects at least XGBoost
                 
                 print(f"\nSelected {len(selected_models)} models: {', '.join([all_model_display[all_model_names.index(m)] for m in selected_models])}\n")
                 
-                # 设置为automl模式但只使用选定的模型
+                # Set to automl mode but only use selected models
                 config = "automl"
-                # 保存选定的模型列表，稍后在构建命令时处理
+                # Save selected model list for later command building
                 custom_models_list = selected_models
-                custom_models_selected = True  # 标记已选择自定义模型
+                custom_models_selected = True  # Mark custom models selected
             
             data_file = input("Data file (default=data/Database_normalized.csv): ")
             data_file = data_file or "data/Database_normalized.csv"
@@ -1203,7 +1203,7 @@ class InteractiveCLI:
             project = input(f"Project name (default=project): ")
             project = project or "project"
             
-            # 交互式附加选项（基础终端，编号选择）
+            # Interactive extra options (basic terminal, numeric selection)
             def pick_yn(prompt: str, default_yes: bool = True) -> bool:
                 default_num = '1' if default_yes else '2'
                 s = input(f"{prompt} [1=Yes, 2=No] (default={default_num}): ").strip()
@@ -1213,11 +1213,11 @@ class InteractiveCLI:
 
             extra_args = []
             if custom_models_list:
-                # 使用新的models参数格式（逗号分隔）
+                # Use new models parameter format (comma-separated)
                 models_str = ','.join(custom_models_list)
                 extra_args.append(f"models={models_str}")
 
-            # 特征类型
+            # Feature type
             feat_options = ["auto", "combined", "morgan", "descriptors", "tabular"]
             print("\nFeature type:")
             for i, fopt in enumerate(feat_options, 1):
@@ -1264,14 +1264,14 @@ class InteractiveCLI:
                     ci = 1
                 extra_args.append(f"feature.combination_method={comb_options[ci-1]}")
 
-                # SMILES 列
+                # SMILES columns
                 set_smiles = pick_yn("Custom SMILES columns?", default_yes=False)
                 if set_smiles:
                     smiles_cols = input("Enter SMILES columns (comma, default=L1,L2,L3): ").strip() or "L1,L2,L3"
                     cols = [c.strip() for c in smiles_cols.split(',') if c.strip()]
                     extra_args.append(f"data.smiles_columns={json.dumps(cols)}")
 
-            # 目标列
+            # Target columns
             print("\nTargets:\n  1. Auto detect\n  2. Single preset (choose)\n  3. Custom (comma)")
             s = input("Target mode (default=1): ").strip() or "1"
             if s == '2':
@@ -1289,7 +1289,7 @@ class InteractiveCLI:
                 if tgt_input:
                     extra_args.append(f"target={tgt_input}")
 
-            # 折数与早停
+            # Folds and early stopping
             folds_options = [3, 5, 10]
             print("\nCross validation folds:")
             for i, f in enumerate(folds_options, 1):
@@ -1315,7 +1315,7 @@ class InteractiveCLI:
                     ri = 2
                 extra_args.append(f"training.early_stopping_rounds={rounds_options[ri-1]}")
 
-            # 并行/NUMA
+            # Parallel/NUMA
             par_choices = [1, 2, 4, 8, 16, 32]
             print("\nParallel:")
             for i, pc in enumerate(par_choices, 1):
@@ -1342,7 +1342,7 @@ class InteractiveCLI:
             bind = pick_yn("Bind CPU affinity?", default_yes=False)
             extra_args.append(f"bind_cpu={'true' if bind else 'false'}")
 
-            # 测试集
+            # Test dataset
             provide_test = pick_yn("Provide test dataset for evaluation?", default_yes=False)
             if provide_test:
                 test_file = input("Test data file (default=data/test.csv): ").strip() or "data/test.csv"
@@ -1355,13 +1355,13 @@ class InteractiveCLI:
             extra_args.append(f"logging.generate_report={'true' if gen_report else 'false'}")
 
             if config.startswith("automl"):
-                # 只有在没有选择自定义模型时才询问是否使用所有模型
+                # Ask to use all models only when custom models not selected
                 if not custom_models_selected:
                     use_all_models = pick_yn("AutoML use ALL supported models?", default_yes=True)
                     if use_all_models:
                         extra_args.append("--all")
                 
-                # AutoML trials / folds / metric (这些选项对自定义模型也适用)
+                # AutoML trials / folds / metric (also applicable to custom models)
                 trials_choices = [20, 50, 100]
                 print("Automl trials per model:")
                 for i, t in enumerate(trials_choices, 1):

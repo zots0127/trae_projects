@@ -25,7 +25,7 @@ def main():
     print("="*60)
     print()
     
-    # 构建命令
+    # Build command
     cmd_parts = [
         'python', 'automl.py', 'train',
         'config=paper_comparison',
@@ -51,14 +51,14 @@ def main():
     print(" ".join(cmd_parts))
     print()
     
-    # 执行命令
+    # Execute command
     import subprocess
     result = subprocess.run(cmd_parts, capture_output=False, text=True)
     
     if result.returncode == 0:
         print("\nTraining completed!")
         
-        # 查找结果目录
+        # Find results directory
         project_dir = Path(args.project)
         if project_dir.exists():
             # Find the latest training directory

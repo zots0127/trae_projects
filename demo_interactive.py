@@ -18,7 +18,7 @@ def demo_features():
     print("="*80)
     
     # 1. Project list
-    print("\n📋 Feature 1: Project List")
+    print("\nFeature 1: Project List")
     print("-"*40)
     manager = ProjectManager()
     projects = manager.list_projects()
@@ -27,7 +27,7 @@ def demo_features():
         print(df_projects[['name', 'models', 'runs', 'created']].to_string(index=False))
     
     # 2. Project info and model performance (with standard deviations)
-    print("\n\n📊 Feature 2: Project Information with Standard Deviations")
+    print("\n\nFeature 2: Project Information with Standard Deviations")
     print("-"*40)
     
     test_project = 'TestPaperComparison'
@@ -37,7 +37,7 @@ def demo_features():
     print(f"Models: {len(predictor.models)}")
     
     # Show model performance with standard deviation
-    print("\nModel Performance (mean±std):")
+    print("\nModel Performance (mean+/-std):")
     for i, (key, info) in enumerate(predictor.models.items()):
         if i >= 3:  # Show only first 3
             print("  ...")
@@ -49,7 +49,7 @@ def demo_features():
         print(f"  {info['type']:8} -> {target:20} R^2={r2:.4f}+/-{r2_std:.4f}")
     
     # 3. Comparison table
-    print("\n\n📈 Feature 3: Comparison Table")
+    print("\n\nFeature 3: Comparison Table")
     print("-"*40)
     
     # Compatible with fixed naming and legacy timestamp naming
@@ -71,41 +71,41 @@ def demo_features():
                 print(f"    {row['Algorithm']:20} R^2={row['R2_mean']:.4f}+/-{row['R2_std']:.4f}")
     
     # 4. Batch prediction options
-    print("\n\n🚀 Feature 4: Batch Prediction Options")
+    print("\n\nFeature 4: Batch Prediction Options")
     print("-"*40)
     print("Available Modes:")
     print("  1. Best Models   - Use only the best model for each target")
     print("  2. All Models    - Use all available models")
     print("  3. Ensemble      - Combine predictions from all models")
     print("\nEnsemble Methods:")
-    print("  • Mean     - Simple average")
-    print("  • Median   - Median value")
-    print("  • Weighted - Weighted by R² scores")
+    print("  - Mean     - Simple average")
+    print("  - Median   - Median value")
+    print("  - Weighted - Weighted by R^2 scores")
     
     # 5. Project management features
-    print("\n\n💼 Feature 5: Project Management")
+    print("\n\nFeature 5: Project Management")
     print("-"*40)
     print("Available Operations:")
-    print("  ✓ Export Project  - Package as zip/tar")
-    print("  ✓ Generate Report - Create Markdown report")
-    print("  ✓ Clean Project   - Remove temporary files")
-    print("  ✓ Train New Models - Launch training pipeline")
+    print("  - Export Project  - Package as zip/tar")
+    print("  - Generate Report - Create Markdown report")
+    print("  - Clean Project   - Remove temporary files")
+    print("  - Train New Models - Launch training pipeline")
     
     # 6. Interactive interface features
-    print("\n\n✨ Feature 6: Interactive Interface Features")
+    print("\n\nFeature 6: Interactive Interface Features")
     print("-"*40)
     print("Rich Library Enhancements:")
-    print("  • Colored output for better readability")
-    print("  • Formatted tables with borders")
-    print("  • Progress indicators for long operations")
-    print("  • Emoji icons for visual clarity")
-    print("  • Smart defaults and auto-completion")
+    print("  - Colored output for better readability")
+    print("  - Formatted tables with borders")
+    print("  - Progress indicators for long operations")
+    print("  - Plain text output without emojis")
+    print("  - Smart defaults and auto-completion")
     
     print("\n" + "="*80)
     print(" "*25 + "Demo Complete!")
     print("="*80)
     
-    print("\n📝 Usage Instructions:")
+    print("\nUsage Instructions:")
     print("-"*40)
     print("1. Start Interactive CLI:")
     print("   python automl.py interactive")
@@ -116,13 +116,13 @@ def demo_features():
     print("4. Run batch prediction (option 4)")
     print("5. Generate report (option 8)")
     
-    print("\n🎯 Key Benefits:")
+    print("\nKey Benefits:")
     print("-"*40)
-    print("• No need to remember complex commands")
-    print("• Guided workflow with prompts")
-    print("• Visual feedback and validation")
-    print("• Error handling and recovery")
-    print("• Persistent session state")
+    print("- No need to remember complex commands")
+    print("- Guided workflow with prompts")
+    print("- Visual feedback and validation")
+    print("- Error handling and recovery")
+    print("- Persistent session state")
     
     print("\n" + "="*80 + "\n")
 

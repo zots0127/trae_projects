@@ -83,12 +83,8 @@ if [ -f "./run_workflow.sh" ]; then
     echo "Running workflow: run_workflow.sh"
     echo "==========================================="
     bash ./run_workflow.sh
-elif [ -f "./0913.sh" ]; then
-    echo "Running workflow: 0913.sh"
-    echo "==========================================="
-    bash ./0913.sh
 else
-    echo "No workflow script found (run_workflow.sh or 0913.sh)."
+    echo "No workflow script found (run_workflow.sh)."
     echo "To activate the environment manually, run:"
     echo "  source .venv/bin/activate"
 fi

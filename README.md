@@ -15,16 +15,14 @@ PhosIrDB is a curated dataset of phosphorescent Ir(III) complexes designed to en
 
 ## One-Click Run
 
-Copy this single command into your terminal to clone the project, set up the environment, and run the full workflow:
+Use the built-in scripts in this repository:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zots0127/Iridium-emitters/main/run.sh | bash
-```
+# 1) Setup environment
+bash uv.sh
 
-If `curl` is unavailable:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/zots0127/Iridium-emitters/main/run.sh | bash
+# 2) Run the full workflow (outputs to an auto-named directory)
+bash run_workflow.sh
 ```
 
 ## Recommended Configuration
@@ -37,9 +35,10 @@ wget -qO- https://raw.githubusercontent.com/zots0127/Iridium-emitters/main/run.s
 
 ## Dataset
 
-- PhosIrDB packaged as `data/PhosIrDB.csv`
+- Training data: `data/Database_normalized.csv`
+- Optional test data: `data/Database_ours_0903update_normalized.csv`
+- Virtual database: `data/ir_assemble.csv`
 - Columns: SMILES in `L1`, `L2`, `L3`; targets include `Max_wavelength(nm)` and `PLQY`
-- Values are normalized for robust training and fair model comparison
 
 ## Steps
 

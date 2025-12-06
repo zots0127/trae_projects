@@ -93,7 +93,7 @@ if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
     test_data=$TEST_DATA_FILE \
     project=$OUTPUT_DIR \
     name=all_models \
-    models=adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost \
+    models=catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost \
     training.n_folds=10 \
     'training.metrics=["r2","rmse","mae"]' \
     training.save_final_model=true \

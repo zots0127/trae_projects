@@ -7,3 +7,4 @@ config/.DS_Store
 /refhistory
 /compare
 /docs
+/.venv

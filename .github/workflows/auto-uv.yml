@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       output_dir:
-        description: Output directory to archive (default: Project_Output)
+        description: 'Output directory to archive (default: Project_Output)'
         required: false
         default: Project_Output
   push:
@@ -77,4 +77,3 @@ jobs:
           files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

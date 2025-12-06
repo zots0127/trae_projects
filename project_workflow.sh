@@ -79,7 +79,7 @@ fi
 # ========== Step 2: Train Models ==========
 echo ""
 echo "[Step 2] Train models"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Step 2: Train all models (13)" | tee -a "$LOG_FILE"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Step 2: Train models" | tee -a "$LOG_FILE"
 
 # Check if models are already trained
 if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
@@ -87,13 +87,15 @@ if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
     if [ $model_count -gt 0 ]; then
         echo "INFO: Found trained models ($model_count) - skipping training" | tee -a "$LOG_FILE"
     else
-        # Standard mode (13 models, 10-fold CV)
+        TRAIN_MODELS="catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost"
+        MODEL_COUNT=$(echo "$TRAIN_MODELS" | tr ',' '\n' | wc -l)
+        echo "INFO: Start training ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
         python automl.py train \
     data=$DATA_FILE \
     test_data=$TEST_DATA_FILE \
     project=$OUTPUT_DIR \
     name=all_models \
-    models=catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost \
+    models=$TRAIN_MODELS \
     training.n_folds=10 \
     'training.metrics=["r2","rmse","mae"]' \
     training.save_final_model=true \
@@ -129,20 +131,22 @@ if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
 
         # Check training status
         if [ $? -eq 0 ]; then
-            echo "INFO: All 13 models trained" | tee -a "$LOG_FILE"
+            echo "INFO: Models trained ($MODEL_COUNT)" | tee -a "$LOG_FILE"
         else
             echo "ERROR: Training failed" | tee -a "$LOG_FILE"
             exit 1
         fi
     fi
 else
-    # Directory not found, training required
+    TRAIN_MODELS="adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost"
+    MODEL_COUNT=$(echo "$TRAIN_MODELS" | tr ',' '\n' | wc -l)
+    echo "INFO: Start training ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
     python automl.py train \
     data=$DATA_FILE \
     test_data=$TEST_DATA_FILE \
     project=$OUTPUT_DIR \
     name=all_models \
-    models=adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost \
+    models=$TRAIN_MODELS \
     training.n_folds=10 \
     'training.metrics=["r2","rmse","mae"]' \
     training.save_final_model=true \
@@ -178,7 +182,7 @@ else
 
     # Check training status
     if [ $? -eq 0 ]; then
-        echo "INFO: All 13 models trained" | tee -a "$LOG_FILE"
+        echo "INFO: Models trained ($MODEL_COUNT)" | tee -a "$LOG_FILE"
     else
         echo "ERROR: Training failed" | tee -a "$LOG_FILE"
         exit 1

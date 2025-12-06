@@ -235,12 +235,12 @@ class InteractiveCLI:
                         # Format R^2 with std
                         r2_str = 'N/A'
                         if isinstance(perf.get('r2'), float):
-                        r2_mean = perf.get('r2')
-                        r2_std = perf.get('r2_std', 0)
-                        if r2_std > 0:
-                            r2_str = f"{r2_mean:.4f}+/-{r2_std:.4f}"
-                        else:
-                            r2_str = f"{r2_mean:.4f}"
+                            r2_mean = perf.get('r2')
+                            r2_std = perf.get('r2_std', 0)
+                            if r2_std > 0:
+                                r2_str = f"{r2_mean:.4f}+/-{r2_std:.4f}"
+                            else:
+                                r2_str = f"{r2_mean:.4f}"
                         
                         # Format RMSE with std
                         rmse_str = 'N/A'
@@ -772,8 +772,6 @@ class InteractiveCLI:
             
             self.console.print(table)
             
-            # Show complete list of 13 available models
-            self.console.print("\n[bold]All Available Models (13 total):[/bold]")
             all_models = [
                 ("XGBoost", "Tree-based ensemble"),
                 ("LightGBM", "Tree-based ensemble"),
@@ -789,6 +787,7 @@ class InteractiveCLI:
                 ("SVR", "Support Vector"),
                 ("KNN", "Instance-based")
             ]
+            self.console.print(f"\n[bold]All Available Models ({len(all_models)} total):[/bold]")
             
             # Create a table to display all models
             model_table = Table(show_header=True, header_style="bold cyan", box=None)
@@ -1058,13 +1057,21 @@ class InteractiveCLI:
                         fmts = ["markdown","html","csv"]
                     extra_args.append(f"comparison.formats={json.dumps(fmts)}")
 
-            # Build command
+            # Build command (no external config; translate selection to CLI params)
             base = [
                 "python", "automl.py", "train",
-                f"config={config}",
                 f"data={data_file}",
                 f"project={project}"
             ]
+            # Map configuration to CLI model selection
+            if config == "xgboost_quick" or config == "xgboost_standard":
+                base.append("model=xgboost")
+            elif config == "automl_quick":
+                base.append("models=xgboost,lightgbm,catboost,random_forest")
+            elif config == "automl" or config == "paper_comparison":
+                base.append("models=adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost")
+            elif config == "custom" and custom_models_selected and custom_models_list:
+                base.append("models=" + ",".join(custom_models_list))
             
             # Display command (for debugging)
             cmd_display = " ".join(base + extra_args)
@@ -1128,10 +1135,10 @@ class InteractiveCLI:
                             print(f"{'':20} | {', '.join(chunk)}")
             print("-" * 80)
             
-            print("\nAll Available Models (13 total):")
-            print("-" * 80)
             all_models = ["XGBoost", "LightGBM", "CatBoost", "Random Forest", "Gradient Boosting", 
                          "Extra Trees", "AdaBoost", "Ridge", "Lasso", "Elastic Net", "SVR", "KNN", "Decision Tree"]
+            print(f"\nAll Available Models ({len(all_models)} total):")
+            print("-" * 80)
             
             # Show as numbered list, 3 per line
             for i in range(0, len(all_models), 3):

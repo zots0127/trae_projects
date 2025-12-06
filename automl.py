@@ -223,10 +223,11 @@ def train_command(args: List[str]):
     
     # Load or create configuration
     _t_conf_start = _pc()
-    manager = DynamicConfigManager()
+    manager = None
     
     if config_path:
-        # Try to get config (supports template name or file path)
+        # Only initialize config manager when a config is explicitly provided
+        manager = DynamicConfigManager()
         config = manager.get_config(config_path)
         if config:
             print(f"INFO: Using config: {config_path}")
@@ -234,14 +235,9 @@ def train_command(args: List[str]):
             print(f"ERROR: Config file or template not found: {config_path}")
             return 1
     else:
-        # Use default configuration
-        config = manager.get_config('xgboost_quick')
-        if not config:
-            # If not found, use built-in default config
-            config = ExperimentConfig()
-            print("INFO: Using built-in default config")
-        else:
-            print("INFO: Using default template: xgboost_quick")
+        # Use built-in default configuration without scanning YAML templates
+        config = ExperimentConfig()
+        print("INFO: Using built-in default config")
     
     # Merge CLI params
     config = parser.merge_params_to_config(config, params)

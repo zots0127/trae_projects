@@ -8,3 +8,4 @@ config/.DS_Store
 /compare
 /docs
 /.venv
+/Project_Output

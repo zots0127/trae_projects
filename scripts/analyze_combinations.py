@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_DATA_FILE = BASE_DIR / "data" / "Database_normalized.csv"
+DEFAULT_DATA_FILE = BASE_DIR / "data" / "PhosIrDB.csv"
 DEFAULT_VIRTUAL_FILE = BASE_DIR / "data" / "ir_assemble.csv"
 
 
@@ -94,7 +94,7 @@ def analyze_combinations(data_file=None, virtual_file=None):
 def main():
     parser = argparse.ArgumentParser(description="Analyze virtual combination counts")
     parser.add_argument("--data", default=None,
-                        help="Original dataset path (default: data/Database_normalized.csv)")
+                        help="Original dataset path (default: data/PhosIrDB.csv)")
     parser.add_argument("--virtual", "--assemble", dest="virtual", default=None,
                         help="Virtual database path (default: data/ir_assemble.csv)")
 

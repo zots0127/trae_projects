@@ -584,7 +584,7 @@ def train_command(args: List[str]):
                 # 2) Generate paper figures (with data)
                 try:
                     from scripts.generate_paper_figures import generate_all_figures
-                    data_path = config.data.data_path if hasattr(config, 'data') else 'data/Database_normalized.csv'
+                    data_path = config.data.data_path if hasattr(config, 'data') else 'data/PhosIrDB.csv'
                     generate_all_figures(str(run_dir), data_path, str(paper_dir))
                 except Exception as e:
                     print(f"WARNING: Failed to generate paper figures: {e}")

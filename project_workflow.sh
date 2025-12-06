@@ -25,7 +25,7 @@ else
 fi
 
 # Data files
-DATA_FILE="data/Database_normalized.csv"
+DATA_FILE="data/PhosIrDB.csv"
 TEST_DATA_FILE="data/Database_ours_0903update_normalized.csv"
 
 # Create output directory

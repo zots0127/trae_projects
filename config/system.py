@@ -21,7 +21,7 @@ from datetime import datetime
 @dataclass
 class DataConfig:
     """Data configuration"""
-    data_path: str = "data/Database_normalized.csv"
+    data_path: str = "data/PhosIrDB.csv"
     smiles_columns: List[str] = field(default_factory=lambda: ['L1', 'L2', 'L3'])
     target_columns: List[str] = field(default_factory=lambda: ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)'])
     train_ratio: float = 0.8

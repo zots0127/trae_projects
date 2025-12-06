@@ -10,7 +10,7 @@
 # ============================================================
 
 # === DATA CONFIGURATION ===
-TRAIN_DATA="data/Database_normalized.csv"              # Training dataset
+TRAIN_DATA="data/PhosIrDB.csv"              # Training dataset
 TEST_DATA="Database_ours_0903update_normalized.csv"    # Test dataset for predictions
 VIRTUAL_DATA="ir_assemble.csv"                        # Virtual database (272k combinations)
 

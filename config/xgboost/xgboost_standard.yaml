@@ -35,7 +35,7 @@ feature:
   cache_dir: feature_cache
 
 data:
-  data_path: data/Database_normalized.csv
+  data_path: data/PhosIrDB.csv
   test_data_path: Database_ours_0903update_normalized.csv  # 外部测试集
   smiles_columns:
     - L1

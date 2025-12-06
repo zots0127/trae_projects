@@ -574,7 +574,7 @@ def main():
     
     parser.add_argument('--project', '-p', default='.',
                        help='Project directory')
-    parser.add_argument('--data', '-d', default='data/Database_normalized.csv',
+    parser.add_argument('--data', '-d', default='data/PhosIrDB.csv',
                        help='Data file')
     parser.add_argument('--output', '-o', help='Output directory')
     

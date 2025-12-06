@@ -254,7 +254,7 @@ def main():
     """Main entrypoint"""
     parser = argparse.ArgumentParser(description='Generate virtual database')
     
-    parser.add_argument('--data', '-d', default='data/Database_normalized.csv',
+    parser.add_argument('--data', '-d', default='data/PhosIrDB.csv',
                        help='Original data file path')
     parser.add_argument('--project', '-p', default='paper_table',
                        help='Training project directory')

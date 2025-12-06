@@ -9,7 +9,7 @@ Supports data loading, model training, and 10-fold cross-validation
 # ========================================
 
 # Data configuration
-DEFAULT_DATA_PATH = "data/Database_normalized.csv"  # default data path
+DEFAULT_DATA_PATH = "data/PhosIrDB.csv"  # default data path
 SMILES_COLUMNS = ['L1', 'L2', 'L3']       # SMILES columns
 TARGET_COLUMNS = ['Max_wavelength(nm)', 'PLQY', 'tau(s*10^-6)']  # target columns
 

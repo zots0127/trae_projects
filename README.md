@@ -35,10 +35,11 @@ bash run_workflow.sh
 
 ## Dataset
 
-- Training data: `data/Database_normalized.csv`
+- Training data: `data/PhosIrDB.csv`
 - Optional test data: `data/Database_ours_0903update_normalized.csv`
 - Virtual database: `data/ir_assemble.csv`
 - Columns: SMILES in `L1`, `L2`, `L3`; targets include `Max_wavelength(nm)` and `PLQY`
+- Values are normalized for robust training and fair model comparison
 
 ## Steps
 

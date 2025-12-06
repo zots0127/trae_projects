@@ -55,10 +55,10 @@ class ModelShapAnalyzer:
         # Try loading data from multiple locations
         data_paths = [
             # Data path within/sibling to the paper directory
-            self.paper_dir / 'data' / 'Database_normalized.csv',
-            Path('/Users/kanshan/IR/ir2025/data/Database_normalized.csv'),
-            Path('../ir2025/data/Database_normalized.csv'),
-            Path('data/Database_normalized.csv')
+            self.paper_dir / 'data' / 'PhosIrDB.csv',
+            Path('/Users/kanshan/IR/ir2025/data/PhosIrDB.csv'),
+            Path('../ir2025/data/PhosIrDB.csv'),
+            Path('data/PhosIrDB.csv')
         ]
 
         for data_path in data_paths:

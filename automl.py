@@ -25,7 +25,7 @@ import multiprocessing as mp
 # Add current directory to sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config.system import ExperimentConfig, ConfigValidator
+from config.system import ExperimentConfig, ConfigValidator, ConfigManager
 from config.manager import DynamicConfigManager, get_config, list_configs, save_config
 from training.pipeline import TrainingPipeline
 from models.base import load_model
@@ -2083,7 +2083,6 @@ def main():
         print("  analyze     - analyze experiment results")
         print("  predict     - run predictions")
         print("  project     - project management (batch prediction)")
-        print("  interactive - interactive UI")
         print("  validate    - validate configuration")
         print("  config      - manage config templates")
         print("  cache       - manage feature cache")
@@ -2091,7 +2090,6 @@ def main():
         print("  warmup      - precompute and write feature cache")
         print("  info        - show system information")
         print("\nExamples:")
-        print("  automl interactive                    # start interactive UI")
         print("  automl train model=xgboost data=data.csv")
         print("  automl analyze dir=runs/train format=html")
         print("  automl project list")
@@ -2114,12 +2112,6 @@ def main():
         return predict_command(args)
     elif command == 'project':
         return project_command(args)
-    elif command == 'interactive':
-        # Launch interactive UI
-        from interactive_cli import InteractiveCLI
-        cli = InteractiveCLI()
-        cli.run()
-        return 0
     elif command == 'validate':
         return validate_command(args)
     elif command == 'config':

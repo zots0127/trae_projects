@@ -76,21 +76,77 @@ else
     echo "WARNING: Virtual database not found - skipping combination statistics" | tee -a "$LOG_FILE"
 fi
 
-# ========== Step 2: Train Models ==========
+## ========== Step 2: Train Models ==========
 echo ""
-echo "[Step 2] Train models"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Step 2: Train models" | tee -a "$LOG_FILE"
+## Configure model list (full vs minimal), dynamic count, and force switch
+TRAIN_FULL=${TRAIN_FULL:-false}
+FORCE_TRAIN=${FORCE_TRAIN:-true}
+if [ "$TRAIN_FULL" = "true" ]; then
+    TRAIN_MODELS="adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost"
+else
+    TRAIN_MODELS="catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost"
+fi
+MODEL_COUNT=$(echo "$TRAIN_MODELS" | tr ',' '\n' | wc -l)
 
-# Check if models are already trained
+echo "[Step 2] Train models ($MODEL_COUNT models)"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Step 2: Train models ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
+
+# Check if models are already trained (honor FORCE_TRAIN)
 if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
-    model_count=$(ls -d $OUTPUT_DIR/all_models/automl_train/*/ 2>/dev/null | wc -l)
-    if [ $model_count -gt 0 ]; then
-        echo "INFO: Found trained models ($model_count) - skipping training" | tee -a "$LOG_FILE"
+    existing_runs=$(ls -d $OUTPUT_DIR/all_models/automl_train/*/ 2>/dev/null | wc -l)
+    if [ "$FORCE_TRAIN" = "false" ] && [ $existing_runs -gt 0 ]; then
+        echo "INFO: Found trained runs ($existing_runs) - skipping training (FORCE_TRAIN=false)" | tee -a "$LOG_FILE"
     else
-        TRAIN_MODELS="catboost,decision_tree,gradient_boosting,lightgbm,mlp,random_forest,ridge,xgboost"
-        MODEL_COUNT=$(echo "$TRAIN_MODELS" | tr ',' '\n' | wc -l)
         echo "INFO: Start training ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
         python automl.py train \
+        data=$DATA_FILE \
+        test_data=$TEST_DATA_FILE \
+        project=$OUTPUT_DIR \
+        name=all_models \
+        models=$TRAIN_MODELS \
+        training.n_folds=10 \
+        'training.metrics=["r2","rmse","mae"]' \
+        training.save_final_model=true \
+        training.save_fold_models=false \
+        training.save_feature_importance=true \
+        training.verbose=2 \
+        feature.feature_type=combined \
+        feature.morgan_bits=1024 \
+        feature.morgan_radius=2 \
+        feature.combination_method=mean \
+        feature.use_cache=true \
+        'data.smiles_columns=["L1","L2","L3"]' \
+        'data.target_columns=["Max_wavelength(nm)","PLQY"]' \
+        data.multi_target_strategy=intersection \
+        data.nan_handling=skip \
+        data.train_ratio=1.0 \
+        data.val_ratio=0.0 \
+        data.test_ratio=0.0 \
+        comparison.enable=true \
+        'comparison.formats=["markdown","html","latex","csv"]' \
+        comparison.highlight_best=true \
+        comparison.include_std=true \
+        comparison.decimal_places.r2=4 \
+        comparison.decimal_places.rmse=4 \
+        comparison.decimal_places.mae=4 \
+        export.enable=true \
+        'export.formats=["json","csv","excel"]' \
+        export.include_predictions=true \
+        export.include_feature_importance=true \
+        export.include_cv_details=true \
+        export.generate_plots=true \
+        export.generate_report=true 2>&1 | tee -a "$LOG_FILE"
+
+        if [ $? -eq 0 ]; then
+            echo "INFO: Models trained ($MODEL_COUNT)" | tee -a "$LOG_FILE"
+        else
+            echo "ERROR: Training failed" | tee -a "$LOG_FILE"
+            exit 1
+        fi
+    fi
+else
+    echo "INFO: Start training ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
+    python automl.py train \
     data=$DATA_FILE \
     test_data=$TEST_DATA_FILE \
     project=$OUTPUT_DIR \
@@ -129,58 +185,6 @@ if [ -d "$OUTPUT_DIR/all_models/automl_train" ]; then
     export.generate_plots=true \
     export.generate_report=true 2>&1 | tee -a "$LOG_FILE"
 
-        # Check training status
-        if [ $? -eq 0 ]; then
-            echo "INFO: Models trained ($MODEL_COUNT)" | tee -a "$LOG_FILE"
-        else
-            echo "ERROR: Training failed" | tee -a "$LOG_FILE"
-            exit 1
-        fi
-    fi
-else
-    TRAIN_MODELS="adaboost,catboost,decision_tree,elastic_net,gradient_boosting,knn,lasso,lightgbm,mlp,random_forest,ridge,svr,xgboost"
-    MODEL_COUNT=$(echo "$TRAIN_MODELS" | tr ',' '\n' | wc -l)
-    echo "INFO: Start training ($MODEL_COUNT models)" | tee -a "$LOG_FILE"
-    python automl.py train \
-    data=$DATA_FILE \
-    test_data=$TEST_DATA_FILE \
-    project=$OUTPUT_DIR \
-    name=all_models \
-    models=$TRAIN_MODELS \
-    training.n_folds=10 \
-    'training.metrics=["r2","rmse","mae"]' \
-    training.save_final_model=true \
-    training.save_fold_models=false \
-    training.save_feature_importance=true \
-    training.verbose=1 \
-    feature.feature_type=combined \
-    feature.morgan_bits=1024 \
-    feature.morgan_radius=2 \
-    feature.combination_method=mean \
-    feature.use_cache=true \
-    'data.smiles_columns=["L1","L2","L3"]' \
-    'data.target_columns=["Max_wavelength(nm)","PLQY"]' \
-    data.multi_target_strategy=intersection \
-    data.nan_handling=skip \
-    data.train_ratio=1.0 \
-    data.val_ratio=0.0 \
-    data.test_ratio=0.0 \
-    comparison.enable=true \
-    'comparison.formats=["markdown","html","latex","csv"]' \
-    comparison.highlight_best=true \
-    comparison.include_std=true \
-    comparison.decimal_places.r2=4 \
-    comparison.decimal_places.rmse=4 \
-    comparison.decimal_places.mae=4 \
-    export.enable=true \
-    'export.formats=["json","csv","excel"]' \
-    export.include_predictions=true \
-    export.include_feature_importance=true \
-    export.include_cv_details=true \
-    export.generate_plots=true \
-    export.generate_report=true 2>&1 | tee -a "$LOG_FILE"
-
-    # Check training status
     if [ $? -eq 0 ]; then
         echo "INFO: Models trained ($MODEL_COUNT)" | tee -a "$LOG_FILE"
     else

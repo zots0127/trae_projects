@@ -1,0 +1,80 @@
+name: Auto UV Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      output_dir:
+        description: Output directory to archive (default: Project_Output)
+        required: false
+        default: Project_Output
+  push:
+    branches: [ main ]
+    paths:
+      - 'uv.sh'
+      - 'run_workflow.sh'
+      - 'project_workflow.sh'
+      - 'ml_pipeline.sh'
+      - 'automl.py'
+      - 'scripts/**'
+      - '**/*.py'
+
+permissions:
+  contents: write
+
+jobs:
+  run-uv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show runner info
+        run: |
+          uname -a
+          python3 --version || true
+
+      - name: Run uv.sh
+        shell: bash
+        run: |
+          bash ./uv.sh
+
+      - name: Prepare archive
+        shell: bash
+        run: |
+          set -e
+          OUTPUT_DIR="${{ github.event.inputs.output_dir }}"
+          if [ -z "$OUTPUT_DIR" ]; then
+            OUTPUT_DIR="Project_Output"
+          fi
+          if [ ! -d "$OUTPUT_DIR" ]; then
+            echo "Output directory not found: $OUTPUT_DIR"
+            echo "Available directories:" && ls -la
+            exit 1
+          fi
+          sudo apt-get update && sudo apt-get install -y zip || true
+          TS=$(date +%Y%m%d_%H%M%S)
+          ZIP_NAME="${OUTPUT_DIR}_${TS}.zip"
+          echo "Archiving $OUTPUT_DIR to $ZIP_NAME"
+          zip -r "$ZIP_NAME" "$OUTPUT_DIR"
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uv-run-output
+          path: ${{ env.ZIP_NAME }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+        with:
+          tag_name: auto-uv-${{ github.run_id }}
+          name: Auto UV Run ${{ github.run_id }}
+          draft: false
+          prerelease: false
+          files: ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

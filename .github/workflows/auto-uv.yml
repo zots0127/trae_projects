@@ -30,6 +30,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Determine output dir
+        id: outdir
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.output_dir }}" ]; then
+            echo "output_dir=${{ github.event.inputs.output_dir }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "output_dir=Project_Output" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Show runner info
         run: |
           uname -a
@@ -44,10 +54,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          OUTPUT_DIR="${{ github.event.inputs.output_dir }}"
-          if [ -z "$OUTPUT_DIR" ]; then
-            OUTPUT_DIR="Project_Output"
-          fi
+          OUTPUT_DIR="${{ steps.outdir.outputs.output_dir }}"
           if [ ! -d "$OUTPUT_DIR" ]; then
             echo "Output directory not found: $OUTPUT_DIR"
             echo "Available directories:" && ls -la
@@ -60,11 +67,13 @@ jobs:
           zip -r "$ZIP_NAME" "$OUTPUT_DIR" -x "$OUTPUT_DIR/docs/*" "$OUTPUT_DIR/docs"
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: uv-run-output
           path: ${{ env.ZIP_NAME }}
+
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -77,3 +86,6 @@ jobs:
           files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    if: false

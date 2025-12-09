@@ -1,0 +1,66 @@
+name: Deploy Project_Output to Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      output_dir:
+        description: 'Output directory (default: Project_Output)'
+        required: false
+        default: Project_Output
+  push:
+    branches: [ main ]
+    paths:
+      - 'uv.sh'
+      - 'run_workflow.sh'
+      - 'workflow.sh'
+      - 'bin/**'
+      - 'scripts/**'
+      - '**/*.py'
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup and run workflow
+        shell: bash
+        run: |
+          bash ./uv.sh
+
+      - name: Determine output dir
+        id: outdir
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.output_dir }}" ]; then
+            echo "dir=${{ github.event.inputs.output_dir }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=Project_Output" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List site contents
+        shell: bash
+        run: |
+          ls -la "${{ steps.outdir.outputs.dir }}"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.outdir.outputs.dir }}
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

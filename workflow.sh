@@ -240,9 +240,6 @@ with open(out_dir / "workflow_summary.json", "w") as f:
 print("Workflow summary saved:", out_dir / "workflow_summary.json")
 PY
 
-# -----------------------------
-# Done
-# -----------------------------
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 printf "\n==========================================\n"

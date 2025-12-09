@@ -24,9 +24,6 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# Add path (for RDKit imports)
-sys.path.insert(0, str(Path(__file__).parent.parent / 'ir2025'))
-
 # Use SHAP library directly, independent of internal modules
 print("INFO: SHAP analysis tool loaded")
 
@@ -54,10 +51,8 @@ class ModelShapAnalyzer:
 
         # Try loading data from multiple locations
         data_paths = [
-            # Data path within/sibling to the paper directory
+            # Prefer project-local dataset paths
             self.paper_dir / 'data' / 'PhosIrDB.csv',
-            Path('/Users/kanshan/IR/ir2025/data/PhosIrDB.csv'),
-            Path('../ir2025/data/PhosIrDB.csv'),
             Path('data/PhosIrDB.csv')
         ]
 

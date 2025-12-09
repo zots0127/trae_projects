@@ -63,6 +63,8 @@ echo "Activating virtual environment..."
 source "$VENV_PATH/bin/activate"
 
 echo ""
+echo "Pinning NumPy for RDKit compatibility (numpy<2)..."
+uv pip install 'numpy<2'
 echo "Installing core requirements..."
 uv pip install -r <(grep -vi '^\s*rdkit' "$ROOT_DIR/requirements.txt")
 

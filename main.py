@@ -7,8 +7,7 @@ Unified command-line interface
 import sys
 from pathlib import Path
 
-# Ensure automl.py can be imported
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent / 'bin'))
 
 from automl import main
 

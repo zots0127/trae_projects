@@ -22,8 +22,9 @@ import psutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
 
-# Add current directory to sys.path
+# Add bin and project root to sys.path
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config.system import ExperimentConfig, ConfigValidator, ConfigManager
 from config.manager import DynamicConfigManager, get_config, list_configs, save_config

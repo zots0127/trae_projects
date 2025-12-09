@@ -77,7 +77,7 @@ if [ -d "$TRAIN_DIR" ] && [ "$FORCE_TRAIN" = "0" ]; then
   info "Found existing training runs at $TRAIN_DIR (FORCE_TRAIN=0), skipping training."
 else
   info "Training models: $TRAIN_MODELS"
-  python "$ROOT_DIR/automl.py" train \
+  python "$ROOT_DIR/bin/automl.py" train \
     data="$DATA_FILE" \
     test_data="$TEST_DATA_FILE" \
     project="$OUTPUT_DIR" \
@@ -190,7 +190,7 @@ else
   if [ -f "$OUTPUT_DIR/shap_analysis/shap_report.html" ]; then
     info "SHAP report exists; skipping."
   else
-    python "$ROOT_DIR/analyze_shap.py" "$OUTPUT_DIR" \
+    python "$ROOT_DIR/bin/analyze_shap.py" "$OUTPUT_DIR" \
       --models xgboost lightgbm catboost \
       --sample-size 100 2>&1 | grep -v "DEPRECATION" | tee -a "$LOG_FILE" || warn "SHAP analysis failed"
   fi
@@ -250,4 +250,3 @@ printf "Workflow completed in %02dh:%02dm:%02ds\n" $((DURATION/3600)) $(((DURATI
 printf "Output directory: %s\n" "$OUTPUT_DIR"
 printf "Log file: %s\n" "$LOG_FILE"
 printf "==========================================\n\n"
-

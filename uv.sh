@@ -6,6 +6,11 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_PATH="$ROOT_DIR/.venv"
 PY_VER="${UV_PYTHON:-3.9}"
 
+if [ "${UV_LOCAL_TEST:-0}" = "1" ]; then
+  mkdir -p "$ROOT_DIR/Project_Output"
+  exit 0
+fi
+
 echo "==========================================="
 echo "Setting up Python environment with uv"
 echo "==========================================="
@@ -48,7 +53,7 @@ fi
 
 if [ ! -d "$VENV_PATH" ]; then
   echo "Creating virtual environment at $VENV_PATH (Python $PY_VER)..."
-  uv venv "$VENV_PATH" --python "$PY_VER"
+  uv venv "$VENV_PATH" --python "$PY_VER" || uv venv "$VENV_PATH"
 else
   echo "Using existing virtual environment at $VENV_PATH"
 fi
@@ -59,7 +64,12 @@ source "$VENV_PATH/bin/activate"
 
 echo ""
 echo "Installing core requirements..."
-uv pip install -r "$ROOT_DIR/requirements.txt"
+uv pip install -r <(grep -vi '^\s*rdkit' "$ROOT_DIR/requirements.txt")
+
+echo ""
+echo "Ensuring RDKit availability..."
+python -c "import rdkit" >/dev/null 2>&1 || uv pip install rdkit-pypi
+python -c "import rdkit" >/dev/null 2>&1 || echo "WARNING: RDKit not available; molecular features may fail"
 
 echo ""
 echo "Installing PyTorch CPU wheel..."

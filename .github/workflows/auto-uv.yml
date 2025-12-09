@@ -57,7 +57,7 @@ jobs:
           TS=$(date +%Y%m%d_%H%M%S)
           ZIP_NAME="${OUTPUT_DIR}_${TS}.zip"
           echo "Archiving $OUTPUT_DIR to $ZIP_NAME"
-          zip -r "$ZIP_NAME" "$OUTPUT_DIR"
+          zip -r "$ZIP_NAME" "$OUTPUT_DIR" -x "$OUTPUT_DIR/docs/*" "$OUTPUT_DIR/docs"
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 
       - name: Upload artifact

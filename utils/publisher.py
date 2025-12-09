@@ -10,6 +10,7 @@ import os
 import json
 import shutil
 import tempfile
+import zipfile
 
 try:
     import requests
@@ -33,7 +34,14 @@ class ResultsPublisher:
         directory = Path(directory)
         tmp_dir = Path(tempfile.mkdtemp(prefix='results_upload_'))
         zip_path = tmp_dir / f"{directory.name}.zip"
-        shutil.make_archive(str(zip_path.with_suffix('')), 'zip', root_dir=str(directory))
+        exclude_dirs = {"docs"}
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for root, dirnames, filenames in os.walk(directory):
+                dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+                for fname in filenames:
+                    fpath = Path(root) / fname
+                    arcname = fpath.relative_to(directory)
+                    zf.write(fpath, arcname)
         return zip_path
 
     def publish_package(self,

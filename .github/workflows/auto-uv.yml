@@ -25,10 +25,38 @@ jobs:
   run-uv:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      UV_PYTHON: "3.9"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore venv cache
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py39-${{ hashFiles('requirements.txt', 'uv.sh') }}
+          restore-keys: |
+            venv-${{ runner.os }}-py39-
+
+      - name: Restore uv/pip caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.cache/pip
+          key: uvpip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'uv.sh') }}
+          restore-keys: |
+            uvpip-${{ runner.os }}-
+
+      - name: Restore feature cache
+        uses: actions/cache@v4
+        with:
+          path: feature_cache
+          key: featurecache-${{ runner.os }}-${{ hashFiles('core/feature_extractor.py') }}
+          restore-keys: |
+            featurecache-${{ runner.os }}-
 
       - name: Determine output dir
         id: outdir

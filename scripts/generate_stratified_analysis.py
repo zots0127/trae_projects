@@ -96,7 +96,7 @@ def load_predictions_from_project(project_dir: Path) -> dict:
                         df = pd.read_csv(pred_file)
                         
                         # Parse target from filename
-                        filename = pred_file.stem  # e.g.: xgboost_PLQY_20250913_221305_all_predictions
+                        filename = pred_file.stem  # e.g.: xgboost_PLQY_all_predictions
                         parts = filename.split('_')
                         
                         # Find target name (after model name, before date)
@@ -179,7 +179,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python generate_stratified_analysis.py --project Paper_0913_123456 --output Paper_0913_123456/figures
+  python generate_stratified_analysis.py --project Paper_123456 --output Paper_123456/figures
   python generate_stratified_analysis.py --project results/training_001
         """
     )

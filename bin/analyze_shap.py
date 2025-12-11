@@ -24,6 +24,12 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
+# Ensure project root on sys.path so internal modules (e.g., core) resolve
+ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_STR = str(ROOT_DIR)
+if ROOT_STR not in sys.path:
+    sys.path.insert(0, ROOT_STR)
+
 # Use SHAP library directly, independent of internal modules
 print("INFO: SHAP analysis tool loaded")
 

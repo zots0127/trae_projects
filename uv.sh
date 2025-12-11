@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clean uv-based environment bootstrap for Nature release
+# Clean uv-based environment bootstrap for GitHub release
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -14,6 +14,51 @@ fi
 echo "==========================================="
 echo "Setting up Python environment with uv"
 echo "==========================================="
+
+ensure_brew_and_libomp() {
+  OS_NAME="$(uname -s)"
+  if [ "$OS_NAME" != "Darwin" ]; then
+    echo "Non-macOS detected ($OS_NAME); skipping Homebrew/libomp check."
+    return
+  fi
+
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew not found. Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Add brew to PATH for current shell
+    if [ -d "/opt/homebrew/bin" ]; then
+      export PATH="/opt/homebrew/bin:$PATH"
+    elif [ -d "/usr/local/bin" ]; then
+      export PATH="/usr/local/bin:$PATH"
+    fi
+  fi
+
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Failed to install or locate Homebrew. Please install it manually."
+    exit 1
+  fi
+
+  if ! brew list --versions libomp >/dev/null 2>&1; then
+    echo "libomp not found. Installing libomp via Homebrew..."
+    brew install libomp
+  else
+    echo "libomp already installed."
+  fi
+
+  LIBOMP_PREFIX="$(brew --prefix libomp 2>/dev/null || true)"
+  if [ -n "$LIBOMP_PREFIX" ] && [ -d "$LIBOMP_PREFIX/lib" ]; then
+    LIBOMP_LIB_PATH="$LIBOMP_PREFIX/lib"
+    case ":${DYLD_LIBRARY_PATH:-}:" in
+      *":$LIBOMP_LIB_PATH:"*) ;;
+      *) export DYLD_LIBRARY_PATH="$LIBOMP_LIB_PATH${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ;;
+    esac
+    echo "Ensured DYLD_LIBRARY_PATH includes libomp at $LIBOMP_LIB_PATH"
+  else
+    echo "WARNING: libomp prefix not found; xgboost may still fail to load."
+  fi
+}
+
+ensure_brew_and_libomp
 
 ensure_uv() {
   if command -v uv >/dev/null 2>&1; then

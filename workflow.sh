@@ -1,5 +1,5 @@
 #!/bin/bash
-# Unified Nature workflow - single entry for training, evaluation, prediction
+# Unified  workflow - single entry for training, evaluation, prediction
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -33,7 +33,7 @@ error() { echo "[ERROR] $*" >&2; exit 1; }
 mkdir -p "$OUTPUT_DIR"
 
 echo "=========================================="
-echo "Nature unified workflow"
+echo "Unified workflow"
 echo "Start: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "Output: $OUTPUT_DIR"
 echo "=========================================="

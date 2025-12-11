@@ -1,5 +1,5 @@
 #!/bin/bash
-# Single entry to run unified Nature workflow
+# Single entry to run unified workflow
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

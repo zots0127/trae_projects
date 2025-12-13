@@ -138,24 +138,3 @@ echo "Python version: $(python --version)"
 echo ""
 echo "Activate with: source \"$VENV_PATH/bin/activate\""
 echo "To recreate: UV_RECREATE=1 UV_PYTHON=$PY_VER bash uv.sh"
-
-# Auto-run full workflow unless explicitly skipped
-if [ "${UV_SKIP_WORKFLOW:-0}" != "1" ]; then
-  WORKFLOW="$ROOT_DIR/run_workflow.sh"
-  if [ -x "$WORKFLOW" ]; then
-    echo ""
-    echo "==========================================="
-    echo "Running workflow: $WORKFLOW"
-    echo "==========================================="
-    bash "$WORKFLOW"
-  elif [ -f "$WORKFLOW" ]; then
-    echo "Workflow script found but not executable: $WORKFLOW"
-    echo "Run: chmod +x run_workflow.sh && bash uv.sh"
-    exit 1
-  else
-    echo "No workflow script found (run_workflow.sh)."
-    echo "Set UV_SKIP_WORKFLOW=1 to suppress this check."
-  fi
-else
-  echo "UV_SKIP_WORKFLOW=1 set; skipping workflow run."
-fi

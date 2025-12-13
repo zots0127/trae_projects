@@ -35,20 +35,35 @@ ensure_tool() {
 }
 ensure_tool curl
 ensure_tool git
-if [ -d "$REPO_DIR/.git" ]; then
-  info "Updating repository"
-  cd "$REPO_DIR"
-  git fetch --depth 1 origin "$BRANCH"
-  git checkout "$BRANCH"
-  git pull --ff-only --depth 1
+
+# Check if we are already in the project root
+if [ -f "workflow.sh" ] && [ -f "uv.sh" ]; then
+  info "Detected execution inside project root. Skipping git clone."
+  REPO_DIR="."
 else
-  info "Cloning repository"
-  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
-  cd "$REPO_DIR"
+  # Only clone if not in project root
+  if [ -d "$REPO_DIR/.git" ]; then
+    info "Updating repository"
+    cd "$REPO_DIR"
+    git fetch --depth 1 origin "$BRANCH"
+    git checkout "$BRANCH"
+    git pull --ff-only --depth 1
+  else
+    info "Cloning repository"
+    git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
+    cd "$REPO_DIR"
+  fi
 fi
+
 if [ -f "uv.sh" ]; then
   info "Setting up environment via uv.sh"
   bash uv.sh
+  # Activate the environment created by uv.sh
+  if [ -f ".venv/bin/activate" ]; then
+    . ".venv/bin/activate"
+  elif [ -f ".venv/Scripts/activate" ]; then
+    . ".venv/Scripts/activate"
+  fi
 else
   if command -v python3 >/dev/null; then PY=python3; elif command -v python >/dev/null; then PY=python; else PY=""; fi
   if [ -n "$PY" ] && [ -f "requirements.txt" ]; then
@@ -58,9 +73,9 @@ else
     pip install -r requirements.txt || true
   fi
 fi
-if [ -f "run_workflow.sh" ]; then
+if [ -f "workflow.sh" ]; then
   info "Running workflow"
-  bash run_workflow.sh
+  bash workflow.sh "$@"
 elif [ -f "project_workflow.sh" ]; then
   info "Running workflow"
   bash project_workflow.sh

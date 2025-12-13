@@ -1,17 +1,13 @@
-## Project Overview
+# Bioresorbable, Light-Emitting Triboelectric Implants Enabled by Nano-Engineered Ir(III) Emitters
 
-PhosIrDB is a curated dataset of phosphorescent Ir(III) complexes designed to enable end‑to‑end data‑driven discovery. This project provides:
-- Automated training across multiple ML models (XGBoost, LightGBM, CatBoost, Random Forest, etc.) with cross‑validation and unified comparison.
-- Molecular feature extraction using RDKit (Morgan fingerprints + configurable descriptor sets), supporting multi‑ligand combination (`L1`, `L2`, `L3`) via mean/sum/concat.
-- Virtual database assembly and large‑scale prediction to identify high‑PLQY candidates, with figures and summary tables.
-- Analysis utilities, including stratified performance analysis and SHAP‑based interpretability for key models.
-- Reproducible workflow scripts that produce reports, plots, and exportable results in one run.
+## Machine-Learning-Assisted Molecular Design Workflow
 
-## Getting Started
+This repository contains the **computational and machine learning workflow** supporting the research paper *"Bioresorbable, light-emitting triboelectric implants enabled by nano-engineered Ir(III) emitters"*.
 
-- Recommended OS: Linux or macOS.
-- Environment setup: run `uv.sh` to create a Python 3.9 virtual environment and install all dependencies.
-- Full workflow: run `run_workflow.sh` to execute end‑to‑end training, evaluation, virtual database prediction, figures, and reports.
+While the broader research introduces a new paradigm for transient bioelectronics, this code specifically implements the **data-driven molecular design** component. It enables the discovery of efficient Ir(III) emitters by:
+- Automated training of ensemble models (XGBoost, CatBoost, LightGBM) to predict photoluminescence quantum yield (PLQY) and emission wavelength.
+- Virtual screening of combinatorial libraries to identify candidates with human-vision-aligned phosphorescence.
+- Providing interpretable SHAP analysis to guide molecular engineering.
 
 ## Quick Start
 
@@ -45,21 +41,16 @@ bash run.sh
 - Figures (`figures/`), including performance and virtual DB plots
 - Final JSON summary (`final_report.json`)
 
-## Key Contributions & Highlights
+## Computational Highlights
 
-This project represents a rigorous engineering effort to bridge machine learning and materials science:
+As the auxiliary computational engine for the material discovery process, this codebase emphasizes:
 
-1.  **Industrial-Grade Reproducibility**:
-    *   By strictly managing environments (`uv`) and random seeds, we ensure that every result—from model training to figure generation—is fully reproducible on any machine.
-    
-2.  **Interpretable Discovery**:
-    *   We go beyond "black box" metrics by integrating SHAP (SHapley Additive exPlanations), providing chemical insights into *why* a molecule performs well.
-
-3.  **High-Throughput Architecture**:
-    *   The system includes an optimized batch predictor capable of screening large-scale virtual libraries, directly facilitating the discovery of novel high-performance candidates.
-
-4.  **Automated Reporting**:
-    *   The workflow automatically generates publication-ready figures and LaTeX tables, significantly reducing the overhead of converting raw data into research insights.
+1.  **Reproducible Discovery**:
+    *   Strict environment management (`uv`) ensures that the molecular screening results are fully reproducible.
+2.  **Interpretable AI**:
+    *   Integration of SHAP (SHapley Additive exPlanations) to provide chemical insights into the structure-property relationships of Ir(III) complexes.
+3.  **High-Throughput Screening**:
+    *   An optimized batch predictor capable of screening large-scale virtual libraries to pinpoint optimal emitter candidates.
 
 ## License
 
@@ -70,8 +61,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 If you use this code or dataset in your research, please cite:
 
 ```bibtex
-@article{PhosIrDB2025,
-  title={PhosIrDB: A Data-Driven Workflow for Discovery of Phosphorescent Iridium(III) Emitters},
+@article{BioresorbableImplants2025,
+  title={Bioresorbable, light-emitting triboelectric implants enabled by nano-engineered Ir(III) emitters},
   author={Publication Pending},
   journal={Under Review},
   year={2025}
